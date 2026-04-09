@@ -211,12 +211,14 @@ def main():
     log_event('poll_flags', found=len(flagged_jobs), rejections=rejected_count,
               jobs=[f"{j['company']} - {j['title']}" for j in flagged_jobs])
 
-    # Trigger prep for each flagged job
+    # Trigger prep for each flagged job — fire-and-forget so the poller
+    # doesn't block for the duration of prep (resume + cover letter + briefing
+    # can take several minutes; blocking here hangs the entire poll cycle).
     for job in flagged_jobs:
-        subprocess.run([
+        subprocess.Popen([
             sys.executable, f'{BASE}/scripts/prep_application.py',
             job['company'], job['title'], job['url'], job['id']
-        ], check=False)
+        ])
 
 if __name__ == '__main__':
     main()
