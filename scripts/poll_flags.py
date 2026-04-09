@@ -60,7 +60,7 @@ RCLONE_CMD = [
 
 
 def handle_rejection(conn, job, reason):
-    """Store rejection in DB, write to feedback_log, and move company folder to _done.
+    """Store rejection in DB, write to feedback_log, and move company folder to _DONE.
     Returns True if a folder was moved (caller should trigger rclone)."""
     now = datetime.now(timezone.utc).isoformat()
     old_stage = job['stage']
@@ -77,11 +77,11 @@ def handle_rejection(conn, job, reason):
         (job['id'], job['title'], job['company'], job['relevance_score'], reason, jd_excerpt)
     )
 
-    # Move company folder to _done if it exists
+    # Move company folder to _DONE if it exists
     folder_moved = False
     folder = jd['prep_folder_path'] if jd else None
     if folder and os.path.isdir(folder):
-        done_dir = os.path.join(os.path.dirname(folder), '_done')
+        done_dir = os.path.join(os.path.dirname(folder), '_DONE')
         os.makedirs(done_dir, exist_ok=True)
         dest = os.path.join(done_dir, os.path.basename(folder))
         shutil.move(folder, dest)
@@ -117,6 +117,7 @@ def main():
 
     flagged_jobs   = []
     rejected_count = 0
+    applied_count  = 0
     folders_moved  = 0
 
     for row in rows:
@@ -175,6 +176,25 @@ def main():
                 write_audit(conn, job['id'], 'stage', job['stage'], new_stage)
                 log_event('job_stage_updated', job_id=job['id'], company=job['company'],
                           title=job['title'], stage=new_stage)
+
+                # Move prep folder to _DONE when marked Applied
+                if new_stage == 'applied':
+                    jd = conn.execute('SELECT prep_folder_path FROM jobs WHERE id=?',
+                                      (job['id'],)).fetchone()
+                    folder = jd['prep_folder_path'] if jd else None
+                    if folder and os.path.isdir(folder):
+                        done_dir = os.path.join(os.path.dirname(folder), '_DONE')
+                        os.makedirs(done_dir, exist_ok=True)
+                        dest = os.path.join(done_dir, os.path.basename(folder))
+                        shutil.move(folder, dest)
+                        conn.execute('UPDATE jobs SET prep_folder_path=? WHERE id=?',
+                                     (dest, job['id']))
+                        conn.commit()
+                        log_event('folder_moved_to_done', job_id=job['id'],
+                                  folder=os.path.basename(folder), reason='applied')
+                        folders_moved += 1
+                    applied_count += 1
+
             continue  # don't trigger prep for these statuses
 
         # ── Flag for Prep handling ───────────────────────────────────────
@@ -200,9 +220,13 @@ def main():
         log_event('poll_flags_rejections', count=rejected_count, folders_moved=folders_moved)
         subprocess.Popen([sys.executable, f'{BASE}/scripts/sync_sheet.py'])
 
-    # Trigger rclone bisync immediately if any folders were moved to _done
+    if applied_count:
+        log_event('poll_flags_applied', count=applied_count, folders_moved=folders_moved)
+        subprocess.Popen([sys.executable, f'{BASE}/scripts/sync_sheet.py'])
+
+    # Trigger rclone bisync immediately if any folders were moved to _DONE
     if folders_moved:
-        log_event('rclone_triggered', reason='rejection_folder_move', count=folders_moved)
+        log_event('rclone_triggered', reason='folder_move_to_done', count=folders_moved)
         subprocess.Popen(RCLONE_CMD)  # fire-and-forget, don't block the poller
 
     if not flagged_jobs:
