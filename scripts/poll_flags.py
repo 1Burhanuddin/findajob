@@ -198,6 +198,7 @@ def main():
 
     if rejected_count:
         log_event('poll_flags_rejections', count=rejected_count, folders_moved=folders_moved)
+        subprocess.Popen([sys.executable, f'{BASE}/scripts/sync_sheet.py'])
 
     # Trigger rclone bisync immediately if any folders were moved to _done
     if folders_moved:
