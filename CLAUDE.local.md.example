@@ -1,0 +1,37 @@
+# CLAUDE.local.md — PERSONAL CONTEXT (gitignored)
+# Copy this to CLAUDE.local.md and fill in your details.
+# This file is appended to CLAUDE.md by Claude Code at session start.
+# Keep it concise — every line here is loaded into every session.
+
+## Who You Are Helping
+
+[Your name] — [brief professional summary, e.g. "20+ years X discipline at Y companies"]
+Based in [city, state].
+
+Active job search targeting: [list your top 10–15 target companies]
+
+## Personal Identifiers
+
+- Name used in prompts: [First name or [nickname you go by]]
+- [TEAM_ABBREV] (or equivalent): [If you have an internally-branded team/org, note its full name
+  and what the abbreviation means — LLMs will misinterpret abbreviations without this context]
+
+## Target Companies (Tier 1 — daily triage priority)
+
+[List Tier 1 companies here for quick reference in sessions]
+
+## ntfy Topic
+
+`[your-ntfy-topic]` — configured in `data/.env` as `NTFY_TOPIC`
+
+## Google Sheet / Form
+
+- Sheet ID: in `config/sheet_id.txt`
+- Form responses sheet ID: in `config/form_responses_sheet_id.txt`
+- Form URL: [your Google Form URL]
+
+## aichat-ng Config Location
+
+[Uncomment the one that applies:]
+# macOS: ~/Library/Application Support/aichat_ng/
+# Linux: ~/.config/aichat_ng/

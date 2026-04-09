@@ -1,0 +1,13 @@
+# LinkedIn/Indeed search queries — EXAMPLE
+# Copy this file to config/jsearch_queries.txt and replace with your own searches.
+# Rules:
+#   - 3-4 word natural phrases only. 5+ word keyword strings return 0 LinkedIn results.
+#   - One query per line. Blank lines and # comments are ignored.
+#   - Validate each query manually in LinkedIn before adding.
+#   - 10 queries is a good ceiling; more is not better.
+
+hardware infrastructure engineer
+data center program manager
+AI hardware operations
+NPI technical lead
+infrastructure reliability engineer

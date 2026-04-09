@@ -1,0 +1,495 @@
+#!/usr/bin/env bash
+# scripts/bootstrap.sh — one-shot setup for a new findajob installation on Linux
+#
+# Usage:
+#   bash scripts/bootstrap.sh              # full setup
+#   bash scripts/bootstrap.sh --systemd   # only install/reload systemd units
+#   bash scripts/bootstrap.sh --check     # verify install without making changes
+#
+# Safe to re-run. Idempotent. Won't overwrite existing personal config files.
+# Run from the repo root: bash scripts/bootstrap.sh
+
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="${REPO}/scripts"
+CONFIG_DIR="${REPO}/config"
+DATA_DIR="${REPO}/data"
+LOG_DIR="${REPO}/logs"
+SYSTEMD_DIR="${HOME}/.config/systemd/user"
+
+# Terminal colors
+RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'; NC='\033[0m'
+info()  { echo -e "${GREEN}[INFO]${NC} $1"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
+error() { echo -e "${RED}[ERROR]${NC} $1"; }
+ok()    { echo -e "${GREEN}[OK]${NC} $1"; }
+
+SYSTEMD_ONLY=false
+CHECK_ONLY=false
+for arg in "$@"; do
+  case "$arg" in
+    --systemd) SYSTEMD_ONLY=true ;;
+    --check)   CHECK_ONLY=true ;;
+  esac
+done
+
+echo ""
+echo "findajob bootstrap — repo: ${REPO}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 1: System dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+
+check_deps() {
+  local missing=()
+  for cmd in python3 pandoc curl git; do
+    if ! command -v "$cmd" &>/dev/null; then
+      missing+=("$cmd")
+    fi
+  done
+
+  if ! command -v aichat-ng &>/dev/null && [ ! -f /usr/local/bin/aichat-ng ]; then
+    missing+=("aichat-ng")
+  fi
+
+  if [ ${#missing[@]} -gt 0 ]; then
+    warn "Missing tools: ${missing[*]}"
+    if $CHECK_ONLY; then
+      error "Install missing tools before running bootstrap."
+      exit 1
+    fi
+    return 1
+  fi
+  ok "All required tools present"
+  return 0
+}
+
+install_apt_deps() {
+  info "Installing system packages..."
+  sudo apt-get update -q
+  sudo apt-get install -y python3 python3-pip pandoc rclone curl git build-essential
+  ok "System packages installed"
+}
+
+install_pip_deps() {
+  info "Installing Python packages..."
+  pip3 install --break-system-packages \
+    google-api-python-client \
+    google-auth-httplib2 \
+    google-auth-oauthlib \
+    requests \
+    jsonschema \
+    beautifulsoup4
+  ok "Python packages installed"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 2: Directory structure
+# ─────────────────────────────────────────────────────────────────────────────
+
+setup_dirs() {
+  info "Creating required directories..."
+  mkdir -p "${LOG_DIR}"
+  mkdir -p "${REPO}/companies/_done"
+  mkdir -p "${REPO}/rag_sources"
+  mkdir -p "${REPO}/voice_samples"
+  ok "Directories ready"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 3: Personal config files (from templates, won't overwrite existing)
+# ─────────────────────────────────────────────────────────────────────────────
+
+setup_personal_config() {
+  info "Setting up personal config files from templates..."
+  local created=0
+
+  copy_if_missing() {
+    local src="$1" dest="$2"
+    if [ -f "${dest}" ]; then
+      ok "  ${dest##${REPO}/} — already exists, skipping"
+    elif [ -f "${src}" ]; then
+      cp "${src}" "${dest}"
+      warn "  ${dest##${REPO}/} — CREATED from template. Edit this file."
+      created=$((created + 1))
+    else
+      error "  Template not found: ${src}"
+    fi
+  }
+
+  copy_if_missing "${CONFIG_DIR}/profile.md.example"               "${CONFIG_DIR}/profile.md"
+  copy_if_missing "${REPO}/docs/master_resume.md.example"          "${REPO}/rag_sources/master_resume.md"
+  copy_if_missing "${CONFIG_DIR}/jsearch_queries.txt.example"      "${CONFIG_DIR}/jsearch_queries.txt"
+  copy_if_missing "${CONFIG_DIR}/feed_urls.txt.example"            "${CONFIG_DIR}/feed_urls.txt"
+  copy_if_missing "${CONFIG_DIR}/target_companies.md.example"      "${CONFIG_DIR}/target_companies.md"
+  copy_if_missing "${REPO}/CLAUDE.local.md.example"                "${REPO}/CLAUDE.local.md"
+  copy_if_missing "${CONFIG_DIR}/paths.env.example"                "${CONFIG_DIR}/paths.env"
+
+  if [ ! -f "${DATA_DIR}/.env" ]; then
+    if [ -f "${DATA_DIR}/.env.example" ]; then
+      cp "${DATA_DIR}/.env.example" "${DATA_DIR}/.env"
+      chmod 600 "${DATA_DIR}/.env"
+      warn "  data/.env — CREATED from template. Fill in all API keys before running triage."
+      created=$((created + 1))
+    fi
+  else
+    ok "  data/.env — already exists, skipping"
+  fi
+
+  if [ "${created}" -gt 0 ]; then
+    echo ""
+    warn "  ${created} config file(s) created from templates."
+    warn "  Edit them before running the pipeline. See docs/setup/configure.md"
+    echo ""
+  fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 4: aichat-ng config directory (Linux)
+# ─────────────────────────────────────────────────────────────────────────────
+
+setup_aichat_config_dir() {
+  local aichat_dir="${HOME}/.config/aichat_ng"
+  mkdir -p "${aichat_dir}"
+
+  if [ ! -f "${aichat_dir}/config.yaml" ]; then
+    info "Creating aichat-ng config template at ${aichat_dir}/config.yaml"
+    cat > "${aichat_dir}/config.yaml" << 'EOF'
+# aichat-ng config — findajob pipeline
+# API keys come from environment variables. Source data/.env before running aichat-ng.
+# Add to ~/.bashrc: set -a; source ~/findajob/data/.env; set +a
+
+model: gemini:gemini-2.5-flash
+
+clients:
+  - type: gemini
+    api_key: ${GOOGLE_API_KEY}
+
+  - type: claude
+    api_key: ${ANTHROPIC_API_KEY}
+
+  - type: openrouter
+    api_key: ${OPENROUTER_API_KEY}
+
+  - type: perplexity
+    api_key: ${PERPLEXITY_API_KEY}
+
+  # Dedicated embedding client — name must match what triage.py passes to --rag
+  # Do NOT include in --sync-models runs
+  - type: gemini
+    name: gemini-embed
+    api_key: ${GOOGLE_API_KEY}
+    models:
+      - name: gemini-embedding-001
+        max_input_tokens: 2048
+
+roles_dir: ~/findajob/config/roles
+
+rag_embedding_model: gemini-embed:gemini-embedding-001
+EOF
+    warn "  aichat-ng config created at ${aichat_dir}/config.yaml"
+    warn "  Verify roles_dir path if your repo is not at ~/findajob"
+  else
+    ok "  aichat-ng config already exists"
+  fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 5: Database
+# ─────────────────────────────────────────────────────────────────────────────
+
+setup_db() {
+  if [ -f "${DATA_DIR}/pipeline.db" ]; then
+    ok "  pipeline.db already exists ($(du -sh ${DATA_DIR}/pipeline.db | cut -f1))"
+  else
+    info "Initializing database..."
+    python3 "${SCRIPT_DIR}/init_db.py"
+    ok "  pipeline.db created"
+  fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 6: systemd user services
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Derive absolute Python path
+PYTHON_BIN="$(python3 -c 'import sys; print(sys.executable)')"
+USERNAME="$(whoami)"
+
+write_service_unit() {
+  local name="$1" script="$2" description="$3"
+  cat > "${SYSTEMD_DIR}/findajob-${name}.service" << EOF
+[Unit]
+Description=findajob ${description}
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=${PYTHON_BIN} ${SCRIPT_DIR}/${script}
+WorkingDirectory=${REPO}
+EnvironmentFile=${DATA_DIR}/.env
+StandardOutput=append:${LOG_DIR}/${name}.log
+StandardError=append:${LOG_DIR}/${name}.log
+EOF
+}
+
+write_timer_unit() {
+  local name="$1" description="$2" on_calendar="$3"
+  cat > "${SYSTEMD_DIR}/findajob-${name}.timer" << EOF
+[Unit]
+Description=${description}
+
+[Timer]
+OnCalendar=${on_calendar}
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+}
+
+write_interval_service() {
+  local name="$1" script="$2" description="$3"
+  write_service_unit "$name" "$script" "$description"
+}
+
+write_interval_timer() {
+  local name="$1" description="$2" interval="$3"
+  cat > "${SYSTEMD_DIR}/findajob-${name}.timer" << EOF
+[Unit]
+Description=${description}
+
+[Timer]
+OnUnitActiveSec=${interval}
+OnBootSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+}
+
+write_notify_service() {
+  local name="$1" subcommand="$2" description="$3"
+  cat > "${SYSTEMD_DIR}/findajob-${name}.service" << EOF
+[Unit]
+Description=findajob ${description}
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=${PYTHON_BIN} ${SCRIPT_DIR}/notify.py ${subcommand}
+WorkingDirectory=${REPO}
+EnvironmentFile=${DATA_DIR}/.env
+StandardOutput=append:${LOG_DIR}/notify.log
+StandardError=append:${LOG_DIR}/notify.log
+EOF
+}
+
+write_aichat_service() {
+  local name="$1" description="$2" aichat_cmd="$3"
+  local aichat_bin="${AICHAT_BIN:-/usr/local/bin/aichat-ng}"
+  cat > "${SYSTEMD_DIR}/findajob-${name}.service" << EOF
+[Unit]
+Description=findajob ${description}
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=${aichat_bin} ${aichat_cmd}
+WorkingDirectory=${REPO}
+EnvironmentFile=${DATA_DIR}/.env
+StandardOutput=append:${LOG_DIR}/${name}.log
+StandardError=append:${LOG_DIR}/${name}.log
+EOF
+}
+
+install_systemd_units() {
+  info "Installing systemd user service units..."
+  mkdir -p "${SYSTEMD_DIR}"
+
+  # Detect aichat-ng binary
+  local aichat_bin
+  if [ -f /usr/local/bin/aichat-ng ]; then
+    aichat_bin=/usr/local/bin/aichat-ng
+  elif command -v aichat-ng &>/dev/null; then
+    aichat_bin="$(command -v aichat-ng)"
+  else
+    aichat_bin=/usr/local/bin/aichat-ng
+    warn "aichat-ng not found; using default path ${aichat_bin}"
+  fi
+
+  # Triage — 7:00 AM daily
+  write_service_unit  "triage"          "triage.py"         "daily triage pipeline"
+  write_timer_unit    "triage"          "findajob daily triage" "*-*-* 07:00:00"
+
+  # Poller — every 30 min
+  write_interval_service "poller"       "poll_flags.py"     "sheet flag poller"
+  write_interval_timer   "poller"       "findajob flag poller"  "30min"
+
+  # Form ingest — every 30 min
+  write_interval_service "form-ingest"  "ingest_form.py"    "Google Form ingestion"
+  write_interval_timer   "form-ingest"  "findajob form ingest"  "30min"
+
+  # Notifications
+  write_notify_service "notify-stats"    "daily-stats"    "daily stats notification"
+  write_timer_unit     "notify-stats"    "findajob daily stats notification" "*-*-* 07:05:00"
+
+  write_notify_service "notify-health"   "health-check"   "health check notification"
+  write_timer_unit     "notify-health"   "findajob health check notification" "*-*-* 09:10:00"
+
+  write_notify_service "notify-apply"    "apply-reminder" "apply reminder notification"
+  write_timer_unit     "notify-apply"    "findajob apply reminder notification" "*-*-* 05:00:00"
+
+  write_notify_service "notify-issues"   "issues-ping"    "issues ping notification"
+  cat > "${SYSTEMD_DIR}/findajob-notify-issues.timer" << EOF
+[Unit]
+Description=findajob issues ping (Mon/Wed/Fri)
+
+[Timer]
+OnCalendar=Mon,Wed,Fri *-*-* 08:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  write_notify_service "notify-feedback" "feedback-review" "feedback review notification"
+  cat > "${SYSTEMD_DIR}/findajob-notify-feedback.timer" << EOF
+[Unit]
+Description=findajob feedback review (Sunday)
+
+[Timer]
+OnCalendar=Sun *-*-* 08:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  # rclone jobsync — every 15 min
+  cat > "${SYSTEMD_DIR}/findajob-jobsync.service" << EOF
+[Unit]
+Description=findajob Google Drive bisync
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rclone bisync ${REPO}/companies/ "gdrive:01 PROJECTS/Jobs To Apply For"
+WorkingDirectory=${REPO}
+StandardOutput=append:${LOG_DIR}/jobsync.log
+StandardError=append:${LOG_DIR}/jobsync.log
+EOF
+  write_interval_timer "jobsync" "findajob Google Drive bisync" "15min"
+
+  # RAG rebuild — Sunday 6:00 AM
+  AICHAT_BIN="${aichat_bin}"
+  write_aichat_service "rag-rebuild" "RAG index rebuild" "--rag job_search_rag --rebuild-rag"
+  write_timer_unit     "rag-rebuild" "findajob RAG rebuild (Sunday)" "Sun *-*-* 06:00:00"
+
+  ok "  systemd unit files written to ${SYSTEMD_DIR}"
+
+  # Reload and enable
+  info "Reloading systemd daemon and enabling timers..."
+  systemctl --user daemon-reload
+
+  local timers=(
+    triage poller form-ingest notify-stats notify-health notify-apply
+    notify-issues notify-feedback jobsync rag-rebuild
+  )
+  for t in "${timers[@]}"; do
+    systemctl --user enable "findajob-${t}.timer" 2>/dev/null || true
+  done
+
+  ok "  All timers enabled. Start them with:"
+  echo "     systemctl --user start findajob-triage.timer"
+  echo "     (or start all: systemctl --user start findajob-{triage,poller,form-ingest,notify-stats,notify-health,notify-apply,notify-issues,notify-feedback,jobsync,rag-rebuild}.timer)"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECTION 7: Verification
+# ─────────────────────────────────────────────────────────────────────────────
+
+verify_install() {
+  echo ""
+  info "Verifying install..."
+  local ok_count=0 warn_count=0
+
+  check_item() {
+    local label="$1" ok="$2"
+    if $ok; then
+      ok "  $label"; ok_count=$((ok_count+1))
+    else
+      warn "  MISSING: $label"; warn_count=$((warn_count+1))
+    fi
+  }
+
+  check_item "python3"                    "$(command -v python3 &>/dev/null && echo true || echo false)"
+  check_item "pandoc"                     "$(command -v pandoc &>/dev/null && echo true || echo false)"
+  check_item "aichat-ng"                  "$([ -f /usr/local/bin/aichat-ng ] && echo true || echo false)"
+  check_item "data/.env"                  "$([ -f ${DATA_DIR}/.env ] && echo true || echo false)"
+  check_item "data/pipeline.db"           "$([ -f ${DATA_DIR}/pipeline.db ] && echo true || echo false)"
+  check_item "config/profile.md"          "$([ -f ${CONFIG_DIR}/profile.md ] && echo true || echo false)"
+  check_item "rag_sources/master_resume"  "$([ -f ${REPO}/rag_sources/master_resume.md ] && echo true || echo false)"
+  check_item "config/gsheets_creds.json"  "$([ -f ${CONFIG_DIR}/gsheets_creds.json ] && echo true || echo false)"
+  check_item "config/sheet_id.txt"        "$([ -f ${CONFIG_DIR}/sheet_id.txt ] && echo true || echo false)"
+  check_item "config/gmail_oauth_client"  "$([ -f ${CONFIG_DIR}/gmail_oauth_client.json ] && echo true || echo false)"
+  check_item "CLAUDE.local.md"            "$([ -f ${REPO}/CLAUDE.local.md ] && echo true || echo false)"
+
+  echo ""
+  ok "  ${ok_count} checks passed, ${warn_count} items need attention"
+  if [ "${warn_count}" -gt 0 ]; then
+    echo ""
+    warn "  Complete the missing items before running triage."
+    echo "  See docs/setup/configure.md and docs/setup/prerequisites.md"
+  fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────────────────────────────────────
+
+if $CHECK_ONLY; then
+  verify_install
+  exit 0
+fi
+
+if $SYSTEMD_ONLY; then
+  install_systemd_units
+  exit 0
+fi
+
+# Full setup
+if ! check_deps 2>/dev/null; then
+  info "Installing missing system packages..."
+  install_apt_deps
+fi
+
+install_pip_deps
+setup_dirs
+setup_personal_config
+setup_aichat_config_dir
+setup_db
+install_systemd_units
+verify_install
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+info "Bootstrap complete."
+echo ""
+echo "Next steps:"
+echo "  1. Fill in API keys:          edit ${DATA_DIR}/.env"
+echo "  2. Add your profile:          edit ${CONFIG_DIR}/profile.md"
+echo "  3. Add your resume:           edit ${REPO}/rag_sources/master_resume.md"
+echo "  4. Add Google credentials:    copy gsheets_creds.json, sheet_id.txt, gmail_oauth_client.json"
+echo "  5. Add search queries:        edit ${CONFIG_DIR}/jsearch_queries.txt"
+echo "  6. Add Greenhouse slugs:      edit ${CONFIG_DIR}/feed_urls.txt"
+echo "  7. Format the sheet:          python3 scripts/setup_sheets.py"
+echo "  8. Start the timers:          systemctl --user start findajob-triage.timer"
+echo "  9. Test a manual run:         python3 scripts/triage.py"
+echo ""
+echo "  See docs/setup/install-linux.md for the full walkthrough."
+echo ""

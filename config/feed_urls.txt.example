@@ -1,0 +1,14 @@
+# Greenhouse company slugs — EXAMPLE
+# Copy this file to config/feed_urls.txt and replace with your target companies.
+# Format: one slug per line. The slug is the company identifier in Greenhouse's API.
+# The pipeline calls: boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true
+#
+# To find a company's slug: look at their jobs page URL, e.g.
+#   https://boards.greenhouse.io/openai  →  slug is "openai"
+#
+# Validate each slug works before adding: curl that URL and check for a jobs list.
+
+openai
+anthropic
+coreweave
+google

@@ -1,0 +1,20 @@
+# Target Companies — EXAMPLE
+# Copy this file to config/target_companies.md and replace with your list.
+# Also copy to rag_sources/target_companies.md (used in RAG context for REPL mode).
+#
+# Format is flexible — this is read by the company_researcher and briefing_writer roles.
+
+## Tier 1 — Active Focus
+- OpenAI
+- Anthropic
+- Google DeepMind
+
+## Tier 2 — Strong Interest
+- Microsoft Azure
+- Amazon AWS
+
+## Tier 3 — Opportunistic
+- [Company]
+
+## Notes
+[Any notes on why these companies, what roles you're targeting there, etc.]

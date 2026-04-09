@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "score_status",
+    "ai_notes"
+  ],
+  "properties": {
+    "score_status": {
+      "type": "string",
+      "enum": [
+        "scored",
+        "manual_review"
+      ]
+    },
+    "relevance_score": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 10
+    },
+    "interview_likelihood": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 10
+    },
+    "strengths_alignment": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "industry_sector": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "comp_estimate": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ai_notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "score_flag_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "remote_status": {
+      "type": "string",
+      "enum": [
+        "Remote",
+        "Hybrid",
+        "Onsite",
+        "Unknown"
+      ]
+    }
+  }
+}

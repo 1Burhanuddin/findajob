@@ -1,0 +1,816 @@
+#!/usr/bin/env python3
+# ~/JobSearchPipeline/scripts/triage.py
+"""
+Daily triage pipeline. Fetches jobs, deduplicates, enriches, scores,
+and writes results to SQLite. Sheet sync is a separate script called at the end.
+"""
+import os, sys, json, hashlib, html, re, csv, subprocess, time, uuid, shutil
+from datetime import datetime, timezone
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from paths import BASE, PANDOC, AICHAT
+from scorer_prefilter import prefilter_score
+
+DB_PATH = f'{BASE}/data/pipeline.db'
+LOG_PATH = f'{BASE}/logs/pipeline.jsonl'
+CONNECTIONS = f'{BASE}/data/connections.csv'
+SCHEMA_PATH = f'{BASE}/config/scoring_schema.json'
+PROFILE_PATH = f'{BASE}/config/profile.md'
+GMAIL_CREDS = f'{BASE}/config/gmail_oauth_client.json'
+GMAIL_TOKEN = f'{BASE}/config/gmail_token.json'
+GMAIL_SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+
+# ── Secrets ──
+def load_env(path):
+    with open(os.path.expanduser(path)) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, val = line.split('=', 1)
+                os.environ[key.strip()] = val.strip().strip("'\"")
+
+load_env(f'{BASE}/data/.env')
+
+import sqlite3
+
+# ── Logging ──
+def log_event(event_type, **kwargs):
+    entry = {
+        'ts': datetime.now(timezone.utc).isoformat(),
+        'event': event_type,
+        **kwargs
+    }
+    with open(LOG_PATH, 'a') as f:
+        f.write(json.dumps(entry) + '\n')
+
+def write_audit(conn, job_id, field_changed, old_value, new_value):
+    conn.execute(
+        'INSERT INTO audit_log (job_id, field_changed, old_value, new_value) VALUES (?, ?, ?, ?)',
+        (job_id, field_changed, str(old_value) if old_value is not None else None, str(new_value))
+    )
+    conn.commit()
+
+# ── Normalization & Dedup ──
+ABBREVIATIONS = {
+    r'\bsr\.?\b': 'senior', r'\bjr\.?\b': 'junior', r'\bmgr\.?\b': 'manager',
+    r'\bdir\.?\b': 'director', r'\beng\.?\b': 'engineer', r'\bengr\.?\b': 'engineer',
+    r'\bops\.?\b': 'operations', r'\binfra\.?\b': 'infrastructure',
+    r'\bvp\b': 'vice president', r'\bsvp\b': 'senior vice president',
+    r'\bhw\b': 'hardware', r'\bsw\b': 'software', r'\bdc\b': 'data center',
+    r'\bmfg\b': 'manufacturing', r'\bpgm\b': 'program', r'\btpm\b': 'technical program manager',
+}
+
+def normalize(text):
+    text = text.lower().strip()
+    for pattern, replacement in ABBREVIATIONS.items():
+        text = re.sub(pattern, replacement, text)
+    text = re.sub(r'[^a-z0-9 ]', ' ', text)
+    return re.sub(r'\s+', ' ', text).strip()
+
+def fingerprint(title, company, location=''):
+    key = normalize(title) + '|' + normalize(company) + '|' + normalize(location)
+    return hashlib.sha256(key.encode()).hexdigest()[:16]
+
+# ── Title Cleaning ──
+# Job boards (especially Indeed via Jobs API) append metadata directly to the title field:
+# board name, location, salary, time-ago, badges. Strip everything after these markers.
+_TITLE_SPLIT_PATTERNS = re.compile(
+    r'(?:'
+    r'Jobs via \w[\w ]*·'          # "Jobs via Dice ·"
+    r'|\bvia \w[\w ]*·'            # "via LinkedIn ·"
+    r'|\s·\s'                      # generic " · " separator
+    r'|\s[-–]\s(?:Remote|Hybrid|On-?site|Contract|Full.?time|Part.?time)'
+    r'|\$[\d,]+[Kk]?\s*[-–]'      # salary range start "$140K -"
+    r'|\d+\s*(?:hour|day|week|month)s?\s+ago'  # "2 days ago"
+    r'|(?:Easy|Quick)\s+Apply'
+    r'|Actively\s+recruiting'
+    r'|Fast\s+growing'
+    r')',
+    re.IGNORECASE
+)
+
+def clean_title(raw_title):
+    """Strip job board metadata appended to title field by Indeed/Jobs API."""
+    m = _TITLE_SPLIT_PATTERNS.search(raw_title)
+    if m:
+        raw_title = raw_title[:m.start()]
+    return raw_title.strip(' ·-–')
+
+# Company field from LinkedIn API often has location/metadata appended:
+# "Google – Multiple Sites4 days ago", "Google · Sunnyvale, CA, US 12 connections"
+_COMPANY_SPLIT_PATTERNS = re.compile(
+    r'(?:'
+    r'\s[·–—-]\s'                     # " · " or " – " separator before location
+    r'|\d+\s+connections?'            # "12 connections"
+    r'|\d+\s*(?:hour|day|week|month)s?\s+ago'  # "3 days ago"
+    r'|(?:Easy|Quick)\s+Apply'
+    r'|Actively\s+recruiting'
+    r'|,\s*[A-Z][a-z]+,\s*(?:United States|US|Canada|UK)'  # ", Sunnyvale, United States"
+    r')',
+    re.IGNORECASE
+)
+
+def clean_company(raw_company):
+    """Strip location/metadata appended to company field by LinkedIn/Indeed API."""
+    if not raw_company:
+        return ''
+    m = _COMPANY_SPLIT_PATTERNS.search(raw_company)
+    if m:
+        raw_company = raw_company[:m.start()]
+    return raw_company.strip(' ·-–,')
+
+# ── JD Fetching ──
+def fetch_jd_curl(url):
+    """Fetch JD by curling a public URL (Greenhouse/RSS/Lever sources)."""
+    try:
+        raw = subprocess.run(['curl', '-sL', '--max-time', '10', url],
+            capture_output=True, text=True).stdout
+        text = subprocess.run([PANDOC, '-f', 'html', '-t', 'plain'],
+            input=raw, capture_output=True, text=True).stdout
+        return text[:8000]
+    except Exception as e:
+        return f'[ERROR fetching JD: {e}]'
+
+def fetch_linkedin_job_data(job_id):
+    """
+    Fetch full job data via LinkedIn get endpoint.
+    Returns {'description': str|None, 'company': str|None}.
+    LinkedIn job URLs require auth — curling them always returns "Job not found".
+    The API get endpoint is the only reliable path.
+    """
+    import requests as req
+    api_key = os.environ.get('RAPIDAPI_KEY', '')
+    if not api_key or not job_id:
+        return {'description': None, 'company': None}
+    try:
+        response = req.get(
+            'https://jobs-api14.p.rapidapi.com/v2/linkedin/get',
+            headers={
+                'x-rapidapi-host': 'jobs-api14.p.rapidapi.com',
+                'x-rapidapi-key': api_key,
+            },
+            params={'id': str(job_id)},
+            timeout=15,
+        )
+        response.raise_for_status()
+        data = response.json()
+        if data.get('hasError'):
+            log_event('linkedin_get_error', job_id=job_id, errors=data.get('errors'))
+            return {'description': None, 'company': None}
+        payload = data.get('data', {})
+        description = payload.get('description', '') or ''
+        # Company name field varies across API versions — try all known keys
+        company = (
+            payload.get('companyName') or
+            payload.get('company') or
+            payload.get('organizationName') or
+            (payload.get('hiringOrganization') or {}).get('name') or
+            ''
+        )
+        return {
+            'description': description[:8000] if description else None,
+            'company': clean_company(company) if company else None,
+        }
+    except Exception as e:
+        log_event('linkedin_get_error', job_id=job_id, error=str(e))
+        return {'description': None, 'company': None}
+
+# Regex to extract numeric LinkedIn job ID from job URLs
+# Matches: linkedin.com/jobs/view/1234567890 and variants
+_LINKEDIN_JOB_ID_RE = re.compile(r'linkedin\.com/jobs/view/(\d+)', re.IGNORECASE)
+
+def extract_linkedin_job_id(url):
+    """Extract numeric job ID from a LinkedIn job URL. Returns str or None."""
+    m = _LINKEDIN_JOB_ID_RE.search(url or '')
+    return m.group(1) if m else None
+
+def fetch_jd(job):
+    """
+    Fetch JD text for a job dict. Strategy by source:
+      - jobsapi_indeed:   inline description already in job dict from search response
+      - jobsapi_linkedin: call /v2/linkedin/get using stored api_id
+      - gmail_linkedin:   call /v2/linkedin/get using api_id extracted from URL
+                          (company enrichment handled separately in main)
+      - everything else:  curl the URL (Greenhouse, Lever, other Gmail sources)
+    """
+    source = job.get('source', '')
+
+    if source == 'jobsapi_indeed':
+        desc = job.get('description', '')
+        if desc and len(desc.strip()) > 30:
+            return desc[:8000]
+        # No inline description — do NOT curl; Indeed apply URLs are JS-rendered SPAs
+        # that always return unusable content. Return sentinel instead.
+        return '[No description available]'
+
+    if source == 'greenhouse_json':
+        desc = job.get('description', '')
+        if desc and len(desc.strip()) > 30:
+            try:
+                plain = subprocess.run(
+                    [PANDOC, '-f', 'html', '-t', 'plain'],
+                    input=desc, capture_output=True, text=True, timeout=10
+                ).stdout[:8000]
+                return plain if plain.strip() else '[No description available]'
+            except Exception:
+                return desc[:8000]
+        return '[No description available]'
+
+    if source in ('jobsapi_linkedin', 'gmail_linkedin'):
+        api_id = job.get('api_id', '')
+        if api_id:
+            result = fetch_linkedin_job_data(api_id)
+            if result['description']:
+                return result['description']
+        log_event('linkedin_jd_missing', title=job.get('title'), api_id=api_id)
+        return '[LinkedIn JD unavailable — no api_id or get request failed]'
+
+    url = job.get('url', '')
+    if url:
+        return fetch_jd_curl(url)
+
+    return '[No URL available]'
+
+# ── Contact Lookup ──
+def find_contacts(company):
+    contacts = []
+    try:
+        with open(CONNECTIONS) as f:
+            for row in csv.DictReader(f):
+                if company and company.lower() in row.get('Company', '').lower():
+                    contacts.append(f"{row['First Name']} {row['Last Name']} ({row['Position']})")
+    except Exception:
+        pass
+    return contacts
+
+# ── Scoring ──
+def validate_llm_json(raw_output, schema_path):
+    import jsonschema
+    text = raw_output.strip()
+    if text.startswith('```'):
+        text = '\n'.join(text.split('\n')[1:])
+    if text.endswith('```'):
+        text = text[:text.rfind('```')]
+    text = text.strip()
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as e:
+        return None, f"JSON parse: {e}"
+    try:
+        with open(schema_path) as f:
+            schema = json.load(f)
+        jsonschema.validate(parsed, schema)
+    except jsonschema.ValidationError as e:
+        return None, f"Schema: {e.message}"
+    return parsed, None
+
+# JS-wall and auth-wall signals — JD is unusable if any of these appear
+_JD_WALL_SIGNALS = [
+    'you need to enable javascript',
+    'enable javascript to run this app',
+    '403 forbidden',
+    'cross-site request forgeries',
+    'we\'re signing you in',
+    'sign in to',
+    'access denied',
+    'job not found',
+    'this job may have been',
+    'our careers site has moved',
+]
+
+def jd_is_usable(jd_text):
+    """Return True if JD contains real job content."""
+    if not jd_text or len(jd_text.strip()) < 30:
+        return False
+    lower = jd_text.lower()
+    return not any(s in lower for s in _JD_WALL_SIGNALS)
+
+def score_job(title, company, location, jd_text, candidate_profile=''):
+    usable = jd_is_usable(jd_text)
+
+    # Stage 1 & 2: deterministic pre-filter — no LLM call
+    pre, reason = prefilter_score(title, company, usable)
+    if pre is not None:
+        log_event('score_prefilter', title=title, company=company, reason=reason,
+                  score=pre.get('relevance_score'))
+        return pre, 0
+
+    # Stage 3: LLM scoring
+    effective_jd = jd_text if usable else '[Job description unavailable — score from title and company only]'
+    prompt = f"""CANDIDATE PROFILE:
+{candidate_profile}
+
+---
+
+Evaluate this job posting for the candidate described above.
+Job: {title} at {company}
+Location: {location}
+JD:
+{effective_jd[:6000]}"""
+
+    start = time.time()
+    result = subprocess.run(
+        [AICHAT, '--role', 'job_scorer', '-S', prompt],
+        capture_output=True, text=True, timeout=60
+    )
+    latency_ms = int((time.time() - start) * 1000)
+
+    parsed, error = validate_llm_json(result.stdout, SCHEMA_PATH)
+
+    if error:
+        log_event('score_validation_failed', error=error, title=title, company=company)
+        return {
+            'score_status': 'manual_review',
+            'score_flag_reason': f'Validation: {error}',
+            'relevance_score': None,
+            'interview_likelihood': None,
+            'strengths_alignment': None,
+            'industry_sector': '',
+            'comp_estimate': '',
+            'ai_notes': 'Scorer output failed validation',
+            'remote_status': 'Unknown',
+        }, latency_ms
+
+    return parsed, latency_ms
+
+# ── Job Source Fetching ──
+def fetch_greenhouse_jobs(feed_urls_path):
+    """
+    Fetch jobs via Greenhouse public JSON API.
+    Replaces fetch_rss_jobs() — Greenhouse deprecated all RSS feeds.
+    Parses slugs from existing greenhouse URL entries in feed_urls.txt.
+    JD content is included inline; pandoc conversion deferred to fetch_jd()
+    so it only runs for jobs that pass dedup (not all jobs fetched).
+    """
+    import requests as req
+
+    jobs = []
+    try:
+        with open(feed_urls_path) as f:
+            urls = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    except FileNotFoundError:
+        return jobs
+
+    slug_re = re.compile(r'boards(?:\.eu)?\.greenhouse\.io/([^/]+)/')
+    seen_slugs = set()
+    slugs = []
+    for url in urls:
+        m = slug_re.search(url)
+        if m:
+            slug = m.group(1)
+            is_eu = '.eu.' in url
+            if slug not in seen_slugs:
+                seen_slugs.add(slug)
+                slugs.append((slug, is_eu))
+
+    for slug, is_eu in slugs:
+        # Greenhouse API host is always boards-api.greenhouse.io regardless of
+        # board subdomain (boards.eu.greenhouse.io is the web board only).
+        api_url = f'https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true'
+        try:
+            resp = req.get(api_url, timeout=15)
+            if resp.status_code != 200:
+                log_event('greenhouse_fetch_skip', slug=slug, status=resp.status_code)
+                continue
+            gh_jobs = resp.json().get('jobs', [])
+            for j in gh_jobs:
+                jobs.append({
+                    'title': j.get('title', ''),
+                    'company': clean_company(j.get('company_name', '') or slug),
+                    'url': j.get('absolute_url', ''),
+                    'location': (j.get('location') or {}).get('name', ''),
+                    'source': 'greenhouse_json',
+                    'description': html.unescape(j.get('content', '') or ''),
+                })
+            log_event('greenhouse_fetch', slug=slug, count=len(gh_jobs))
+        except Exception as e:
+            log_event('greenhouse_fetch_error', slug=slug, error=str(e))
+        time.sleep(0.3)
+
+    return jobs
+
+def fetch_jobsapi_jobs(queries_path):
+    """
+    Fetch jobs via Jobs API (jobs-api14, RapidAPI).
+    LinkedIn: stores api_id for /v2/linkedin/get JD fetch.
+    Indeed: stores inline description from search response.
+    """
+    import requests as req
+
+    api_key = os.environ.get('RAPIDAPI_KEY', '')
+    if not api_key:
+        log_event('jobsapi_error', error='RAPIDAPI_KEY not set in .env')
+        return []
+
+    try:
+        with open(queries_path) as f:
+            queries = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    except FileNotFoundError:
+        log_event('jobsapi_error', error=f'queries file not found: {queries_path}')
+        return []
+
+    headers = {
+        'x-rapidapi-host': 'jobs-api14.p.rapidapi.com',
+        'x-rapidapi-key': api_key,
+        'Content-Type': 'application/json',
+    }
+
+    sources = [
+        {
+            'name': 'linkedin',
+            'url': 'https://jobs-api14.p.rapidapi.com/v2/linkedin/search',
+            'params': lambda q: {
+                'query': q,
+                'location': 'United States',
+                'datePosted': 'day',
+                'employmentTypes': 'fulltime',
+                'experienceLevels': 'midSenior;director',
+            },
+            'url_field': 'linkedinUrl',
+        },
+        {
+            'name': 'indeed',
+            'url': 'https://jobs-api14.p.rapidapi.com/v2/indeed/search',
+            'params': lambda q: {
+                'query': q,
+                'countryCode': 'us',
+                'sortType': 'date',
+            },
+            'url_field': 'applyUrl',
+        },
+    ]
+
+    jobs = []
+    for query in queries:
+        for source in sources:
+            try:
+                response = req.get(
+                    source['url'],
+                    headers=headers,
+                    params=source['params'](query),
+                    timeout=30,
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                if data.get('hasError'):
+                    log_event('jobsapi_error', source=source['name'], query=query,
+                              errors=data.get('errors'))
+                    continue
+
+                count = 0
+                for job in data.get('data', []):
+                    raw_title = job.get('title', '')
+                    title = clean_title(raw_title)
+                    url = job.get(source['url_field'], '') or job.get('linkedinUrl', '')
+                    company = clean_company(job.get('companyName', '') or job.get('company', {}).get('name', ''))
+                    loc = job.get('location', '')
+                    location = loc.get('location', '') if isinstance(loc, dict) else loc
+
+                    if not title or not url:
+                        continue
+
+                    job_dict = {
+                        'title': title,
+                        'company': company,
+                        'url': url,
+                        'location': location,
+                        'source': f"jobsapi_{source['name']}",
+                    }
+
+                    if source['name'] == 'linkedin':
+                        job_dict['api_id'] = str(job.get('id', ''))
+                    elif source['name'] == 'indeed':
+                        job_dict['description'] = job.get('description', '')
+
+                    jobs.append(job_dict)
+                    count += 1
+
+                log_event('jobsapi_fetched', source=source['name'], query=query, count=count)
+                time.sleep(0.6)
+
+            except Exception as e:
+                log_event('jobsapi_error', source=source['name'], query=query, error=str(e))
+
+    return jobs
+
+# ── Gmail Ingestion ──
+def get_gmail_service():
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from google.auth.transport.requests import Request
+    from googleapiclient.discovery import build
+
+    creds = None
+    if os.path.exists(GMAIL_TOKEN):
+        creds = Credentials.from_authorized_user_file(GMAIL_TOKEN, GMAIL_SCOPES)
+
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            with open(GMAIL_TOKEN, 'w') as f:
+                f.write(creds.to_json())
+        else:
+            if not sys.stdin.isatty():
+                log_event('gmail_auth_skipped',
+                          reason='No token and no TTY — run triage.py manually once to authorize')
+                return None
+            flow = InstalledAppFlow.from_client_secrets_file(GMAIL_CREDS, GMAIL_SCOPES)
+            creds = flow.run_local_server(port=0)
+            with open(GMAIL_TOKEN, 'w') as f:
+                f.write(creds.to_json())
+
+    return build('gmail', 'v1', credentials=creds)
+
+
+def parse_jobs_from_email(msg):
+    import base64
+    from bs4 import BeautifulSoup
+
+    html = ''
+
+    def extract_parts(part):
+        nonlocal html
+        mime = part.get('mimeType', '')
+        if mime == 'text/html':
+            data = part.get('body', {}).get('data', '')
+            if data:
+                padded = data + '=' * (4 - len(data) % 4)
+                html += base64.urlsafe_b64decode(padded).decode('utf-8', errors='ignore')
+        for subpart in part.get('parts', []):
+            extract_parts(subpart)
+
+    extract_parts(msg.get('payload', {}))
+    if not html:
+        return []
+
+    soup = BeautifulSoup(html, 'html.parser')
+    jobs = []
+    seen_urls = set()
+
+    SKIP_LABELS = {
+        'view job', 'apply', 'apply now', 'see job', 'learn more', 'view',
+        'click here', 'unsubscribe', 'manage alerts', 'view all jobs',
+        'see all jobs', 'update preferences', 'privacy policy', 'terms',
+        'help', 'contact us', 'settings', 'opt out', 'manage email',
+        'see more jobs', 'view more jobs', 'all jobs',
+    }
+
+    JOB_URL_PATTERNS = [
+        ('linkedin.com/jobs',          'gmail_linkedin'),
+        ('linkedin.com/comm/jobs',     'gmail_linkedin'),
+        ('lnkd.in/',                   'gmail_linkedin'),
+        ('indeed.com/viewjob',         'gmail_indeed'),
+        ('indeed.com/rc/clk',          'gmail_indeed'),
+        ('indeed.com/pagead',          'gmail_indeed'),
+        ('r.indeed.com',               'gmail_indeed'),
+        ('ziprecruiter.com/jobs',      'gmail_ziprecruiter'),
+        ('ziprecruiter.com/c/',        'gmail_ziprecruiter'),
+        ('careers.google.com',         'gmail_google'),
+        ('google.com/about/careers',   'gmail_google'),
+    ]
+
+    for a in soup.find_all('a', href=True):
+        href = a['href']
+        # LinkedIn/Indeed emails often pack "Title\nCompany" in one <a> tag.
+        # Split on newline first so company doesn't get concatenated into title.
+        raw_text = a.get_text(separator='\n', strip=True)
+        text_lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
+        title = clean_title(text_lines[0]) if text_lines else ''
+        anchor_company = text_lines[1] if len(text_lines) > 1 else ''  # may be overridden below
+
+        if not title or len(title) < 6 or title.lower() in SKIP_LABELS:
+            continue
+        if href in seen_urls:
+            continue
+        if len(title) > 140:
+            continue
+
+        source = None
+        for pattern, src in JOB_URL_PATTERNS:
+            if pattern in href:
+                source = src
+                break
+
+        if not source:
+            continue
+
+        company = ''
+        parent = a.find_parent()
+        if parent:
+            for sib in parent.find_next_siblings(limit=4):
+                txt = sib.get_text(strip=True)
+                if txt and 6 < len(txt) < 120 and txt.lower() not in SKIP_LABELS:
+                    company = txt
+                    break
+            if not company:
+                full_text = parent.get_text(separator=' ', strip=True)
+                parts = full_text.split(title, 1)
+                if len(parts) > 1:
+                    candidate = parts[1].strip().split('\n')[0][:100].strip()
+                    if candidate and candidate.lower() not in SKIP_LABELS:
+                        company = candidate
+        # Last resort: use the second line of anchor text (stripped of skip labels)
+        if not company and anchor_company and anchor_company.lower() not in SKIP_LABELS:
+            company = anchor_company
+
+        company = clean_company(company)
+        job_dict = {'title': title, 'company': company, 'url': href,
+                    'location': '', 'source': source}
+        # For LinkedIn URLs, extract job ID so fetch_jd can use the API path
+        if source == 'gmail_linkedin':
+            api_id = extract_linkedin_job_id(href)
+            if api_id:
+                job_dict['api_id'] = api_id
+        jobs.append(job_dict)
+        seen_urls.add(href)
+
+    return jobs
+
+
+def fetch_gmail_jobs():
+    if not os.path.exists(GMAIL_CREDS):
+        log_event('gmail_skipped', reason='gmail_oauth_client.json not found')
+        return []
+
+    try:
+        service = get_gmail_service()
+        if service is None:
+            return []
+    except Exception as e:
+        log_event('gmail_error', stage='auth', error=str(e))
+        return []
+
+    query = (
+        '(from:jobalerts-noreply@linkedin.com OR from:jobs-noreply@linkedin.com '
+        'OR from:indeedjobs@indeed.com OR from:alert@indeed.com '
+        'OR from:careers-noreply@google.com OR from:alerts@ziprecruiter.com '
+        'OR from:noreply@ziprecruiter.com) newer_than:30d'
+    )
+
+    jobs = []
+    try:
+        results = service.users().messages().list(
+            userId='me', q=query, maxResults=50
+        ).execute()
+        messages = results.get('messages', [])
+        log_event('gmail_messages_found', count=len(messages))
+
+        for msg_ref in messages:
+            try:
+                msg = service.users().messages().get(
+                    userId='me', id=msg_ref['id'], format='full'
+                ).execute()
+                extracted = parse_jobs_from_email(msg)
+                jobs.extend(extracted)
+            except Exception as e:
+                log_event('gmail_parse_error', msg_id=msg_ref['id'], error=str(e))
+
+    except Exception as e:
+        log_event('gmail_error', stage='fetch', error=str(e))
+
+    log_event('gmail_fetched', count=len(jobs))
+    return jobs
+
+# ── Main Pipeline ──
+def main():
+    log_event('pipeline_started')
+
+    if os.path.exists(DB_PATH):
+        shutil.copy2(DB_PATH, f'{DB_PATH}.bak')
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute('PRAGMA journal_mode=WAL')
+
+    with open(PROFILE_PATH) as f:
+        candidate_profile = f.read()
+
+    greenhouse_jobs = fetch_greenhouse_jobs(f'{BASE}/config/feed_urls.txt')
+    api_jobs = fetch_jobsapi_jobs(f'{BASE}/config/jsearch_queries.txt')
+    gmail_jobs = fetch_gmail_jobs()
+    raw_jobs = greenhouse_jobs + api_jobs + gmail_jobs
+    log_event('jobs_fetched', count=len(raw_jobs),
+              greenhouse=len(greenhouse_jobs), api=len(api_jobs), gmail=len(gmail_jobs))
+
+    if not raw_jobs:
+        log_event('pipeline_complete', new=0, dupes=0, scored=0)
+        conn.close()
+        return
+
+    new_count = 0
+    dupe_count = 0
+    scored_count = 0
+
+    for job in raw_jobs:
+        if not job.get('title') or not job.get('url'):
+            continue
+
+        fp = fingerprint(job['title'], job.get('company', ''), job.get('location', ''))
+
+        existing = conn.execute(
+            'SELECT id FROM jobs WHERE fingerprint = ?', (fp,)
+        ).fetchone()
+
+        if existing:
+            conn.execute(
+                'INSERT OR IGNORE INTO duplicate_groups (canonical_fingerprint, duplicate_job_id) VALUES (?, ?)',
+                (fp, job.get('url', ''))
+            )
+            dupe_count += 1
+            continue
+
+        job_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+
+        conn.execute('''
+            INSERT INTO jobs (id, fingerprint, url, title, company, location, source, stage, stage_updated, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'discovered', ?, ?)
+        ''', (job_id, fp, job['url'], job['title'], job.get('company', ''),
+              job.get('location', ''), job.get('source', 'rss'), now, now))
+        conn.commit()
+        write_audit(conn, job_id, 'stage', None, 'discovered')
+        new_count += 1
+
+        jd_text = fetch_jd(job)
+
+        # For gmail_linkedin jobs: if company was blank after HTML heuristics,
+        # the API call in fetch_jd already ran — reuse result to fill company.
+        if job.get('source') == 'gmail_linkedin' and not job.get('company') and job.get('api_id'):
+            li_data = fetch_linkedin_job_data(job['api_id'])
+            if li_data['company']:
+                job['company'] = li_data['company']
+                # Update the already-inserted row with the resolved company
+                conn.execute('UPDATE jobs SET company=? WHERE id=?',
+                             (job['company'], job_id))
+                conn.commit()
+
+        contacts = find_contacts(job.get('company', ''))
+        network_depth = min(len(contacts), 2)
+        known_contacts = ', '.join(contacts[:3])
+
+        conn.execute('''
+            UPDATE jobs SET raw_jd_text=?, network_depth=?, known_contacts=?,
+                   stage='enriched', stage_updated=?, updated_at=?
+            WHERE id=?
+        ''', (jd_text, network_depth, known_contacts, now, now, job_id))
+        conn.commit()
+        write_audit(conn, job_id, 'stage', 'discovered', 'enriched')
+
+        scored, latency_ms = score_job(
+            job['title'], job.get('company', ''), job.get('location', ''), jd_text, candidate_profile
+        )
+
+        stage = 'manual_review' if scored.get('score_status') == 'manual_review' else 'scored'
+        status = 'manual_review' if stage == 'manual_review' else 'active'
+
+        conn.execute('''
+            UPDATE jobs SET
+                relevance_score=?, interview_likelihood=?, strengths_alignment=?,
+                industry_sector=?, comp_estimate=?, ai_notes=?,
+                score_status=?, score_flag_reason=?, remote_status=?,
+                stage=?, stage_updated=?, status=?, updated_at=?
+            WHERE id=?
+        ''', (
+            scored.get('relevance_score'), scored.get('interview_likelihood'),
+            scored.get('strengths_alignment'), scored.get('industry_sector', ''),
+            scored.get('comp_estimate', ''), scored.get('ai_notes', ''),
+            scored.get('score_status', 'manual_review'),
+            scored.get('score_flag_reason', ''),
+            scored.get('remote_status', 'Unknown'),
+            stage, now, status, now, job_id
+        ))
+        conn.commit()
+        write_audit(conn, job_id, 'stage', 'enriched', stage)
+        scored_count += 1
+
+        conn.execute('''
+            INSERT INTO cost_log (job_id, operation, model, latency_ms, success)
+            VALUES (?, 'score', 'openrouter:deepseek/deepseek-v3.2', ?, 1)
+        ''', (job_id, latency_ms))
+        conn.commit()
+
+        log_event('job_processed', job_id=job_id, title=job['title'],
+                  company=job.get('company', ''), stage=stage,
+                  score=scored.get('relevance_score'))
+
+        time.sleep(0.5)
+
+    conn.close()
+    log_event('pipeline_complete', new=new_count, dupes=dupe_count, scored=scored_count)
+
+    subprocess.run([sys.executable, f'{BASE}/scripts/sync_sheet.py'], check=False)
+    notify(f"Triage done: {new_count} new, {dupe_count} dupes, {scored_count} scored")
+
+def notify(message):
+    topic_path = os.path.expanduser(f'{BASE}/config/ntfy_topic.txt')
+    try:
+        with open(topic_path) as f:
+            topic = f.read().strip()
+        subprocess.run(['curl', '-s', '-d', message, f'https://ntfy.sh/{topic}'],
+                       capture_output=True, timeout=10)
+    except Exception:
+        pass
+
+if __name__ == '__main__':
+    main()

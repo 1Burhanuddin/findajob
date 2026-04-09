@@ -1,0 +1,38 @@
+# Candidate Profile — EXAMPLE
+# Copy this file to config/profile.md and replace with your real content.
+# This file is injected directly into resume tailor, cover letter, and outreach prompts.
+# It is NOT passed through RAG. Keep it dense and factual.
+
+## Identity
+Name: Jane Smith
+Location: San Francisco, CA
+LinkedIn: https://linkedin.com/in/janesmith
+Email: jane@example.com
+
+## Target Role
+Senior hardware engineer / technical program manager at AI infrastructure companies.
+Open to: IC and management, on-site or hybrid.
+Not open to: pure software, consulting firms, staffing agencies.
+
+## What Makes You Unusual
+[2–3 sentences describing your differentiated background]
+
+## Core Competencies
+- [Skill or domain 1]
+- [Skill or domain 2]
+- [Skill or domain 3]
+
+## Career Summary
+[3–5 sentences. Who you are, what you have built, what kind of problems you solve.]
+
+## Employer History (most recent first)
+[List employers with rough date ranges and 1-line summary of role]
+
+## Target Companies
+[List primary companies of interest]
+
+## What to Emphasize
+[1–2 paragraphs on the themes to lead with in tailored applications]
+
+## Things to Avoid Mentioning
+[Optional: topics, roles, or experiences to downplay]

@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+# ~/JobSearchPipeline/scripts/sync_sheet.py
+"""
+Sync SQLite → Google Sheets.
+  Sheet1:    Full job archive (all non-dupe jobs). Reference/debug view.
+  Dashboard: Actionable queue (score>=7, stage=scored|manual_review). Interactive APPLY_FLAG checkboxes.
+             poll_flags.py reads APPLY_FLAG + REJECT_REASON from Dashboard.
+"""
+import os, sys, sqlite3
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from paths import BASE
+DB_PATH = f'{BASE}/data/pipeline.db'
+SA_FILE = f'{BASE}/config/gsheets_creds.json'
+with open(f'{BASE}/config/sheet_id.txt') as f:
+    SHEET_ID = f.read().strip()
+
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+
+# ── Sheet1: full archive ──────────────────────────────────────────────────────
+# Col A: fingerprint (hidden), Col B: APPLY_FLAG, then data columns.
+S1_HEADERS = [
+    'fingerprint', 'APPLY_FLAG',
+    'relevance_score', 'title', 'company', 'location', 'remote_status',
+    'stage', 'known_contacts', 'comp_estimate', 'ai_notes',
+    'date_found', 'source', 'url',
+]
+S1_COL_MAP = {
+    'fingerprint': 'fingerprint', 'apply_flag': 'APPLY_FLAG',
+    'relevance_score': 'relevance_score', 'title': 'title',
+    'company': 'company', 'location': 'location', 'remote_status': 'remote_status',
+    'stage': 'stage', 'known_contacts': 'known_contacts',
+    'comp_estimate': 'comp_estimate', 'ai_notes': 'ai_notes',
+    'created_at': 'date_found', 'source': 'source', 'url': 'url',
+}
+S1_LOOKUP = {sh: sc for sc, sh in S1_COL_MAP.items()}
+
+# ── Dashboard: actionable queue ───────────────────────────────────────────────
+# Col A: APPLY_FLAG (checkbox), Col B: REJECT_REASON (dropdown), Col C: fingerprint (hidden).
+# Title column is rendered as =HYPERLINK(url, title) — no separate URL column.
+DASH_HEADERS = [
+    'APPLY_FLAG', 'REJECT_REASON', 'fingerprint',
+    'relevance_score', 'title', 'company', 'location', 'remote_status',
+    'known_contacts', 'comp_estimate', 'ai_notes', 'date_found',
+]
+DASH_COL_MAP = {
+    'apply_flag': 'APPLY_FLAG', 'reject_reason': 'REJECT_REASON', 'fingerprint': 'fingerprint',
+    'relevance_score': 'relevance_score', 'title': 'title',
+    'company': 'company', 'location': 'location', 'remote_status': 'remote_status',
+    'known_contacts': 'known_contacts', 'comp_estimate': 'comp_estimate',
+    'ai_notes': 'ai_notes', 'created_at': 'date_found',
+}
+DASH_LOOKUP = {sh: sc for sc, sh in DASH_COL_MAP.items()}
+
+
+def hyperlink(url, label):
+    """Return a Sheets HYPERLINK formula. Escapes double quotes in both args."""
+    safe_url   = str(url   or '').replace('"', '%22')
+    safe_label = str(label or '').replace('"', '""')
+    if not safe_url:
+        return safe_label
+    return f'=HYPERLINK("{safe_url}","{safe_label}")'
+
+
+def build_row(row, headers, lookup, status_override=None, reject_override=None, use_status=False):
+    sheet_row = []
+    for header in headers:
+        sqlite_col = lookup.get(header)
+        val = row[sqlite_col] if sqlite_col and sqlite_col in row.keys() else ''
+        if header == 'APPLY_FLAG':
+            if use_status:
+                # Dashboard: derive status from DB state; user overrides preserved via status_override
+                if status_override is not None:
+                    sheet_row.append(status_override)
+                elif row['stage'] == 'materials_drafted':
+                    sheet_row.append('Ready to Apply')
+                elif bool(val):  # apply_flag=1, prep not yet run
+                    sheet_row.append('Flag for Prep')
+                else:
+                    sheet_row.append('')
+            else:
+                # Sheet1: write TRUE/FALSE for the checkbox
+                sheet_row.append('TRUE' if bool(val) else 'FALSE')
+        elif header == 'REJECT_REASON':
+            sheet_row.append(reject_override if reject_override is not None else (val or ''))
+        else:
+            sheet_row.append('' if val is None else val)
+    return sheet_row
+
+
+def sync_sheet1(svc, conn):
+    rows = conn.execute('''
+        SELECT * FROM jobs
+        WHERE dupe_of = '' OR dupe_of IS NULL
+        ORDER BY
+            CASE WHEN relevance_score IS NOT NULL THEN relevance_score ELSE 0 END DESC,
+            created_at DESC
+    ''').fetchall()
+
+    sheet_rows = [S1_HEADERS] + [build_row(r, S1_HEADERS, S1_LOOKUP) for r in rows]
+
+    svc.spreadsheets().values().clear(
+        spreadsheetId=SHEET_ID, range='Sheet1!A2:N10000'
+    ).execute()
+    svc.spreadsheets().values().update(
+        spreadsheetId=SHEET_ID, range='Sheet1!A1',
+        valueInputOption='USER_ENTERED', body={'values': sheet_rows}
+    ).execute()
+    print(f'Sheet1: {len(sheet_rows)-1} rows synced')
+
+
+def sync_dashboard(svc, conn):
+    # Read current Dashboard state so we don't clobber user-set values since last poll.
+    # Dashboard: col A = APPLY_FLAG, col B = REJECT_REASON, col C = fingerprint
+    try:
+        current = svc.spreadsheets().values().get(
+            spreadsheetId=SHEET_ID, range='Dashboard!A2:C10000'
+        ).execute().get('values', [])
+        # Preserve user-set status strings (non-empty, valid values only) not yet polled
+        # Only preserve user-driven statuses not yet polled.
+        # 'Ready to Apply' is system-derived (from stage=materials_drafted) — don't preserve.
+        # 'Flag for Prep' is preserved so user actions survive the next sync before poll runs.
+        VALID_STATUSES = {'Flag for Prep', 'Applied', 'Interviewing', 'Offer', 'Withdrew'}
+        pending_statuses = {r[2]: r[0] for r in current
+                            if len(r) >= 3 and r[0] in VALID_STATUSES}
+        pending_rejects  = {r[2]: r[1] for r in current if len(r) >= 3 and r[1]}
+    except Exception:
+        pending_statuses = {}
+        pending_rejects  = {}
+
+    rows = conn.execute('''
+        SELECT * FROM jobs
+        WHERE (dupe_of = '' OR dupe_of IS NULL)
+          AND (
+            (relevance_score >= 7 AND stage IN ('scored', 'manual_review'))
+            OR stage = 'materials_drafted'
+          )
+        ORDER BY
+            CASE stage WHEN 'materials_drafted' THEN 0 ELSE 1 END,
+            CASE WHEN relevance_score IS NOT NULL THEN relevance_score ELSE 0 END DESC,
+            created_at DESC
+    ''').fetchall()
+
+    sheet_rows = [DASH_HEADERS]
+    for row in rows:
+        fp = row['fingerprint']
+        # Prefer the value the user set in the sheet (not yet polled) over the DB state
+        if fp in pending_statuses:
+            status_override = pending_statuses[fp]
+        else:
+            status_override = 'Flag for Prep' if row['apply_flag'] else ''
+        # Prefer pending (user-set) reject reason; fall back to DB value
+        reject_override = pending_rejects.get(fp, row['reject_reason'] or '')
+        sheet_row = build_row(row, DASH_HEADERS, DASH_LOOKUP,
+                              status_override=status_override,
+                              reject_override=reject_override,
+                              use_status=True)
+        # Replace plain title with a HYPERLINK formula (title column is index 4 in DASH_HEADERS)
+        title_idx = DASH_HEADERS.index('title')
+        sheet_row[title_idx] = hyperlink(row['url'], row['title'])
+        sheet_rows.append(sheet_row)
+
+    svc.spreadsheets().values().clear(
+        spreadsheetId=SHEET_ID, range='Dashboard!A2:L10000'
+    ).execute()
+    svc.spreadsheets().values().update(
+        spreadsheetId=SHEET_ID, range='Dashboard!A1',
+        valueInputOption='USER_ENTERED', body={'values': sheet_rows}
+    ).execute()
+    n_prepped = sum(1 for r in rows if r['stage'] == 'materials_drafted')
+    n_queued  = len(rows) - n_prepped
+    print(f'Dashboard: {len(sheet_rows)-1} jobs ({n_queued} queued, {n_prepped} prepped/pending apply)')
+
+
+def main():
+    creds = service_account.Credentials.from_service_account_file(SA_FILE, scopes=SCOPES)
+    svc = build('sheets', 'v4', credentials=creds)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+
+    sync_sheet1(svc, conn)
+    sync_dashboard(svc, conn)
+
+    conn.close()
+
+
+if __name__ == '__main__':
+    main()
