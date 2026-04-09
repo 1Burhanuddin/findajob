@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
     changed_by TEXT DEFAULT 'system'
 );
 
+CREATE INDEX IF NOT EXISTS idx_audit_job_id ON audit_log(job_id);
+
 CREATE TABLE IF NOT EXISTS cost_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     job_id TEXT,

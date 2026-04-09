@@ -21,7 +21,7 @@ Setup (one-time):
 The script writes 'Processed: <timestamp>' to col J (column 10) of each handled row.
 Run manually or add to the poller launchd agent.
 """
-import os, sys, sqlite3, subprocess, hashlib, json
+import os, sys, sqlite3, subprocess, hashlib, json, re
 from datetime import datetime, timezone
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
@@ -72,8 +72,26 @@ def clean(s):
     return (s or '').strip()
 
 
-def make_fingerprint(url, company, title):
-    key = f'{url}|{company}|{title}'.lower()
+# Fingerprint — must match triage.py exactly so form-submitted jobs
+# deduplicate against API-ingested jobs.
+_ABBREVIATIONS = {
+    r'\bsr\.?\b': 'senior', r'\bjr\.?\b': 'junior', r'\bmgr\.?\b': 'manager',
+    r'\bdir\.?\b': 'director', r'\beng\.?\b': 'engineer', r'\bengr\.?\b': 'engineer',
+    r'\bops\.?\b': 'operations', r'\binfra\.?\b': 'infrastructure',
+    r'\bvp\b': 'vice president', r'\bsvp\b': 'senior vice president',
+    r'\bhw\b': 'hardware', r'\bsw\b': 'software', r'\bdc\b': 'data center',
+    r'\bmfg\b': 'manufacturing', r'\bpgm\b': 'program', r'\btpm\b': 'technical program manager',
+}
+
+def _normalize(text):
+    text = (text or '').lower().strip()
+    for pattern, replacement in _ABBREVIATIONS.items():
+        text = re.sub(pattern, replacement, text)
+    text = re.sub(r'[^a-z0-9 ]', ' ', text)
+    return re.sub(r'\s+', ' ', text).strip()
+
+def fingerprint(title, company, location=''):
+    key = _normalize(title) + '|' + _normalize(company) + '|' + _normalize(location)
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
@@ -129,7 +147,7 @@ def main():
             print(f'Row {i+2}: skipping (missing required fields)')
             continue
 
-        fp = make_fingerprint(url, company, title)
+        fp = fingerprint(title, company, location)
         now = datetime.now(timezone.utc).isoformat()
 
         # Check for duplicate

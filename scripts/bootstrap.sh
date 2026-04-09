@@ -436,6 +436,7 @@ verify_install() {
   check_item "rag_sources/master_resume"  "$([ -f ${REPO}/rag_sources/master_resume.md ] && echo true || echo false)"
   check_item "config/gsheets_creds.json"  "$([ -f ${CONFIG_DIR}/gsheets_creds.json ] && echo true || echo false)"
   check_item "config/sheet_id.txt"        "$([ -f ${CONFIG_DIR}/sheet_id.txt ] && echo true || echo false)"
+  check_item "config/ntfy_topic.txt"     "$([ -f ${CONFIG_DIR}/ntfy_topic.txt ] && echo true || echo false)"
   check_item "config/gmail_oauth_client"  "$([ -f ${CONFIG_DIR}/gmail_oauth_client.json ] && echo true || echo false)"
   check_item "CLAUDE.local.md"            "$([ -f ${REPO}/CLAUDE.local.md ] && echo true || echo false)"
 

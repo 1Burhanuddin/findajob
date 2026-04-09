@@ -135,6 +135,7 @@ def sync_dashboard(svc, conn):
         WHERE (dupe_of = '' OR dupe_of IS NULL)
           AND (
             (relevance_score >= 7 AND stage IN ('scored', 'manual_review'))
+            OR (stage = 'manual_review' AND relevance_score IS NULL)
             OR stage = 'materials_drafted'
           )
         ORDER BY

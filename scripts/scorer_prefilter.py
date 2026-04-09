@@ -23,6 +23,7 @@ TIER1 = frozenset([
     'meta', 'google', 'alphabet', 'microsoft', 'amazon', 'aws',
     'openai', 'anthropic', 'xai', 'etched', 'nscale', 'cerebras',
     'groq', 'tenstorrent', 'sambanova', 'nebius',
+    'coreweave', 'crusoe', 'astera',
 ])
 
 def _is_tier1(company: str) -> bool:

@@ -132,11 +132,14 @@ def main():
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA journal_mode=WAL')
 
-    # Fetch all jobs that have JD text — skip jobs with no JD (can't score)
+    # Fetch jobs that have JD text and are in a re-scoreable stage.
+    # Exclude jobs that have progressed past scoring (applied, interviewing, etc.) —
+    # overwriting their stage would corrupt the pipeline state.
     rows = conn.execute('''
         SELECT id, title, company, location, raw_jd_text, stage, score_status
         FROM jobs
         WHERE raw_jd_text IS NOT NULL AND raw_jd_text != ''
+          AND stage IN ('scored', 'manual_review', 'enriched')
         ORDER BY created_at DESC
     ''').fetchall()
 

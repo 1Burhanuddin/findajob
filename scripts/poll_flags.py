@@ -56,7 +56,6 @@ RCLONE_CMD = [
     RCLONE, 'bisync',
     f'{BASE}/companies/',
     'gdrive:01 PROJECTS/Jobs To Apply For',
-    '--create-empty-src-dirs',
 ]
 
 

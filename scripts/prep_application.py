@@ -52,10 +52,26 @@ def abbrev_title(title, max_words=3):
 
 
 def notify(message):
-    topic_path = f'{BASE}/config/ntfy_topic.txt'
+    topic = None
     try:
-        with open(topic_path) as f:
+        with open(f'{BASE}/config/ntfy_topic.txt') as f:
             topic = f.read().strip()
+    except FileNotFoundError:
+        pass
+    if not topic:
+        # Fall back to data/.env NTFY_TOPIC
+        try:
+            with open(f'{BASE}/data/.env') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('NTFY_TOPIC') and '=' in line:
+                        topic = line.split('=', 1)[1].strip().strip("'\"")
+                        break
+        except Exception:
+            pass
+    if not topic:
+        return
+    try:
         subprocess.run(['curl', '-s', '-d', message, f'https://ntfy.sh/{topic}'],
                        capture_output=True, timeout=10)
     except Exception:
@@ -218,7 +234,6 @@ Generated: {date}
     subprocess.run([
         RCLONE, 'bisync',
         f'{BASE}/companies/', 'gdrive:01 PROJECTS/Jobs To Apply For',
-        '--create-empty-src-dirs'
     ], check=False)
 
     print(f"PREP_COMPLETE:{outdir}")

@@ -220,6 +220,10 @@ def fetch_jd(job):
         api_id = job.get('api_id', '')
         if api_id:
             result = fetch_linkedin_job_data(api_id)
+            # Cache resolved company in job dict so the main loop can use it
+            # without a second API call (only relevant for gmail_linkedin blank-company case).
+            if source == 'gmail_linkedin' and result.get('company'):
+                job['_linkedin_company'] = result['company']
             if result['description']:
                 return result['description']
         log_event('linkedin_jd_missing', title=job.get('title'), api_id=api_id)
@@ -234,10 +238,15 @@ def fetch_jd(job):
 # ── Contact Lookup ──
 def find_contacts(company):
     contacts = []
+    if not company or not company.strip():
+        return contacts
     try:
         with open(CONNECTIONS) as f:
             for row in csv.DictReader(f):
-                if company and company.lower() in row.get('Company', '').lower():
+                contact_co = row.get('Company', '').strip()
+                if not contact_co:
+                    continue  # guard: '' in 'anything' is True in Python
+                if company.lower() in contact_co.lower():
                     contacts.append(f"{row['First Name']} {row['Last Name']} ({row['Position']})")
     except Exception:
         pass
@@ -735,11 +744,11 @@ def main():
         jd_text = fetch_jd(job)
 
         # For gmail_linkedin jobs: if company was blank after HTML heuristics,
-        # the API call in fetch_jd already ran — reuse result to fill company.
-        if job.get('source') == 'gmail_linkedin' and not job.get('company') and job.get('api_id'):
-            li_data = fetch_linkedin_job_data(job['api_id'])
-            if li_data['company']:
-                job['company'] = li_data['company']
+        # fetch_jd already called the LinkedIn API and cached the company — reuse it.
+        if job.get('source') == 'gmail_linkedin' and not job.get('company'):
+            resolved = job.get('_linkedin_company')
+            if resolved:
+                job['company'] = resolved
                 # Update the already-inserted row with the resolved company
                 conn.execute('UPDATE jobs SET company=? WHERE id=?',
                              (job['company'], job_id))
@@ -803,10 +812,26 @@ def main():
     notify(f"Triage done: {new_count} new, {dupe_count} dupes, {scored_count} scored")
 
 def notify(message):
-    topic_path = os.path.expanduser(f'{BASE}/config/ntfy_topic.txt')
+    topic = None
     try:
-        with open(topic_path) as f:
+        with open(f'{BASE}/config/ntfy_topic.txt') as f:
             topic = f.read().strip()
+    except FileNotFoundError:
+        pass
+    if not topic:
+        # Fall back to data/.env NTFY_TOPIC
+        try:
+            with open(f'{BASE}/data/.env') as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith('NTFY_TOPIC') and '=' in line:
+                        topic = line.split('=', 1)[1].strip().strip("'\"")
+                        break
+        except Exception:
+            pass
+    if not topic:
+        return
+    try:
         subprocess.run(['curl', '-s', '-d', message, f'https://ntfy.sh/{topic}'],
                        capture_output=True, timeout=10)
     except Exception:
