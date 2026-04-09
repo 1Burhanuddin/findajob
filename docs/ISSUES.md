@@ -13,13 +13,9 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   `prep_application.py` and back-fill via `sync_sheet.py`. Signals to surface: funding events,
   layoffs, headcount trajectory, product launches (last 6 months).
 
-- [ ] **`ingest_form.py` fingerprint diverges from `triage.py`** *(Low)*
-  Form fingerprint uses `sha256(url|company|title)` (lowercased, unnormalized).
-  `triage.py` uses `sha256(normalize(title)|normalize(company)|normalize(location))`.
-  A job submitted via form AND found by the daily API scan will have different fingerprints
-  and won't deduplicate. Only impacts the unlikely scenario of the same job arriving
-  via both paths. Fix: align `ingest_form.py` to use the same normalize()-based fingerprint,
-  or check by URL in addition to fingerprint.
+- [x] **`ingest_form.py` fingerprint diverges from `triage.py`** *(closed 2026-04-09)*
+  Fixed: `ingest_form.py` now uses the same `normalize()`-based fingerprint as `triage.py`
+  (title + company + location), replacing the old URL+company+title approach.
 
 - [ ] **`cost_log` model name is hardcoded** *(Low)*
   `triage.py:789` and `rescore_all.py:200` hardcode `'openrouter:deepseek/deepseek-v3.2'`
