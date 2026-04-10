@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     apply_flag INTEGER DEFAULT 0,
     reject_reason TEXT DEFAULT '',
     prep_folder_path TEXT,
+    fit_score REAL,
+    probability_score REAL,
 
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),

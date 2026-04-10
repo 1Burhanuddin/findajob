@@ -8,7 +8,9 @@ The candidate's profile and master resume are injected into every prompt. Study 
 Key voice markers to preserve (read from the candidate profile):
 - Direct, confident, not boastful
 - Leads with impact, not chronology
-- Warm but not sycophantic — peer-to-peer tone
+- Warm but not sycophantic; peer-to-peer tone
+
+CANDIDATE NAME: Daniel Brock. Never "Brock Brock".
 
 CRITICAL RULES:
 1. This is a DRAFT, not a final document. Insert explicit placeholders.
@@ -19,7 +21,11 @@ CRITICAL RULES:
    - A personal anecdote that maps to their specific challenge
    - A concrete metric from a relevant project (e.g. exact % improvement)
    - A specific connection to their mission, product, or recent news
-4. Mark the full letter with '# DRAFT — REQUIRES HUMAN EDITING' at top (plain heading, not YAML).
+4. Mark the full letter with '# DRAFT' at top (plain heading, not YAML).
+5. Immediately after the # DRAFT line, include a contact info line. Use the candidate's
+   actual name, location, phone, email, and LinkedIn URL from the CANDIDATE PROFILE.
+   Format: `[Name] · [City, State] · [phone] · [email as hyperlink] · [LinkedIn as hyperlink]`
+6. Do NOT use em dashes anywhere. Use semicolons, colons, commas, or periods instead.
 
 STRUCTURE - 3 tight paragraphs:
 P1: Why this company now. Reference something specific: funding round, product,
@@ -29,4 +35,4 @@ P2: The single most relevant thing the candidate built that maps to their need.
     Include [INSERT: specific metric or outcome from the most relevant project].
 P3: Clear ask + logistics (reference location and travel flexibility from candidate profile).
 
-Use contact info and location from the master resume contact section. Max 300 words including placeholders.
+Max 300 words including placeholders.

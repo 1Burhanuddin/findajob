@@ -191,6 +191,35 @@ def check_length(lines):
     return violations
 
 
+def check_em_dashes(lines):
+    """Flag em dashes in the resume (telltale LLM sign)."""
+    violations = []
+    count = 0
+    for i, line in enumerate(lines):
+        if '\u2014' in line:
+            count += 1
+            if count <= 3:  # report first 3 occurrences
+                violations.append(violation('MED', 'em_dash',
+                                            f'Em dash found: {line.strip()[:80]}', i + 1))
+    if count > 3:
+        violations.append(violation('MED', 'em_dash',
+                                    f'{count} total em dashes found (showing first 3 above)'))
+    return violations
+
+
+def check_name(lines):
+    """Flag incorrect name formatting."""
+    violations = []
+    for i, line in enumerate(lines):
+        if line.startswith('# '):
+            name = line[2:].strip()
+            if 'brock brock' in name.lower():
+                violations.append(violation('HIGH', 'wrong_name',
+                                            f'Name should be "Daniel Brock", not "{name}"', i + 1))
+            break
+    return violations
+
+
 # ── Main check function ───────────────────────────────────────────────────────
 
 def check_violations(filepath):
@@ -216,6 +245,8 @@ def check_violations(filepath):
     all_violations += check_core_competencies(sections)
     all_violations += check_summary(sections)
     all_violations += check_length(lines)
+    all_violations += check_em_dashes(lines)
+    all_violations += check_name(lines)
 
     # Role-level checks
     # Primary = the role with the most bullets (not necessarily the first).

@@ -17,6 +17,12 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   Fixed: `ingest_form.py` now uses the same `normalize()`-based fingerprint as `triage.py`
   (title + company + location), replacing the old URL+company+title approach.
 
+- [ ] **Resume exceeding 2 pages despite margin and bullet count rules** *(Low)*
+  reference.docx margins set to 0.4" L/R, 0.5" T/B, and bullet count limits enforced in
+  resume_tailor prompt, but some resumes still render at 3 pages in .docx output. May need
+  pandoc geometry flags, font size adjustments in reference.docx, or tighter bullet count
+  limits for roles with long bullets. Lower priority; user can trim manually.
+
 - [ ] **`cost_log` model name is hardcoded** *(Low)*
   `triage.py:789` and `rescore_all.py:200` hardcode `'openrouter:deepseek/deepseek-v3.2'`
   in the cost_log insert. If the scorer model is changed in `config/roles/job_scorer.md`,
@@ -42,17 +48,27 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   Only affects this diag script, not the main pipeline. Review v2 output for any folder
   where title hint shows `(none found)` in the run log.
 
-- [ ] **`resume_tailor` ignores bullet count and structure rules** *(Medium)*
-  Opus 4.6 consistently adds sub-headers within experience sections and exceeds per-role bullet limits
-  despite explicit instructions in the role prompt. Workaround: manual cleanup pass after generation.
-  Investigate: restructure prompt to use a worked example (few-shot) of the correct flat format; may
-  need a post-processing script to strip bold sub-headers and enforce counts automatically.
+- [x] **`resume_tailor` ignores bullet count and structure rules** *(closed 2026-04-09)*
+  Fixed: restructured prompt with FORMAT LAW at top, explicit violation examples, SELF-CHECK
+  checklist, and HARD LIMITS for bullet counts. Added `validate_resume.py` for mechanical
+  verification. Post-fix: 0 HIGH violations across all 13 resumes. Added think-tag stripping
+  for `:thinking` models.
 
 - [ ] **`score=None` on occasional jobs** *(Low)*
   Some jobs log `score=None` in `pipeline.jsonl` (e.g. "AI Tutor - Telugu" 2026-04-07).
   Likely scorer timeout or malformed LLM response — not a crash. No fallback or retry exists.
   Investigate: add explicit `None` check in `triage.py` score extraction and log as `score_error` event.
   A retry with backoff on timeout would be the full fix.
+
+---
+
+## Side Projects
+
+- [ ] **Build comprehensive master resume from historical documents**
+  Use PDFs of performance reviews, project summaries, and other career materials to extract
+  detailed accomplishments, metrics, and stories. Feed these into the master resume to give
+  the resume_tailor and cover_letter_writer much richer source material to draw from.
+  This is a separate project that would significantly improve output quality across all roles.
 
 ---
 

@@ -32,9 +32,10 @@ Before writing any command, path, binary call, or file location:
 | Embedding model | `gemini-embed:gemini-embedding-001` — dedicated named client, never touched by `--sync-models` |
 | `job_scorer` | `openrouter:deepseek/deepseek-v3.2` — profile.md injected directly; `--rag` NEVER used |
 | `resume_tailor` / `cover_letter_writer` | `claude:claude-opus-4-6:thinking`, `max_tokens: 4096` |
-| `company_researcher` | `perplexity:sonar-pro` |
+| `company_researcher` | `perplexity:sonar-reasoning-pro` |
 | `briefing_writer` | `claude:claude-sonnet-4-6:thinking` |
 | `outreach_drafter` | `claude:claude-sonnet-4-6` — profile injected directly |
+| `fit_analyst` | `perplexity:sonar-reasoning-pro` — appended to company briefing |
 | `resume_change_reviewer` / `network_analyst` | `gemini:gemini-3-flash-preview` |
 | Job ingestion | jobs-api14 (RapidAPI) — LinkedIn (`datePosted: 'day'`) + Indeed; Gmail OAuth2 |
 | pip | `pip3 install --break-system-packages` (no venv) |
@@ -137,15 +138,15 @@ return zero LinkedIn results. Validate each query manually before committing.
 **Sheet1** — full archive (all non-dupe jobs, A–N):
 `fingerprint(hidden) | APPLY_FLAG(checkbox) | score | title | company | location | remote | stage | contacts | comp | notes | date | source | url`
 
-**Dashboard** — actionable queue (A–L), filter: `score>=7 AND stage IN (scored,manual_review)` OR `stage=materials_drafted`:
-`STATUS(dropdown) | REJECT_REASON(dropdown) | fingerprint(hidden) | score | title(hyperlink) | company | location | remote | contacts | comp | notes | date`
+**Dashboard** — actionable queue (A–N), filter: `score>=7 AND stage IN (scored,manual_review)` OR `stage=materials_drafted`:
+`STATUS(dropdown) | REJECT_REASON(dropdown) | fingerprint(hidden) | fit_score | probability_score | relevance_score | title(hyperlink) | company | location | remote | contacts | comp | notes | date`
 
 **STATUS dropdown options** (col A): `Flag for Prep` → `Ready to Apply` → `Applied` → `Interviewing` → `Offer` → `Withdrew`
 - `Flag for Prep` = user action → triggers `prep_application.py` via `poll_flags.py`
 - `Ready to Apply` = system-set when `stage=materials_drafted` (prep done, folder exists)
 - `Applied/Interviewing/Offer/Withdrew` = user action → `poll_flags.py` updates DB stage
 
-**REJECT_REASON dropdown** (col B): 10 options → `poll_flags.py` sets `stage=rejected`, writes `feedback_log`, moves folder to `companies/_done/`, triggers rclone bisync immediately.
+**REJECT_REASON dropdown** (col B): 11 options (includes "Low Fit Score") → `poll_flags.py` sets `stage=rejected`, writes `feedback_log`, moves folder to `companies/_done/`, triggers rclone bisync immediately.
 
 **poll_flags.py** reads `Dashboard!A2:C10000`. Rejection takes priority over prep trigger.
 

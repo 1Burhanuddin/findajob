@@ -45,6 +45,8 @@ def aichat(role, prompt, model_override=None, timeout=300):
     if result.returncode != 0 or not output:
         log_event('aichat_failure', role=role, returncode=result.returncode,
                   stderr=result.stderr.strip()[:500])
+    # Strip <think>...</think> blocks that leak from :thinking models
+    output = re.sub(r'<think>.*?</think>', '', output, flags=re.DOTALL).strip()
     return output
 
 def abbrev_title(title, max_words=3):
@@ -125,15 +127,87 @@ def main():
         master_text = '[Master resume not found]'
         log_event('prep_warning', msg='master_resume.md not found', job_id=job_id)
 
-    # ── Step 2: Resume — two separate calls ──
-    # Call 1: Generate tailored resume
+    # ── Step 2: Company briefing FIRST — gives all downstream steps rich context ──
+    brief_prompt = (
+        f"Research {company} thoroughly.\n"
+        f"Job title: {title}\n"
+        f"JD excerpt:\n{jd_text[:2000]}"
+    )
+    raw_briefing = aichat('company_researcher', brief_prompt,
+                          model_override='perplexity:sonar-reasoning-pro')
+
+    # Pass raw research through briefing_writer with candidate context for stories
+    formatted_brief_prompt = (
+        f"Format the following company research into a structured briefing 1-pager "
+        f"for {company}. Job: {title}.\n\n"
+        f"RAW RESEARCH:\n{raw_briefing}\n\n"
+        f"CANDIDATE PROFILE:\n{profile_text}\n\n"
+        f"MASTER RESUME:\n{master_text}\n\n"
+        f"JD:\n{jd_text[:3000]}"
+    )
+    briefing = aichat('briefing_writer', formatted_brief_prompt)
+
+    # Fit analysis: multi-dimensional assessment appended to briefing
+    fit_prompt = (
+        f"Analyze the fit between this candidate and this role.\n\n"
+        f"CANDIDATE PROFILE:\n{profile_text}\n\n"
+        f"MASTER RESUME:\n{master_text}\n\n"
+        f"Company: {company}\nTitle: {title}\n\n"
+        f"JD:\n{jd_text[:3000]}\n\n"
+        f"COMPANY BRIEFING:\n{briefing}"
+    )
+    fit_analysis = aichat('fit_analyst', fit_prompt,
+                          model_override='perplexity:sonar-reasoning-pro')
+
+    # Combine briefing and fit analysis into one document
+    full_briefing = briefing
+    fit_score_avg = None
+    prob_score_avg = None
+    if fit_analysis:
+        full_briefing += f"\n\n---\n\n# Fit Analysis\n\n{fit_analysis}"
+        # Parse scores from fit analysis for DB storage
+        # All scores are 0-100%. Fit Matrix section has 6 dimensions, Probability has 3.
+        try:
+            # Split on Probability Assessment heading to separate the two sections
+            parts = re.split(r'##\s*🎯\s*Probability Assessment', fit_analysis, maxsplit=1)
+            fit_section = parts[0] if parts else fit_analysis
+            prob_section = parts[1] if len(parts) > 1 else ''
+            fit_scores = [int(m.group(1)) for m in re.finditer(r':\s*(\d{1,3})%', fit_section)]
+            prob_scores = [int(m.group(1)) for m in re.finditer(r':\s*(\d{1,3})%', prob_section)]
+            if fit_scores:
+                fit_score_avg = round(sum(fit_scores) / len(fit_scores), 1)
+            if prob_scores:
+                prob_score_avg = round(sum(prob_scores) / len(prob_scores), 1)
+            log_event('fit_analysis', company=company, title=title,
+                      fit_score=fit_score_avg, probability_score=prob_score_avg,
+                      fit_scores=fit_scores, prob_scores=prob_scores)
+        except Exception:
+            pass
+
+    with open(f'{outdir}/company_briefing.md', 'w') as f:
+        f.write(full_briefing)
+    subprocess.run([PANDOC, '-f', 'markdown-yaml_metadata_block',
+                    f'{outdir}/company_briefing.md',
+                    '--lua-filter', f'{BASE}/config/strip-bookmarks.lua',
+                    '--reference-doc', f'{BASE}/config/reference.docx',
+                    '-o', f'{outdir}/company_briefing.docx'], check=False)
+
+    # ── Step 3: Resume — briefing context now available ──
+    # Truncate briefing to key sections for prompt size management
+    briefing_context = briefing[:3000] if briefing else ''
     resume_prompt = (
         f"MASTER RESUME:\n{master_text}\n\n"
         f"CANDIDATE PROFILE:\n{profile_text}\n\n"
         f"Company: {company}\nTitle: {title}\n\n"
-        f"JD:\n{jd_text}"
+        f"JD:\n{jd_text}\n\n"
+        f"COMPANY BRIEFING (use to inform bullet selection and summary framing):\n{briefing_context}"
     )
     resume_md = aichat('resume_tailor', resume_prompt)
+    # Strip [VERIFY: ...] lines that appear before the first # header
+    rlines = resume_md.split('\n')
+    first_hdr = next((i for i, l in enumerate(rlines) if l.startswith('#')), 0)
+    rlines = [l for i, l in enumerate(rlines) if not (i < first_hdr and l.startswith('[VERIFY:'))]
+    resume_md = '\n'.join(rlines).strip()
     with open(f'{outdir}/tailored_resume_DRAFT.md', 'w') as f:
         f.write(resume_md)
 
@@ -159,7 +233,7 @@ def main():
                     '--reference-doc', f'{BASE}/config/reference.docx',
                     '-o', f'{outdir}/tailored_resume_DRAFT.docx'], check=False)
 
-    # Call 2: Generate change log
+    # Generate change log
     changes_prompt = (
         f"ORIGINAL MASTER RESUME:\n{master_text}\n\n"
         f"TAILORED RESUME:\n{resume_md}\n\n"
@@ -169,12 +243,13 @@ def main():
     with open(f'{outdir}/tailored_resume_CHANGES.md', 'w') as f:
         f.write(changes_md)
 
-    # ── Step 3: Cover letter — profile and master injected directly, no RAG ──
+    # ── Step 4: Cover letter — briefing context for specific company signals ──
     cover_prompt = (
         f"CANDIDATE PROFILE:\n{profile_text}\n\n"
         f"MASTER RESUME:\n{master_text}\n\n"
         f"Company: {company}\nTitle: {title}\n\n"
-        f"JD:\n{jd_text}"
+        f"JD:\n{jd_text}\n\n"
+        f"COMPANY BRIEFING (use for specific signals, news, and context about this company):\n{briefing_context}"
     )
     cover_md = aichat('cover_letter_writer', cover_prompt)
     with open(f'{outdir}/cover_letter_DRAFT.md', 'w') as f:
@@ -183,30 +258,6 @@ def main():
                     '--lua-filter', f'{BASE}/config/strip-bookmarks.lua',
                     '--reference-doc', f'{BASE}/config/reference.docx',
                     '-o', f'{outdir}/cover_letter_DRAFT.docx'], check=False)
-
-    # ── Step 4: Company briefing — researcher then briefing_writer ──
-    brief_prompt = (
-        f"Research {company} thoroughly.\n"
-        f"Job title: {title}\n"
-        f"JD excerpt:\n{jd_text[:2000]}"
-    )
-    raw_briefing = aichat('company_researcher', brief_prompt,
-                          model_override='perplexity:sonar-pro')
-
-    # Pass raw research through briefing_writer to format as structured 1-pager
-    formatted_brief_prompt = (
-        f"Format the following company research into a structured briefing 1-pager "
-        f"for {company}. Job: {title}.\n\n"
-        f"RAW RESEARCH:\n{raw_briefing}"
-    )
-    briefing = aichat('briefing_writer', formatted_brief_prompt)
-
-    with open(f'{outdir}/company_briefing.md', 'w') as f:
-        f.write(briefing)
-    subprocess.run([PANDOC, f'{outdir}/company_briefing.md',
-                    '--lua-filter', f'{BASE}/config/strip-bookmarks.lua',
-                    '--reference-doc', f'{BASE}/config/reference.docx',
-                    '-o', f'{outdir}/company_briefing.docx'], check=False)
 
     # ── Step 5: Network outreach ──
     subprocess.run([sys.executable, f'{BASE}/scripts/find_contacts.py',
@@ -239,9 +290,10 @@ Generated: {date}
     old_stage = row['stage'] if row else 'unknown'
 
     conn.execute('''
-        UPDATE jobs SET stage='materials_drafted', stage_updated=?, prep_folder_path=?, updated_at=?
+        UPDATE jobs SET stage='materials_drafted', stage_updated=?, prep_folder_path=?,
+               fit_score=?, probability_score=?, updated_at=?
         WHERE id=?
-    ''', (now, outdir, now, job_id))
+    ''', (now, outdir, fit_score_avg, prob_score_avg, now, job_id))
     conn.commit()
     write_audit(conn, job_id, 'stage', old_stage, 'materials_drafted')
     conn.close()

@@ -42,11 +42,13 @@ S1_LOOKUP = {sh: sc for sc, sh in S1_COL_MAP.items()}
 # Title column is rendered as =HYPERLINK(url, title) — no separate URL column.
 DASH_HEADERS = [
     'APPLY_FLAG', 'REJECT_REASON', 'fingerprint',
-    'relevance_score', 'title', 'company', 'location', 'remote_status',
+    'fit_score', 'probability_score', 'relevance_score',
+    'title', 'company', 'location', 'remote_status',
     'known_contacts', 'comp_estimate', 'ai_notes', 'date_found',
 ]
 DASH_COL_MAP = {
     'apply_flag': 'APPLY_FLAG', 'reject_reason': 'REJECT_REASON', 'fingerprint': 'fingerprint',
+    'fit_score': 'fit_score', 'probability_score': 'probability_score',
     'relevance_score': 'relevance_score', 'title': 'title',
     'company': 'company', 'location': 'location', 'remote_status': 'remote_status',
     'known_contacts': 'known_contacts', 'comp_estimate': 'comp_estimate',
@@ -164,7 +166,7 @@ def sync_dashboard(svc, conn):
         sheet_rows.append(sheet_row)
 
     svc.spreadsheets().values().clear(
-        spreadsheetId=SHEET_ID, range='Dashboard!A2:L10000'
+        spreadsheetId=SHEET_ID, range='Dashboard!A2:N10000'
     ).execute()
     svc.spreadsheets().values().update(
         spreadsheetId=SHEET_ID, range='Dashboard!A1',

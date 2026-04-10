@@ -63,6 +63,7 @@ REJECT_OPTIONS = [
     'Geography/Onsite',
     'Company Not a Fit',
     'Comp Too Low',
+    'Low Fit Score',
     'Stale/Closed',
     'Already Applied',
     'Other',
@@ -92,6 +93,7 @@ REJECT_COLORS = {
     'Geography/Onsite':  rgb(255, 198, 198),  # soft red
     'Company Not a Fit': rgb(220, 220, 220),  # light grey
     'Comp Too Low':      rgb(255, 245, 178),  # soft yellow
+    'Low Fit Score':     rgb(255, 230, 198),  # soft peach
     'Stale/Closed':      rgb(200, 200, 200),  # medium grey
     'Already Applied':   rgb(198, 240, 215),  # soft green
     'Other':             rgb(235, 235, 235),  # near-white grey
@@ -113,7 +115,7 @@ def status_cf_rules(sheet_id):
     # 'Flag for Prep' highlights the full row
     rules.append({'addConditionalFormatRule': {'index': 0, 'rule': {
         'ranges': [{'sheetId': sheet_id, 'startRowIndex': 1,
-                    'startColumnIndex': 0, 'endColumnIndex': 12}],
+                    'startColumnIndex': 0, 'endColumnIndex': 14}],
         'booleanRule': {
             'condition': {
                 'type': 'CUSTOM_FORMULA',
@@ -174,6 +176,49 @@ def remote_cf_rules(sheet_id, col_index):
                 'format': {'backgroundColor': color},
             },
         }}})
+    return rules
+
+
+def score_cf_rules(sheet_id, col_index):
+    """Red/yellow/green conditional formatting for 0-100% score columns."""
+    col_letter = chr(ord('A') + col_index)
+    rules = []
+    # Red: < 40%
+    rules.append({'addConditionalFormatRule': {'index': 0, 'rule': {
+        'ranges': [{'sheetId': sheet_id, 'startRowIndex': 1,
+                    'startColumnIndex': col_index, 'endColumnIndex': col_index + 1}],
+        'booleanRule': {
+            'condition': {
+                'type': 'CUSTOM_FORMULA',
+                'values': [{'userEnteredValue': f'=AND(${col_letter}2<40,${col_letter}2<>"")'}],
+            },
+            'format': {'backgroundColor': rgb(255, 198, 198)},  # soft red
+        },
+    }}})
+    # Yellow: 40-69%
+    rules.append({'addConditionalFormatRule': {'index': 0, 'rule': {
+        'ranges': [{'sheetId': sheet_id, 'startRowIndex': 1,
+                    'startColumnIndex': col_index, 'endColumnIndex': col_index + 1}],
+        'booleanRule': {
+            'condition': {
+                'type': 'CUSTOM_FORMULA',
+                'values': [{'userEnteredValue': f'=AND(${col_letter}2>=40,${col_letter}2<70)'}],
+            },
+            'format': {'backgroundColor': rgb(255, 245, 178)},  # soft yellow
+        },
+    }}})
+    # Green: >= 70%
+    rules.append({'addConditionalFormatRule': {'index': 0, 'rule': {
+        'ranges': [{'sheetId': sheet_id, 'startRowIndex': 1,
+                    'startColumnIndex': col_index, 'endColumnIndex': col_index + 1}],
+        'booleanRule': {
+            'condition': {
+                'type': 'CUSTOM_FORMULA',
+                'values': [{'userEnteredValue': f'=AND(${col_letter}2>=70,${col_letter}2<>"")'}],
+            },
+            'format': {'backgroundColor': rgb(198, 240, 198)},  # soft green
+        },
+    }}})
     return rules
 
 
@@ -404,23 +449,26 @@ def main():
         # Column widths
         col_width(dash_id, 0, 120),   # A: STATUS
         col_width(dash_id, 1, 140),   # B: REJECT_REASON
-        col_width(dash_id, 3,  55),   # D: score
-        col_width(dash_id, 4, 280),   # E: title (hyperlink)
-        col_width(dash_id, 5, 150),   # F: company
-        col_width(dash_id, 6, 130),   # G: location
-        col_width(dash_id, 7,  80),   # H: remote_status
-        col_width(dash_id, 8, 140),   # I: known_contacts
-        col_width(dash_id, 9,  90),   # J: comp_estimate
-        col_width(dash_id, 10, 300),  # K: ai_notes
-        col_width(dash_id, 11, 100),  # L: date_found
+        col_width(dash_id, 3,  50),   # D: fit_score
+        col_width(dash_id, 4,  50),   # E: probability_score
+        col_width(dash_id, 5,  55),   # F: relevance_score
+        col_width(dash_id, 6, 280),   # G: title (hyperlink)
+        col_width(dash_id, 7, 150),   # H: company
+        col_width(dash_id, 8, 130),   # I: location
+        col_width(dash_id, 9,  80),   # J: remote_status
+        col_width(dash_id, 10, 140),  # K: known_contacts
+        col_width(dash_id, 11,  90),  # L: comp_estimate
+        col_width(dash_id, 12, 300),  # M: ai_notes
+        col_width(dash_id, 13, 100),  # N: date_found
     ]
 
     # Conditional formatting
     dash_requests += status_cf_rules(dash_id)          # col A + row highlight for Flag for Prep
-    dash_requests += score_cf_rules(dash_id, col_index=3)
     dash_requests += reject_cf_rules(dash_id)          # col B
-    dash_requests += remote_cf_rules(dash_id, col_index=7)   # col H
-    dash_requests += contacts_highlight(dash_id, col_index=8) # col I
+    dash_requests += score_cf_rules(dash_id, col_index=3)  # col D: fit_score
+    dash_requests += score_cf_rules(dash_id, col_index=4)  # col E: probability_score
+    dash_requests += remote_cf_rules(dash_id, col_index=9)   # col J: remote_status
+    dash_requests += contacts_highlight(dash_id, col_index=10) # col K: known_contacts
 
     svc.spreadsheets().batchUpdate(
         spreadsheetId=SHEET_ID, body={'requests': dash_requests}
