@@ -162,6 +162,10 @@ def cmd_daily_stats():
     send('JSP Daily Stats', body, priority='default', tags='bar_chart')
 
 
+SHEET1_ROW_WARN = 1000         # warn if Sheet1 would sync more than this many rows
+REVIEW_BACKLOG_WARN = 100      # warn if manual_review backlog exceeds this
+TARGET_LOWSCORE_DAYS = 7       # check for mis-scored target company jobs within this window
+
 def cmd_health_check():
     events = recent_log_events(hours=25)
 
@@ -192,6 +196,51 @@ def cmd_health_check():
             issues.append(f'  • [{e.get("event","?")}] {e.get("error", e.get("note", ""))}')
     if null_score:
         issues.append(f'INFO: {len(null_score)} jobs scored None (likely LLM timeout)')
+
+    # ── Sheet / queue health checks ──────────────────────────────────────
+    conn = db_connect()
+
+    # Sheet1 row count (approximate — same filter as sync_sheet.py)
+    sheet1_count = conn.execute('''
+        SELECT COUNT(*) FROM jobs
+        WHERE (dupe_of = '' OR dupe_of IS NULL)
+          AND (
+            relevance_score >= 5
+            OR stage IN ('manual_review', 'materials_drafted', 'applied',
+                         'interview', 'offer', 'withdrawn')
+            OR julianday('now') - julianday(created_at) <= 14
+          )
+    ''').fetchone()[0]
+    if sheet1_count > SHEET1_ROW_WARN:
+        issues.append(f'WARN: Sheet1 has ~{sheet1_count} rows (threshold: {SHEET1_ROW_WARN})')
+
+    # Manual review backlog
+    review_count = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE stage = 'manual_review'"
+    ).fetchone()[0]
+    if review_count > REVIEW_BACKLOG_WARN:
+        issues.append(f'WARN: {review_count} jobs in manual_review backlog (threshold: {REVIEW_BACKLOG_WARN})')
+
+    # Target company jobs scored 3-6 in the last N days (potential mis-scores worth reviewing).
+    # Score 1-2 are excluded — prefilter hard rejects or clear mismatches, not actionable.
+    from scorer_prefilter import TIER1
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=TARGET_LOWSCORE_DAYS)).isoformat()
+    low_target = conn.execute('''
+        SELECT title, company, relevance_score FROM jobs
+        WHERE relevance_score BETWEEN 3 AND 6
+          AND created_at >= ?
+          AND stage IN ('scored', 'manual_review')
+    ''', (cutoff,)).fetchall()
+    # Filter in Python since TIER1 check is a substring match
+    mis_scored = [(r['title'], r['company'], r['relevance_score'])
+                  for r in low_target
+                  if r['company'] and any(t in r['company'].lower() for t in TIER1)]
+    if mis_scored:
+        issues.append(f'REVIEW: {len(mis_scored)} target-company job(s) scored 3-6 in last {TARGET_LOWSCORE_DAYS}d:')
+        for title, company, score in mis_scored[:5]:
+            issues.append(f'  • {company}: {title} (score={score})')
+
+    conn.close()
 
     if not issues:
         body = 'All systems nominal.\nTriage ran. Poller ran. No errors in last 25h.'

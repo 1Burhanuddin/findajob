@@ -70,8 +70,8 @@ Before writing any command, path, binary call, or file location:
 <repo>/data/connections.csv                 # LinkedIn connections export (gitignored)
 <repo>/scripts/scorer_prefilter.py          # deterministic pre-filter (Stage 1 + 2)
 <repo>/scripts/triage.py                    # daily ingest → score → DB
-<repo>/scripts/poll_flags.py                # reads Dashboard!A2:C10000 (STATUS, REJECT_REASON, fingerprint)
-<repo>/scripts/sync_sheet.py                # SQLite → Sheet1 + Dashboard
+<repo>/scripts/poll_flags.py                # reads Dashboard + Review tabs (STATUS, REJECT_REASON, fingerprint)
+<repo>/scripts/sync_sheet.py                # SQLite → Sheet1 + Dashboard + Review
 <repo>/scripts/setup_sheets.py             # one-time sheet formatting (idempotent)
 <repo>/scripts/prep_application.py          # on-demand LLM material generation
 <repo>/scripts/find_contacts.py             # LinkedIn contact matching + outreach drafts
@@ -79,7 +79,8 @@ Before writing any command, path, binary call, or file location:
 <repo>/scripts/notify.py                    # ntfy push notifications (5 subcommands)
 <repo>/scripts/rename_folders.py            # rename company folders to new format (idempotent)
 <repo>/companies/                           # prep output folders ({Company}_{AbbrevTitle}_{date}_{time})
-<repo>/companies/_done/                     # applied/rejected/withdrawn folders
+<repo>/companies/_applied/                   # applied job folders
+<repo>/companies/_rejected/                  # rejected job folders (with marker files)
 <repo>/logs/pipeline.jsonl                  # structured event log
 <repo>/data/pipeline.db                     # feedback_log table: rejection history
 ```
@@ -135,20 +136,29 @@ return zero LinkedIn results. Validate each query manually before committing.
 
 ### Google Sheet Architecture
 
-**Sheet1** — full archive (all non-dupe jobs, A–N):
+**Sheet1** — filtered archive (A–N), archival filter:
+Jobs appear if: `score>=5` OR `stage in lifecycle stages` OR `age < 14 days` OR `target company`.
+Low-score old jobs from non-target companies stay in DB only.
 `fingerprint(hidden) | APPLY_FLAG(checkbox) | score | title | company | location | remote | stage | contacts | comp | notes | date | source | url`
 
 **Dashboard** — actionable queue (A–N), filter: `score>=7 AND stage IN (scored,manual_review)` OR `stage=materials_drafted`:
 `STATUS(dropdown) | REJECT_REASON(dropdown) | fingerprint(hidden) | fit_score | probability_score | relevance_score | title(hyperlink) | company | location | remote | contacts | comp | notes | date`
 
-**STATUS dropdown options** (col A): `Flag for Prep` → `Ready to Apply` → `Applied` → `Interviewing` → `Offer` → `Withdrew`
+**Review** — manual review triage (A–H), filter: `stage=manual_review`:
+`STATUS(dropdown:Promote) | REJECT_REASON(dropdown) | fingerprint(hidden) | title(hyperlink) | company | score_flag_reason | source | date`
+- `Promote` = `poll_flags.py` sets `score=7, stage=scored` → job appears on Dashboard
+- `REJECT_REASON` = same as Dashboard → `poll_flags.py` rejects the job
+
+**STATUS dropdown options** (Dashboard col A): `Flag for Prep` → `Ready to Apply` → `Applied` → `Interviewing` → `Offer` → `Withdrew`
 - `Flag for Prep` = user action → triggers `prep_application.py` via `poll_flags.py`
 - `Ready to Apply` = system-set when `stage=materials_drafted` (prep done, folder exists)
 - `Applied/Interviewing/Offer/Withdrew` = user action → `poll_flags.py` updates DB stage
 
-**REJECT_REASON dropdown** (col B): 11 options (includes "Low Fit Score") → `poll_flags.py` sets `stage=rejected`, writes `feedback_log`, moves folder to `companies/_done/`, triggers rclone bisync immediately.
+**REJECT_REASON dropdown** (col B): 11 options (includes "Low Fit Score") → `poll_flags.py` sets `stage=rejected`, writes `feedback_log`, moves folder to `companies/_rejected/`, triggers rclone sync immediately.
 
-**poll_flags.py** reads `Dashboard!A2:C10000`. Rejection takes priority over prep trigger.
+**poll_flags.py** reads `Dashboard!A2:C10000` and `Review!A2:C10000`. Rejection takes priority over prep/promote.
+
+**Health checks** (`notify.py health-check`): warns if Sheet1 > 1000 rows, manual_review backlog > 100, or any target-company job scored ≤4 in last 7 days.
 
 ---
 

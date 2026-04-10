@@ -220,26 +220,91 @@ def main():
                 'company': job['company'], 'url': job['url']
             })
 
+    # ── Review tab: manual_review triage ────────────────────────────────────
+    # Col A = STATUS (Promote / blank), Col B = REJECT_REASON, Col C = fingerprint
+    review_promoted = 0
+    review_rejected = 0
+    try:
+        review_result = svc.spreadsheets().values().get(
+            spreadsheetId=SHEET_ID, range='Review!A2:C10000'
+        ).execute()
+        review_rows = review_result.get('values', [])
+    except HttpError:
+        review_rows = []
+
+    for row in review_rows:
+        if len(row) < 3:
+            continue
+        status_val = row[0].strip()
+        reject_val = row[1].strip()
+        fp         = row[2].strip()
+        if not fp:
+            continue
+
+        job = conn.execute('''
+            SELECT id, title, company, url, stage, apply_flag, reject_reason, relevance_score
+            FROM jobs WHERE fingerprint = ?
+        ''', (fp,)).fetchone()
+        if not job or job['stage'] != 'manual_review':
+            continue
+
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Rejection takes priority
+        if reject_val:
+            if handle_rejection(conn, job, reject_val):
+                folders_moved += 1
+            review_rejected += 1
+            rejected_count += 1
+            continue
+
+        # Promote: set score=7, stage=scored → lands on Dashboard for Flag for Prep
+        if status_val == 'Promote':
+            conn.execute('''
+                UPDATE jobs SET relevance_score=7, stage='scored',
+                       score_status='promoted', score_flag_reason='Promoted from Review tab',
+                       stage_updated=?, updated_at=?
+                WHERE id=?
+            ''', (now, now, job['id']))
+            conn.commit()
+            write_audit(conn, job['id'], 'stage', 'manual_review', 'scored')
+            log_event('review_promoted', job_id=job['id'], company=job['company'],
+                      title=job['title'])
+            review_promoted += 1
+
+    if review_promoted or review_rejected:
+        log_event('poll_review', promoted=review_promoted, rejected=review_rejected)
+
     conn.close()
+
+    need_sync = False
 
     if rejected_count:
         log_event('poll_flags_rejections', count=rejected_count, folders_moved=folders_moved)
-        subprocess.Popen([sys.executable, f'{BASE}/scripts/sync_sheet.py'])
+        need_sync = True
 
     if applied_count:
         log_event('poll_flags_applied', count=applied_count, folders_moved=folders_moved)
+        need_sync = True
+
+    if review_promoted:
+        need_sync = True
+
+    if need_sync:
         subprocess.Popen([sys.executable, f'{BASE}/scripts/sync_sheet.py'])
 
-    # Trigger rclone bisync immediately if any folders were moved
+    # Trigger rclone sync immediately if any folders were moved
     if folders_moved:
         log_event('rclone_triggered', reason='folder_move', count=folders_moved)
         subprocess.Popen(RCLONE_CMD)  # fire-and-forget, don't block the poller
 
     if not flagged_jobs:
-        log_event('poll_flags', found=0, rejections=rejected_count)
+        log_event('poll_flags', found=0, rejections=rejected_count,
+                  review_promoted=review_promoted, review_rejected=review_rejected)
         return
 
     log_event('poll_flags', found=len(flagged_jobs), rejections=rejected_count,
+              review_promoted=review_promoted, review_rejected=review_rejected,
               jobs=[f"{j['company']} - {j['title']}" for j in flagged_jobs])
 
     # Trigger prep for each flagged job — fire-and-forget so the poller

@@ -85,9 +85,11 @@ def notify(message):
 
 def main():
     company, title, url, job_id = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+    # Sanitize company for filesystem safety (title already goes through abbrev_title)
+    safe_company = re.sub(r'[^\w\s\-&.,]', '_', company).strip()
     date = datetime.now().strftime('%Y-%m-%d')
     time_str = datetime.now().strftime('%H%M%S')
-    outdir = f'{BASE}/companies/{company}_{abbrev_title(title)}_{date}_{time_str}'
+    outdir = f'{BASE}/companies/{safe_company}_{abbrev_title(title)}_{date}_{time_str}'
     os.makedirs(outdir, exist_ok=True)
 
     log_event('prep_started', company=company, title=title, job_id=job_id)

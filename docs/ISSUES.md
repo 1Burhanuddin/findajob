@@ -14,12 +14,9 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   Google Drive folder names will show `_applied` and `_rejected` as top-level dirs.
   Confirm this is acceptable or update the Drive folder layout.
 
-- [ ] **3 jobs missing fit_score / probability_score** *(Low)*
-  Nscale Head of Infrastructure, Nscale Infrastructure Operations Manager, and
-  Tenstorrent Field Application Engineer had fit_analyst calls fail (DNS error) during
-  the 2026-04-10 regen batch. Resumes and cover letters are complete. Dashboard shows
-  blank fit/prob columns for these. Fix: re-run fit_analyst for these 3 jobs and update
-  the DB manually (or trigger a targeted re-prep).
+- [x] **3 jobs missing fit_score / probability_score** *(closed 2026-04-10)*
+  Nscale Infrastructure Operations Manager (80.8/72.3) and Tenstorrent Field Application
+  Engineer (77.2/77.7) confirmed populated. Issue resolved.
 
 - [ ] **Populate `company_signal` column in Google Sheet**
   The column exists in the schema (`config/scoring_schema.json` and Sheet) but is never written.
@@ -37,17 +34,72 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   pandoc geometry flags, font size adjustments in reference.docx, or tighter bullet count
   limits for roles with long bullets. Lower priority; user can trim manually.
 
-- [ ] **`cost_log` model name is hardcoded** *(Low)*
-  `triage.py:789` and `rescore_all.py:200` hardcode `'openrouter:deepseek/deepseek-v3.2'`
-  in the cost_log insert. If the scorer model is changed in `config/roles/job_scorer.md`,
-  the cost_log will silently report the wrong model. Fix: read the model from the role file
-  frontmatter or pass it through from the scorer.
+- [x] **`cost_log` model name is hardcoded** *(closed 2026-04-10)*
+  Added `_role_model('job_scorer')` helper in both `triage.py` and `rescore_all.py` that
+  reads the `model:` field from the role's YAML frontmatter at startup. `SCORER_MODEL`
+  constant replaces the hardcoded string in both cost_log inserts.
 
 - [ ] **Shared utility functions are duplicated** *(Low — refactor when convenient)*
   `load_env()`, `validate_llm_json()`, and `jd_is_usable()` are copy-pasted across
   `triage.py`, `rescore_all.py`, `prep_application.py`, and `find_contacts.py`.
   Fix: consolidate into `scripts/utils.py` (or extend `paths.py`). Not urgent — all copies
   are in sync — but creates a maintenance hazard when any one of them needs a change.
+
+- [ ] **`apply-reminder` notification should include daily checklist** *(Low)*
+  The motivational nudge (`notify.py apply-reminder`) is just a quip. Add a brief
+  daily task checklist after the quip to keep the workflow top-of-mind:
+  1. Review high-scoring matches on the Dashboard — Flag for Prep or Reject each one
+  2. Check "Ready to Apply" jobs — review generated materials, then Apply or Reject
+  3. Triage the Review tab — Promote promising jobs to Dashboard or Reject
+  4. Scan Sheet1 for any target-company jobs that may have been mis-scored
+  5. Check ntfy health notification for pipeline errors or warnings
+  Include real counts from the DB (e.g., "3 jobs awaiting review, 2 ready to apply,
+  47 in manual review") so the checklist is actionable, not generic.
+
+- [ ] **Review tab flooded with obvious mismatches — prefilter and scorer gaps**
+  374 `manual_review` jobs include titles like Chemist II, F-16 Aircraft Mechanic,
+  Care Coordinator, Clinical Research Coordinator, Adventure Readiness Specialist,
+  Community Association Manager. Two root causes:
+  **1. JSON parse failures (106 jobs):** Scorer returned malformed output → validation
+  failed → job landed in `manual_review` with no score. Many of these titles (Chemist,
+  Biomed Equip Tech, Care Coordinator) should have been hard-rejected by
+  `scorer_prefilter.py` Stage 1 before the LLM was ever called. The prefilter's regex
+  list needs expansion: add patterns for healthcare, aviation, chemical, construction
+  trades, property management, food service, and other clearly out-of-scope domains.
+  **2. Scorer-flagged edge cases (268 jobs):** The scorer couldn't determine fit and
+  punted to `manual_review`. Many are legitimate edge cases at target companies
+  (xAI AI Tutor, Tenstorrent CPU Architect, Meta Critical Operations Manager). But
+  some are obvious mismatches the scorer should have rejected outright (Assistant
+  Property Manager, Construction Safety Specialist). The scorer prompt may need
+  stronger guidance to reject rather than flag when the domain mismatch is clear.
+  **Fix approach:** (a) Expand `_HARD_REJECT_PATTERNS` in `scorer_prefilter.py` to
+  catch more obviously wrong titles before they hit the LLM. (b) Add a Stage 1.5
+  post-LLM-failure filter: if the LLM fails (JSON parse error) AND the title matches
+  expanded reject patterns, set `stage=rejected` instead of `manual_review`.
+  (c) Tune the scorer prompt to be more decisive — fewer `manual_review` flags,
+  more outright low scores for clear mismatches. Goal: Review tab should be <50 jobs,
+  all genuinely ambiguous.
+
+- [ ] **Drive folder state should stay consistent with DB stage at all times**
+  `poll_flags.py` currently handles two transitions: rejected → `_rejected/` and
+  applied → `_applied/`. But several gaps remain:
+  **1. Missing folder moves for later stages:** Interviewing, Offer, and Withdrew update
+  the DB stage but don't move the folder — it stays in `_applied/`. Should there be
+  `_interviewing/` or similar? Or is `_applied/` the final active location and only the
+  marker file changes? Needs a decision.
+  **2. No reconciliation:** If rclone fails silently, or a folder is manually moved on disk
+  or Drive, the DB `prep_folder_path` goes stale. Need a periodic reconciliation check
+  (e.g., in `notify.py health-check`) that verifies `prep_folder_path` exists for all
+  `materials_drafted`/`applied`/`interview` jobs and flags mismatches.
+  **3. No rclone failure detection:** `poll_flags.py` and `prep_application.py` fire rclone
+  with `check=False` / `Popen` (fire-and-forget). If the sync fails, no retry and no alert.
+  Fix: capture rclone exit code, log failures, and surface in health check.
+  **4. Reverse sync not supported:** Local is authoritative (`rclone sync` one-way push),
+  so Drive-side moves are overwritten. This is by design, but if the user manually
+  reorganizes folders on Drive, those changes are lost on next sync. Document this
+  as expected behavior, or add a pre-sync check that warns before clobbering.
+  Goal: any stage transition that has a folder should leave the filesystem, DB, and
+  Drive in a consistent state, with health checks to detect and alert on drift.
 
 ---
 
@@ -68,11 +120,11 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   verification. Post-fix: 0 HIGH violations across all 13 resumes. Added think-tag stripping
   for `:thinking` models.
 
-- [ ] **`score=None` on occasional jobs** *(Low)*
-  Some jobs log `score=None` in `pipeline.jsonl` (e.g. "AI Tutor - Telugu" 2026-04-07).
-  Likely scorer timeout or malformed LLM response — not a crash. No fallback or retry exists.
-  Investigate: add explicit `None` check in `triage.py` score extraction and log as `score_error` event.
-  A retry with backoff on timeout would be the full fix.
+- [x] **`score=None` on occasional jobs** *(closed 2026-04-10)*
+  `score_job()` now catches `TimeoutExpired` (was uncaught — would crash the loop iteration),
+  checks for non-zero exit / empty stdout, and logs distinct `score_error` events with
+  `reason=timeout|subprocess_failed|null_score`. All failure paths return a structured
+  `manual_review` dict instead of propagating exceptions.
 
 ---
 
@@ -87,6 +139,15 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 ---
 
 ## Completed
+
+- [x] **Sheet1 archival, Review tab, and health checks** *(closed 2026-04-10)*
+  Sheet1 now filters: only syncs jobs with `score>=5`, lifecycle stages, `<14d old`, or target
+  company. Low-score old jobs stay in DB only. New "Review" tab for `stage=manual_review` jobs
+  (374 remaining after bulk-rejecting 153 blank-company entries). Review tab has STATUS=Promote
+  (sets score=7, moves to Dashboard) and REJECT_REASON dropdowns. `poll_flags.py` reads both
+  Dashboard and Review tabs. `notify.py health-check` now warns on: Sheet1 > 1000 rows,
+  manual_review backlog > 100, target-company jobs scored ≤4 in last 7 days.
+  `setup_sheets.py` creates and formats the Review tab (dropdowns, hidden fingerprint, banding).
 
 - [x] **`_applied` / `_rejected` archive folder strategy** *(closed 2026-04-10)*
   Replaced single `_DONE` with `companies/_applied/` and `companies/_rejected/`.

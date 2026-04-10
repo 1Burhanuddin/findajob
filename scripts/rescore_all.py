@@ -5,7 +5,7 @@ Re-score all jobs in the DB that have JD text.
 Useful after switching scorer model or updating the job_scorer role prompt.
 Run manually — not a launchd agent.
 """
-import os, sys, json, subprocess, time
+import os, sys, json, sqlite3, subprocess, time
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -16,6 +16,24 @@ DB_PATH = f'{BASE}/data/pipeline.db'
 LOG_PATH = f'{BASE}/logs/pipeline.jsonl'
 SCHEMA_PATH = f'{BASE}/config/scoring_schema.json'
 PROFILE_PATH = f'{BASE}/config/profile.md'
+
+def _role_model(role_name):
+    """Read the model: field from a role's YAML frontmatter."""
+    role_path = f'{BASE}/config/roles/{role_name}.md'
+    try:
+        with open(role_path) as f:
+            in_front = False
+            for line in f:
+                if line.strip() == '---':
+                    in_front = not in_front
+                    continue
+                if in_front and line.startswith('model:'):
+                    return line.split(':', 1)[1].strip()
+    except OSError:
+        pass
+    return 'unknown'
+
+SCORER_MODEL = _role_model('job_scorer')
 
 def load_env(path):
     with open(os.path.expanduser(path)) as f:
@@ -80,6 +98,41 @@ def jd_is_usable(jd_text):
     lower = jd_text.lower()
     return not any(s in lower for s in _JD_WALL_SIGNALS)
 
+def _build_feedback_block():
+    """Query feedback_log and return a compact rejection-history block for the scorer prompt."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute('''
+            SELECT reject_reason, title, relevance_score
+            FROM feedback_log
+            WHERE reject_reason NOT IN ('Stale/Closed', 'Already Applied', 'Other')
+            ORDER BY reject_reason, title
+        ''').fetchall()
+        conn.close()
+    except Exception:
+        return ''
+    if not rows:
+        return ''
+    clusters = {}
+    for r in rows:
+        reason = r['reject_reason']
+        clusters.setdefault(reason, []).append(r['title'])
+    lines = ['', '---', '',
+             'USER REJECTION HISTORY (from manual feedback — weight heavily when scoring):']
+    for reason, titles in sorted(clusters.items(), key=lambda x: -len(x[1])):
+        unique = list(dict.fromkeys(titles))
+        sample = ', '.join(t[:40] for t in unique[:6])
+        if len(unique) > 6:
+            sample += f', ... (+{len(unique)-6} more)'
+        lines.append(f'- {len(unique)}x "{reason}": {sample}')
+    lines.append('If this job matches rejected patterns above, score it LOW (1-4). '
+                 'The user has explicitly rejected similar jobs.')
+    return '\n'.join(lines)
+
+_FEEDBACK_BLOCK = _build_feedback_block()
+
+
 def score_job(title, company, location, jd_text, candidate_profile=''):
     usable = jd_is_usable(jd_text)
 
@@ -94,6 +147,7 @@ def score_job(title, company, location, jd_text, candidate_profile=''):
     effective_jd = jd_text if usable else '[Job description unavailable — score from title and company only]'
     prompt = f"""CANDIDATE PROFILE:
 {candidate_profile}
+{_FEEDBACK_BLOCK}
 
 ---
 
@@ -201,8 +255,8 @@ def main():
 
         conn.execute('''
             INSERT INTO cost_log (job_id, operation, model, latency_ms, success)
-            VALUES (?, 'rescore', 'openrouter:deepseek/deepseek-v3.2', ?, 1)
-        ''', (job_id, latency_ms))
+            VALUES (?, 'rescore', ?, ?, 1)
+        ''', (job_id, SCORER_MODEL, latency_ms))
         conn.commit()
 
         score = scored.get('relevance_score')

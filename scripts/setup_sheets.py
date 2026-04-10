@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # ~/JobSearchPipeline/scripts/setup_sheets.py
 """
-One-time setup: formats Sheet1 and creates/formats the Sheet2 Dashboard tab.
+One-time setup: formats Sheet1, Dashboard, and Review tabs.
 Run after any sheet restructure. Safe to re-run — idempotent.
 
 Sheet1 layout (A–N):
@@ -20,19 +20,31 @@ Sheet1 layout (A–N):
   M: source
   N: url
 
-Dashboard layout (A–L):
+Dashboard layout (A–N):
   A: STATUS          (dropdown: Flag for Prep / Applied / Interviewing / Offer / Withdrew)
-  B: REJECT_REASON   (dropdown: 10 options)
+  B: REJECT_REASON   (dropdown: 11 options)
   C: fingerprint     (hidden — used by poll_flags.py)
-  D: relevance_score
-  E: title           (HYPERLINK formula — clickable)
-  F: company
-  G: location
-  H: remote_status   (color-coded: Remote=red, Hybrid=yellow, Onsite=green)
-  I: known_contacts  (amber when non-empty)
-  J: comp_estimate
-  K: ai_notes
-  L: date_found
+  D: fit_score       (0-100%, conditional color)
+  E: probability_score (0-100%, conditional color)
+  F: relevance_score
+  G: title           (HYPERLINK formula — clickable)
+  H: company
+  I: location
+  J: remote_status   (color-coded: Remote=red, Hybrid=yellow, Onsite=green)
+  K: known_contacts  (amber when non-empty)
+  L: comp_estimate
+  M: ai_notes
+  N: date_found
+
+Review layout (A–H):
+  A: STATUS          (dropdown: Promote)
+  B: REJECT_REASON   (dropdown: same as Dashboard)
+  C: fingerprint     (hidden — used by poll_flags.py)
+  D: title           (HYPERLINK formula — clickable)
+  E: company
+  F: score_flag_reason
+  G: source
+  H: date_found
 """
 import os, sys
 from googleapiclient.discovery import build
@@ -311,25 +323,41 @@ def main():
     sheets_meta = spreadsheet.get('sheets', [])
     sheets = {s['properties']['title']: s['properties']['sheetId'] for s in sheets_meta}
 
-    sheet1_id = sheets.get('Sheet1')
-    dash_id   = sheets.get('Dashboard')
+    sheet1_id  = sheets.get('Sheet1')
+    dash_id    = sheets.get('Dashboard')
+    review_id  = sheets.get('Review')
 
-    # ── Create Dashboard tab if missing ────────────────────────────────────
+    # ── Create missing tabs ────────────────────────────────────────────────
     init_requests = []
-    if dash_id is None:
+    create_dash = dash_id is None
+    create_review = review_id is None
+
+    if create_dash:
         init_requests.append({'addSheet': {'properties': {
             'title': 'Dashboard', 'index': 1,
-            'gridProperties': {'rowCount': 3000, 'columnCount': 12},
+            'gridProperties': {'rowCount': 3000, 'columnCount': 14},
+        }}})
+    if create_review:
+        init_requests.append({'addSheet': {'properties': {
+            'title': 'Review', 'index': 2,
+            'gridProperties': {'rowCount': 3000, 'columnCount': 8},
         }}})
 
     if init_requests:
         resp = svc.spreadsheets().batchUpdate(
             spreadsheetId=SHEET_ID, body={'requests': init_requests}
         ).execute()
-        dash_id = resp['replies'][0]['addSheet']['properties']['sheetId']
-        print('Created Dashboard tab.')
+        reply_idx = 0
+        if create_dash:
+            dash_id = resp['replies'][reply_idx]['addSheet']['properties']['sheetId']
+            print('Created Dashboard tab.')
+            reply_idx += 1
+        if create_review:
+            review_id = resp['replies'][reply_idx]['addSheet']['properties']['sheetId']
+            print('Created Review tab.')
+            reply_idx += 1
     else:
-        print('Dashboard tab already exists — re-applying formatting.')
+        print('Dashboard and Review tabs already exist — re-applying formatting.')
 
     # ── Sheet1 formatting ──────────────────────────────────────────────────
     s1_requests = [
@@ -477,14 +505,18 @@ def main():
 
     # ── Row banding (separate call — idempotent via delete+add) ───────────
     # Find and delete any existing banding on Dashboard, then re-add
-    dash_sheet = next(s for s in sheets_meta if s['properties']['sheetId'] == dash_id)
-    existing_banding = dash_sheet.get('bandedRanges', [])
+    # Re-fetch sheet metadata since we may have created new tabs
+    spreadsheet = svc.spreadsheets().get(spreadsheetId=SHEET_ID).execute()
+    sheets_meta = spreadsheet.get('sheets', [])
+
+    dash_sheet = next((s for s in sheets_meta if s['properties']['sheetId'] == dash_id), None)
+    existing_banding = dash_sheet.get('bandedRanges', []) if dash_sheet else []
     banding_requests = [{'deleteBanding': {'bandedRangeId': b['bandedRangeId']}}
                         for b in existing_banding]
     banding_requests.append({'addBanding': {
         'bandedRange': {
             'range': {'sheetId': dash_id, 'startRowIndex': 1,
-                      'startColumnIndex': 0, 'endColumnIndex': 12},
+                      'startColumnIndex': 0, 'endColumnIndex': 14},
             'rowProperties': {
                 'firstBandColor':  {'red': 1.0, 'green': 1.0, 'blue': 1.0},
                 'secondBandColor': rgb(245, 245, 248),
@@ -494,7 +526,113 @@ def main():
     svc.spreadsheets().batchUpdate(
         spreadsheetId=SHEET_ID, body={'requests': banding_requests}
     ).execute()
-    print('Row banding applied.')
+    print('Dashboard row banding applied.')
+
+    # ── Review tab formatting ─────────────────────────────────────────────
+    REVIEW_STATUS_OPTIONS = ['Promote']
+
+    review_requests = [
+        {'updateSheetProperties': {
+            'properties': {'sheetId': review_id,
+                           'gridProperties': {'frozenRowCount': 1}},
+            'fields': 'gridProperties.frozenRowCount',
+        }},
+        # Bold + dark header row
+        {'repeatCell': {
+            'range': {'sheetId': review_id, 'startRowIndex': 0, 'endRowIndex': 1,
+                      'startColumnIndex': 0, 'endColumnIndex': 8},
+            'cell': {'userEnteredFormat': {
+                'textFormat': {
+                    'bold': True,
+                    'foregroundColor': {'red': 1.0, 'green': 1.0, 'blue': 1.0},
+                },
+                'backgroundColor': {'red': 0.18, 'green': 0.18, 'blue': 0.18},
+            }},
+            'fields': 'userEnteredFormat(textFormat(bold,foregroundColor),backgroundColor)',
+        }},
+        # STATUS dropdown on col A (Promote only)
+        {'setDataValidation': {
+            'range': {'sheetId': review_id, 'startRowIndex': 1,
+                      'startColumnIndex': 0, 'endColumnIndex': 1},
+            'rule': {
+                'condition': {
+                    'type': 'ONE_OF_LIST',
+                    'values': [{'userEnteredValue': opt} for opt in REVIEW_STATUS_OPTIONS],
+                },
+                'showCustomUi': True,
+                'strict': False,
+            },
+        }},
+        # REJECT_REASON dropdown on col B (same options as Dashboard)
+        {'setDataValidation': {
+            'range': {'sheetId': review_id, 'startRowIndex': 1,
+                      'startColumnIndex': 1, 'endColumnIndex': 2},
+            'rule': {
+                'condition': {
+                    'type': 'ONE_OF_LIST',
+                    'values': [{'userEnteredValue': opt} for opt in REJECT_OPTIONS],
+                },
+                'showCustomUi': True,
+                'strict': False,
+            },
+        }},
+        # Hide col C (fingerprint)
+        {'updateDimensionProperties': {
+            'range': {'sheetId': review_id, 'dimension': 'COLUMNS',
+                      'startIndex': 2, 'endIndex': 3},
+            'properties': {'hiddenByUser': True},
+            'fields': 'hiddenByUser',
+        }},
+        # Column widths
+        col_width(review_id, 0, 100),   # A: STATUS
+        col_width(review_id, 1, 140),   # B: REJECT_REASON
+        col_width(review_id, 3, 280),   # D: title (hyperlink)
+        col_width(review_id, 4, 150),   # E: company
+        col_width(review_id, 5, 400),   # F: score_flag_reason
+        col_width(review_id, 6,  90),   # G: source
+        col_width(review_id, 7, 100),   # H: date_found
+    ]
+
+    # Conditional formatting: "Promote" highlights row blue
+    review_requests.append({'addConditionalFormatRule': {'index': 0, 'rule': {
+        'ranges': [{'sheetId': review_id, 'startRowIndex': 1,
+                    'startColumnIndex': 0, 'endColumnIndex': 8}],
+        'booleanRule': {
+            'condition': {
+                'type': 'CUSTOM_FORMULA',
+                'values': [{'userEnteredValue': '=$A2="Promote"'}],
+            },
+            'format': {'backgroundColor': rgb(208, 228, 250)},  # light blue
+        },
+    }}})
+
+    # Reject reason color on col B
+    review_requests += reject_cf_rules(review_id)
+
+    svc.spreadsheets().batchUpdate(
+        spreadsheetId=SHEET_ID, body={'requests': review_requests}
+    ).execute()
+    print('Review tab formatted.')
+
+    # Review tab row banding
+    review_sheet = next((s for s in sheets_meta if s['properties']['sheetId'] == review_id), None)
+    review_banding = review_sheet.get('bandedRanges', []) if review_sheet else []
+    rb_requests = [{'deleteBanding': {'bandedRangeId': b['bandedRangeId']}}
+                   for b in review_banding]
+    rb_requests.append({'addBanding': {
+        'bandedRange': {
+            'range': {'sheetId': review_id, 'startRowIndex': 1,
+                      'startColumnIndex': 0, 'endColumnIndex': 8},
+            'rowProperties': {
+                'firstBandColor':  {'red': 1.0, 'green': 1.0, 'blue': 1.0},
+                'secondBandColor': rgb(245, 245, 248),
+            },
+        },
+    }})
+    svc.spreadsheets().batchUpdate(
+        spreadsheetId=SHEET_ID, body={'requests': rb_requests}
+    ).execute()
+    print('Review row banding applied.')
 
     print()
     print('Done. Run sync_sheet.py to populate.')
