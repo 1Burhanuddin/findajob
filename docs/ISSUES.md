@@ -7,6 +7,20 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 
 ## Pipeline Enhancements
 
+- [ ] **`_applied` / `_rejected` archive folders need rclone target update** *(Low)*
+  `poll_flags.py` now moves folders to `companies/_applied/` and `companies/_rejected/`
+  instead of `_DONE`. The rclone bisync target (`gdrive:01 PROJECTS/Jobs To Apply For`)
+  covers the whole `companies/` directory, so syncing works automatically. But the
+  Google Drive folder names will show `_applied` and `_rejected` as top-level dirs.
+  Confirm this is acceptable or update the Drive folder layout.
+
+- [ ] **3 jobs missing fit_score / probability_score** *(Low)*
+  Nscale Head of Infrastructure, Nscale Infrastructure Operations Manager, and
+  Tenstorrent Field Application Engineer had fit_analyst calls fail (DNS error) during
+  the 2026-04-10 regen batch. Resumes and cover letters are complete. Dashboard shows
+  blank fit/prob columns for these. Fix: re-run fit_analyst for these 3 jobs and update
+  the DB manually (or trigger a targeted re-prep).
+
 - [ ] **Populate `company_signal` column in Google Sheet**
   The column exists in the schema (`config/scoring_schema.json` and Sheet) but is never written.
   Candidate approach: extract signal from `company_researcher` (Perplexity) output during
@@ -74,6 +88,43 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 
 ## Completed
 
+- [x] **`_applied` / `_rejected` archive folder strategy** *(closed 2026-04-10)*
+  Replaced single `_DONE` with `companies/_applied/` and `companies/_rejected/`.
+  Rejections drop a `REJECTED_{reason}_{date}.txt` marker file for historical context.
+  `poll_flags.py` updated; existing `_DONE` contents migrated; DB paths corrected.
+
+- [x] **Dashboard flooded with 527 null-score `manual_review` jobs** *(closed 2026-04-10)*
+  Prior fix added `OR (stage='manual_review' AND relevance_score IS NULL)` to catch scorer-timeout
+  jobs. But 527 jobs (scorer failures + "missing JD" flags) matched, flooding the dashboard.
+  Fix: removed that OR clause. High-scoring manual_review jobs (score>=7) still appear via the
+  first condition. Null-score scorer-timeout jobs stay invisible — acceptable vs. flooding the queue.
+
+- [x] **Dashboard sync to companies folder state** *(closed 2026-04-10)*
+  `sync_sheet.py` now skips `materials_drafted` jobs whose `prep_folder_path` no longer exists
+  on disk (e.g. moved to `_applied`/`_rejected` without a DB update). Prevents stale dashboard rows.
+
+- [x] **`<think>` tag leakage from Claude `:thinking` models** *(closed 2026-04-10)*
+  `aichat-ng` includes thinking tokens in stdout. Fixed: `aichat()` in `prep_application.py`
+  strips all `<think>...</think>` blocks via regex after every call.
+
+- [x] **Fit analysis added to company briefing** *(closed 2026-04-10)*
+  New `fit_analyst` role (perplexity:sonar-reasoning-pro): 6-dim fit matrix + 3-dim
+  probability assessment, 0-100% scale. Scores stored in DB and surfaced in Dashboard
+  (cols D/E) with conditional formatting (red <40%, yellow 40-69%, green ≥70%).
+
+- [x] **Pipeline reordered: briefing-first** *(closed 2026-04-10)*
+  Company briefing now runs as Step 2 (before resume and cover letter). Resume and cover
+  letter both receive `briefing[:3000]` as context. No extra LLM calls — same steps,
+  better output quality for all downstream documents.
+
+- [x] **Resume formatting and output rules overhaul** *(closed 2026-04-10)*
+  resume_tailor role rewritten: name "Daniel Brock" enforced, em dash prohibition,
+  middle-dot heading format, contract notation for TigerDC/Philly DA/Vytalize,
+  LAVM cert "pending 2026", 2-page limit, Meta/Facebook restored, Forty Hertz italic note.
+  cover_letter_writer: contact line from profile (no hardcoded PII), em dash prohibition.
+  briefing_writer: emoji section headings, stories from master resume.
+  validate_resume.py: em dash and name checks added.
+
 - [x] **`prep_application.py` rclone used `--create-empty-src-dirs`** *(closed 2026-04-09)*
   Same flag that was broken in `poll_flags.py` — also existed in `prep_application.py:237`.
   The apt-installed rclone version doesn't support this flag for bisync.
@@ -96,11 +147,11 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   Running rescore would reset their stage to 'scored' or 'manual_review', corrupting
   pipeline state. Added `AND stage IN ('scored', 'manual_review', 'enriched')` filter.
 
-- [x] **Dashboard invisible to `manual_review` jobs with NULL relevance_score** *(closed 2026-04-09)*
-  Dashboard query: `relevance_score >= 7 AND stage IN ('scored', 'manual_review')`.
-  SQLite NULL comparison returns NULL (falsy), so jobs where the scorer timed out or
-  returned invalid JSON (stage='manual_review', relevance_score=NULL) never appeared
-  on Dashboard and couldn't be actioned by a human. Added OR clause for NULL-score manual_review.
+- [x] **Dashboard flooded with 527 null-score `manual_review` jobs** *(closed 2026-04-10)*
+  Prior fix added `OR (stage='manual_review' AND relevance_score IS NULL)` to catch scorer-timeout
+  jobs. But 527 jobs (scorer failures + "missing JD" flags) matched, flooding the dashboard.
+  Fix: removed that OR clause. High-scoring manual_review jobs (score>=7) still appear via the
+  first condition. Null-score scorer-timeout jobs stay invisible — acceptable vs. flooding the queue.
 
 - [x] **`audit_log` missing index on `job_id`** *(closed 2026-04-09)*
   `init_db.py` had no index on `audit_log(job_id)`. Added `CREATE INDEX IF NOT EXISTS`.

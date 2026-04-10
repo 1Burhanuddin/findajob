@@ -8,6 +8,7 @@ Sync SQLite → Google Sheets.
 """
 import os, sys, sqlite3
 from googleapiclient.discovery import build
+from pathlib import Path
 from google.oauth2 import service_account
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -137,7 +138,6 @@ def sync_dashboard(svc, conn):
         WHERE (dupe_of = '' OR dupe_of IS NULL)
           AND (
             (relevance_score >= 7 AND stage IN ('scored', 'manual_review'))
-            OR (stage = 'manual_review' AND relevance_score IS NULL)
             OR stage = 'materials_drafted'
           )
         ORDER BY
@@ -149,6 +149,12 @@ def sync_dashboard(svc, conn):
     sheet_rows = [DASH_HEADERS]
     for row in rows:
         fp = row['fingerprint']
+        # Skip materials_drafted jobs whose folder no longer exists on disk
+        # (moved to _applied/_rejected without DB update, or manually deleted)
+        if row['stage'] == 'materials_drafted':
+            folder = row['prep_folder_path']
+            if not folder or not Path(folder).is_dir():
+                continue
         # Prefer the value the user set in the sheet (not yet polled) over the DB state
         if fp in pending_statuses:
             status_override = pending_statuses[fp]
