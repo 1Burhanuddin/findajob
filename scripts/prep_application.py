@@ -303,9 +303,9 @@ Generated: {date}
     log_event('prep_complete', company=company, title=title, folder=outdir)
     notify(f"Drafts ready: {company} — {title}\n{outdir}")
 
-    # ── Sync companies/ to Google Drive (bisync, both directions) ──
+    # ── Sync companies/ to Google Drive ──
     subprocess.run([
-        RCLONE, 'bisync',
+        RCLONE, 'sync',
         f'{BASE}/companies/', 'gdrive:01 PROJECTS/Jobs To Apply For',
     ], check=False)
 

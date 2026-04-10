@@ -53,7 +53,7 @@ def write_audit(conn, job_id, field_changed, old_value, new_value):
     conn.commit()
 
 RCLONE_CMD = [
-    RCLONE, 'bisync',
+    RCLONE, 'sync',
     f'{BASE}/companies/',
     'gdrive:01 PROJECTS/Jobs To Apply For',
 ]
