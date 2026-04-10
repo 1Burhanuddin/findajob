@@ -7,22 +7,13 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 
 ## Pipeline Bugs (from 2026-04-10 triage run)
 
-- [ ] **Gmail digest emails ingested as jobs — "Jobs similar to" / "Jobs at" / "Jobs in"**
-  LinkedIn sends recommendation digest emails with subjects like "Jobs similar to
-  Data Center Manager at Zenlayer". The gmail parser extracts these as job listings with
-  `title="Jobs similar to"` and `company="Data Center Facility Manager, Data Center
-  Community at Amazon Web Services (AWS)"` (title/company swapped). 12 of these exist in
-  the DB. One scored **8** because the company field contained the actual job title + a
-  Tier 1 company name. Fix: add pattern filter in the gmail parser to reject subjects
-  matching `^Jobs (similar to|at |in )` before they enter the pipeline.
+- [x] **Gmail digest emails ingested as jobs** *(closed 2026-04-10)*
+  Added `startswith()` filter in `parse_jobs_from_email()` for "Jobs similar to/at/in"
+  digest subject lines. Rejected 12 existing fake jobs in DB.
 
-- [ ] **Blank-company gmail_linkedin jobs keep entering DB**
-  8 new blank-company `gmail_linkedin` jobs this run despite bulk-rejecting 153 earlier.
-  Company enrichment via LinkedIn API is failing for these — `_linkedin_company` comes back
-  empty. They get scored without company context (lower, inaccurate scores) and clutter
-  Sheet1. Fix options: (a) skip ingestion entirely when company is blank after enrichment
-  attempt, (b) route blank-company jobs directly to `manual_review` instead of scoring,
-  (c) retry enrichment with a different API call.
+- [x] **Blank-company gmail_linkedin jobs keep entering DB** *(closed 2026-04-10)*
+  `triage.py` now auto-rejects gmail_linkedin jobs with unresolvable company immediately
+  after enrichment attempt. Row stays in DB with `reject_reason='Blank Company'`.
 
 - [ ] **Duplicate jobs with and without company — fingerprint gap**
   "Critical Environment Operations Manager" exists twice: `company=Microsoft` (score 8)
@@ -32,13 +23,9 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   company) for `gmail_linkedin` jobs, or dedup at scoring time by checking if a
   higher-scored version of the same title already exists.
 
-- [ ] **Feedback block may over-correct scorer — zero 9-10 scores** *(monitor)*
-  First run with feedback injection: zero score 9-10 jobs (prior runs regularly had 9s).
-  The 4 high scorers topped out at 8. The instruction "score it LOW (1-4)" may be globally
-  dampening scores, not just for matching patterns. Also caused one score of -1 (below
-  schema min=1), which our error handling caught. Fix: soften the instruction to "reduce
-  your score by 2-3 points for matching patterns" and add "minimum score is always 1" to
-  prevent schema violations. Monitor next 2-3 runs before adjusting further.
+- [x] **Feedback block over-correction — zero 9-10 scores** *(closed 2026-04-10)*
+  Softened instruction: "score it LOW (1-4)" → "reduce by 2-3 points"; "weight heavily" →
+  "consider"; added "Minimum score is always 1" guard. Monitor next 2-3 runs.
 
 - [ ] **`sync_sheet.py` has no log confirmation**
   Called inline by `triage.py` with `subprocess.run(check=False)`. If it fails, there is
@@ -46,12 +33,12 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   the end of `sync_sheet.py` with row counts for each tab. Surface sync failures in
   `notify.py health-check`.
 
-- [ ] **15 LinkedIn JD missing every gmail run** *(investigate)*
-  Every `gmail_linkedin` job this run logged `linkedin_jd_missing`. The LinkedIn API
-  enrichment for JD text appears to be failing across the board for gmail-sourced jobs.
-  All 4 new high-scoring jobs were scored on title + company only ("JD is absent" in
-  ai_notes). Scoring without JD is inherently less accurate. Investigate: is the API
-  returning empty, or is the `api_id` extraction from gmail URLs broken?
+- [x] **LinkedIn JD missing for all gmail jobs** *(closed 2026-04-10)*
+  Root cause: `extract_linkedin_job_id()` regex matched `linkedin.com/jobs/view/(\d+)`
+  but gmail emails use `linkedin.com/comm/jobs/view/` URLs. The `/comm/` path segment
+  was never matched → `api_id` always empty → every gmail_linkedin job scored without JD.
+  Fix: regex now `linkedin\.com/(?:comm/)?jobs/view/(\d+)`. 353 existing jobs are
+  backfillable. Next triage run will fetch JDs correctly for new gmail jobs.
 
 ---
 
@@ -106,29 +93,14 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   Include real counts from the DB (e.g., "3 jobs awaiting review, 2 ready to apply,
   47 in manual review") so the checklist is actionable, not generic.
 
-- [ ] **Review tab flooded with obvious mismatches — prefilter and scorer gaps**
-  374 `manual_review` jobs include titles like Chemist II, F-16 Aircraft Mechanic,
-  Care Coordinator, Clinical Research Coordinator, Adventure Readiness Specialist,
-  Community Association Manager. Two root causes:
-  **1. JSON parse failures (106 jobs):** Scorer returned malformed output → validation
-  failed → job landed in `manual_review` with no score. Many of these titles (Chemist,
-  Biomed Equip Tech, Care Coordinator) should have been hard-rejected by
-  `scorer_prefilter.py` Stage 1 before the LLM was ever called. The prefilter's regex
-  list needs expansion: add patterns for healthcare, aviation, chemical, construction
-  trades, property management, food service, and other clearly out-of-scope domains.
-  **2. Scorer-flagged edge cases (268 jobs):** The scorer couldn't determine fit and
-  punted to `manual_review`. Many are legitimate edge cases at target companies
-  (xAI AI Tutor, Tenstorrent CPU Architect, Meta Critical Operations Manager). But
-  some are obvious mismatches the scorer should have rejected outright (Assistant
-  Property Manager, Construction Safety Specialist). The scorer prompt may need
-  stronger guidance to reject rather than flag when the domain mismatch is clear.
-  **Fix approach:** (a) Expand `_HARD_REJECT_PATTERNS` in `scorer_prefilter.py` to
-  catch more obviously wrong titles before they hit the LLM. (b) Add a Stage 1.5
-  post-LLM-failure filter: if the LLM fails (JSON parse error) AND the title matches
-  expanded reject patterns, set `stage=rejected` instead of `manual_review`.
-  (c) Tune the scorer prompt to be more decisive — fewer `manual_review` flags,
-  more outright low scores for clear mismatches. Goal: Review tab should be <50 jobs,
-  all genuinely ambiguous.
+- [x] **Review tab flooded with obvious mismatches — prefilter expansion** *(closed 2026-04-10)*
+  Expanded `_HARD_REJECT_PATTERNS` with ~40 new patterns across 12 categories (healthcare,
+  construction, AV/events, food service, manufacturing, etc.). Added `_DC_CONTEXT_RE`
+  override so titles containing "data center" aren't false-positive rejected. Added
+  Stage 1.5 post-LLM-failure filter: if scorer JSON parse fails AND title matches
+  hard-reject pattern, auto-score 1 instead of manual_review. 78 of 374 manual_review
+  jobs would now be caught. Remaining ~296 are mostly legitimate DC jobs with missing JDs
+  or genuinely ambiguous Tier 1 edge cases.
 
 - [ ] **Drive folder state should stay consistent with DB stage at all times**
   `poll_flags.py` currently handles two transitions: rejected → `_rejected/` and
@@ -189,6 +161,13 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 ---
 
 ## Completed
+
+- [x] **Poller systemd service failing — KillMode** *(closed 2026-04-10)*
+  `findajob-poller.service` was `Type=oneshot` with default `KillMode=control-group`.
+  Popen children (sync_sheet.py, prep_application.py) were killed when the main process
+  exited, causing service timeout and failed state. "Flag for Prep" actions were silently
+  ignored for 30+ min. Fix: added `KillMode=process` and `TimeoutStartSec=120` to poller
+  service, same for triage service. Config-only fix (systemd unit files, not in repo).
 
 - [x] **Sheet1 archival, Review tab, and health checks** *(closed 2026-04-10)*
   Sheet1 now filters: only syncs jobs with `score>=5`, lifecycle stages, `<14d old`, or target

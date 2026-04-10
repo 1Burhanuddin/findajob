@@ -194,8 +194,8 @@ def fetch_linkedin_job_data(job_id):
         return {'description': None, 'company': None}
 
 # Regex to extract numeric LinkedIn job ID from job URLs
-# Matches: linkedin.com/jobs/view/1234567890 and variants
-_LINKEDIN_JOB_ID_RE = re.compile(r'linkedin\.com/jobs/view/(\d+)', re.IGNORECASE)
+# Matches: linkedin.com/jobs/view/1234567890 and linkedin.com/comm/jobs/view/1234567890
+_LINKEDIN_JOB_ID_RE = re.compile(r'linkedin\.com/(?:comm/)?jobs/view/(\d+)', re.IGNORECASE)
 
 def extract_linkedin_job_id(url):
     """Extract numeric job ID from a LinkedIn job URL. Returns str or None."""
