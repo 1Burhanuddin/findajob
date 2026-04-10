@@ -5,6 +5,56 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 
 ---
 
+## Pipeline Bugs (from 2026-04-10 triage run)
+
+- [ ] **Gmail digest emails ingested as jobs — "Jobs similar to" / "Jobs at" / "Jobs in"**
+  LinkedIn sends recommendation digest emails with subjects like "Jobs similar to
+  Data Center Manager at Zenlayer". The gmail parser extracts these as job listings with
+  `title="Jobs similar to"` and `company="Data Center Facility Manager, Data Center
+  Community at Amazon Web Services (AWS)"` (title/company swapped). 12 of these exist in
+  the DB. One scored **8** because the company field contained the actual job title + a
+  Tier 1 company name. Fix: add pattern filter in the gmail parser to reject subjects
+  matching `^Jobs (similar to|at |in )` before they enter the pipeline.
+
+- [ ] **Blank-company gmail_linkedin jobs keep entering DB**
+  8 new blank-company `gmail_linkedin` jobs this run despite bulk-rejecting 153 earlier.
+  Company enrichment via LinkedIn API is failing for these — `_linkedin_company` comes back
+  empty. They get scored without company context (lower, inaccurate scores) and clutter
+  Sheet1. Fix options: (a) skip ingestion entirely when company is blank after enrichment
+  attempt, (b) route blank-company jobs directly to `manual_review` instead of scoring,
+  (c) retry enrichment with a different API call.
+
+- [ ] **Duplicate jobs with and without company — fingerprint gap**
+  "Critical Environment Operations Manager" exists twice: `company=Microsoft` (score 8)
+  and `company=""` (score 5). Same for "Senior Manager, Data Center Operations, JoinOCI"
+  (Oracle vs blank). Fingerprint includes company, so blank-company and resolved-company
+  copies don't dedup. Fix: add a secondary dedup pass on `title + location` (ignoring
+  company) for `gmail_linkedin` jobs, or dedup at scoring time by checking if a
+  higher-scored version of the same title already exists.
+
+- [ ] **Feedback block may over-correct scorer — zero 9-10 scores** *(monitor)*
+  First run with feedback injection: zero score 9-10 jobs (prior runs regularly had 9s).
+  The 4 high scorers topped out at 8. The instruction "score it LOW (1-4)" may be globally
+  dampening scores, not just for matching patterns. Also caused one score of -1 (below
+  schema min=1), which our error handling caught. Fix: soften the instruction to "reduce
+  your score by 2-3 points for matching patterns" and add "minimum score is always 1" to
+  prevent schema violations. Monitor next 2-3 runs before adjusting further.
+
+- [ ] **`sync_sheet.py` has no log confirmation**
+  Called inline by `triage.py` with `subprocess.run(check=False)`. If it fails, there is
+  no `pipeline.jsonl` event and no alert. Fix: add a `log_event('sync_complete', ...)` at
+  the end of `sync_sheet.py` with row counts for each tab. Surface sync failures in
+  `notify.py health-check`.
+
+- [ ] **15 LinkedIn JD missing every gmail run** *(investigate)*
+  Every `gmail_linkedin` job this run logged `linkedin_jd_missing`. The LinkedIn API
+  enrichment for JD text appears to be failing across the board for gmail-sourced jobs.
+  All 4 new high-scoring jobs were scored on title + company only ("JD is absent" in
+  ai_notes). Scoring without JD is inherently less accurate. Investigate: is the API
+  returning empty, or is the `api_id` extraction from gmail URLs broken?
+
+---
+
 ## Pipeline Enhancements
 
 - [ ] **`_applied` / `_rejected` archive folders need rclone target update** *(Low)*

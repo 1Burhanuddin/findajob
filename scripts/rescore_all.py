@@ -119,15 +119,15 @@ def _build_feedback_block():
         reason = r['reject_reason']
         clusters.setdefault(reason, []).append(r['title'])
     lines = ['', '---', '',
-             'USER REJECTION HISTORY (from manual feedback — weight heavily when scoring):']
+             'USER REJECTION HISTORY (from manual feedback — consider when scoring similar jobs):']
     for reason, titles in sorted(clusters.items(), key=lambda x: -len(x[1])):
         unique = list(dict.fromkeys(titles))
         sample = ', '.join(t[:40] for t in unique[:6])
         if len(unique) > 6:
             sample += f', ... (+{len(unique)-6} more)'
         lines.append(f'- {len(unique)}x "{reason}": {sample}')
-    lines.append('If this job matches rejected patterns above, score it LOW (1-4). '
-                 'The user has explicitly rejected similar jobs.')
+    lines.append('If this job closely matches rejected patterns above, reduce your score by 2-3 points. '
+                 'The user has explicitly rejected similar jobs. Minimum score is always 1.')
     return '\n'.join(lines)
 
 _FEEDBACK_BLOCK = _build_feedback_block()
@@ -167,6 +167,20 @@ JD:
     parsed, error = validate_llm_json(result.stdout, SCHEMA_PATH)
     if error:
         log_event('rescore_validation_failed', error=error, title=title, company=company)
+        # Stage 1.5: if LLM failed AND title matches a hard reject pattern, auto-reject
+        from scorer_prefilter import _hard_reject_match
+        if _hard_reject_match(title):
+            return {
+                'score_status': 'scored',
+                'score_flag_reason': f'Validation: {error}',
+                'relevance_score': 1,
+                'interview_likelihood': 1,
+                'strengths_alignment': 'LLM failed + title is outside candidate domain.',
+                'industry_sector': '',
+                'comp_estimate': '',
+                'ai_notes': f'LLM validation failed; hard-reject title pattern matched',
+                'remote_status': 'Unknown',
+            }, latency_ms
         return {
             'score_status': 'manual_review',
             'score_flag_reason': f'Validation: {error}',

@@ -102,12 +102,17 @@ _HARD_REJECT_PATTERNS = [
 
     # Healthcare / life sciences
     r'\bnurs(e|ing)\b',
-    r'\bclinical\s+(manager|director|lead|specialist|coordinator|trial)\b',
+    r'\bclinical\s+(manager|director|lead|specialist|coordinator|trial|research|lab)\b',
     r'\bpatient\s+care\b',
     r'\bhealthcare\s+(manager|administrator|coordinator)\b',
     r'\bpharmaceut',
     r'\bbiotech\b',
     r'\blife\s+sciences\s+(manager|director|lead)\b',
+    r'\bphlebotom',
+    r'\bbiomedical?\s+(equip|tech)',
+    r'\blab\s+scientist\b',
+    r'\bcare\s+(coordinator|at\s+home)\b',
+    r'\bnephrology\b',
 
     # Finance / legal / HR / admin
     r'\bfinancial\s+(analyst|advisor|planner|controller)\b',
@@ -118,6 +123,95 @@ _HARD_REJECT_PATTERNS = [
     r'\btalent\s+acquisition\b',
     r'\brecruiter\b',
     r'\bmarketing\s+manager\b',
+    r'\bfp&?a\s+(manager|analyst|director)\b',
+    r'\b(senior\s+)?gl\s+accountant\b',
+    r'\bpayroll\s+(manager|operations|specialist)\b',
+    r'\breal\s+estate\s+operations\s+accountant\b',
+
+    # Construction / trades
+    r'\bconstruction\s+(manager|safety|specialist)\b',
+    r'\bmep\s+superintendent\b',
+    r'\bcrane\b.*\b(supt|superintendent)\b',
+    r'\brigging\s+(supt|superintendent)\b',
+    r'\bgeneral\s+superintendent\b',
+    r'\bsite\s+superintendent\b',
+    r'\bsurvey\s+technician\b',
+    r'\bsignal\s+engineer\b',
+
+    # Aviation / military hardware
+    r'\baircraft\s+mechanic\b',
+    r'\bf-\d+\b',
+
+    # AV / events
+    r'\bevent\s+techni(cian|cal)\b',
+    r'\baudio\s+visual\b',
+    r'\bevent\s+tech\s',
+    r'\bdirector\s+event\s+tech\b',
+
+    # Food service / culinary
+    r'\bschool\s+nutrition\b',
+    r'\bculinary\b',
+    r'\b(lead\s+)?cook\b',
+    r'\bfood\s+service\b',
+    r'\bchef\b',
+
+    # Landscaping / groundskeeping
+    r'\blandscap(e|ing)\b',
+    r'\blawn\b',
+
+    # Property management
+    r'\bproperty\s+manager\b',
+    r'\bcommunity\s+association\b',
+
+    # Chemical
+    r'\bchemist\b',
+
+    # Manufacturing / production / plant (non-DC)
+    r'\bproduction\s+(buyer|planner|engineer)\b',
+    r'\bplant\s+(manager|maintenance)\b',
+    r'\bmanufacturing\s+(engineer|manager|operations)\b',
+
+    # Transportation / warehouse / logistics expansions
+    r'\btransportation\s+coordinator\b',
+    r'\bhauling\b',
+    r'\blogistics\s+(analyst|associate)\b',
+    r'\bwarehouse\s+manager\b',
+    r'\bfulfillment\s+operations\b',
+
+    # Childcare / education
+    r'\bchildcare\b',
+    r'\bdaycare\b',
+    r'\bstipend\b.*\bsite\s+supervisor\b',
+
+    # Digital signage
+    r'\bdigital\s+signage\b',
+
+    # Salesperson / GTM
+    r'\bsalesperson\b',
+    r'\bsales\s+lead\b',
+
+    # Systems admin (not DC ops)
+    r'\bsystems\s+administrator\b',
+
+    # Storage / SRE / DevOps (pure software roles)
+    r'\bstorage\s+engineer\b',
+    r'\bsite\s+reliability\s+engineer\b',
+    r'\bdevops\s+engineer\b',
+    r'\bkernel\s+engineer\b',
+
+    # Data engineering / BI (not DC)
+    r'\bdata\s+engineer\b',
+    r'\bbusiness\s+intelligence\s+(developer|analyst)\b',
+    r'\bdata\s+strategist\b',
+
+    # General manager / maintenance tech (DC override prevents false positives)
+    r'\bgeneral\s+manager\b',
+    r'\bmaintenance\s+technician\b',
+
+    # Generic junk / non-job entries
+    r'^manage\s+job\s+alerts?\b',
+    r'^your\s+job\s+alert\s+for\b',
+    r'\bjoin\s+our\s+talent\s+network\b',
 
     # Facilities (no DC scope in title)
     r'\bcustodial\b',
@@ -127,6 +221,7 @@ _HARD_REJECT_PATTERNS = [
     r'\bbuilding\s+manager\b',
     r'\bworkplace\s+services\s+manager\b',
     r'\boffice\s+manager\b',
+    r'\bworkplace\s+manager\b',
 ]
 
 _HARD_REJECT_RE = re.compile(
@@ -134,10 +229,21 @@ _HARD_REJECT_RE = re.compile(
     re.IGNORECASE,
 )
 
+# If title contains DC context, suppress the hard reject — the job may be in-domain
+_DC_CONTEXT_RE = re.compile(
+    r'\bdata\s*center\b|\bdatacenter\b|\bdc\s+(ops|operations|site)\b',
+    re.IGNORECASE,
+)
+
 def _hard_reject_match(title: str):
     """Return the matched pattern string, or None."""
     m = _HARD_REJECT_RE.search(title)
-    return m.group(0).strip() if m else None
+    if not m:
+        return None
+    # Don't reject if the title also contains data center context
+    if _DC_CONTEXT_RE.search(title):
+        return None
+    return m.group(0).strip()
 
 
 # ── Stage 2: In-domain title patterns ─────────────────────────────────────────

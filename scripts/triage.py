@@ -338,7 +338,7 @@ def _build_feedback_block():
         clusters.setdefault(reason, []).append(r['title'])
 
     lines = ['', '---', '',
-             'USER REJECTION HISTORY (from manual feedback — weight heavily when scoring):']
+             'USER REJECTION HISTORY (from manual feedback — consider when scoring similar jobs):']
     for reason, titles in sorted(clusters.items(), key=lambda x: -len(x[1])):
         # Dedupe and truncate title list
         unique = list(dict.fromkeys(titles))
@@ -347,8 +347,8 @@ def _build_feedback_block():
             sample += f', ... (+{len(unique)-6} more)'
         lines.append(f'- {len(unique)}x "{reason}": {sample}')
 
-    lines.append('If this job matches rejected patterns above, score it LOW (1-4). '
-                 'The user has explicitly rejected similar jobs.')
+    lines.append('If this job closely matches rejected patterns above, reduce your score by 2-3 points. '
+                 'The user has explicitly rejected similar jobs. Minimum score is always 1.')
     return '\n'.join(lines)
 
 # Cache feedback block at module load — rebuilt each triage run
@@ -421,6 +421,21 @@ JD:
 
     if error:
         log_event('score_validation_failed', error=error, title=title, company=company)
+        # Stage 1.5: if LLM failed AND title matches a hard reject pattern, auto-reject
+        # instead of cluttering the manual_review queue with obvious mismatches
+        from scorer_prefilter import _hard_reject_match
+        if _hard_reject_match(title):
+            return {
+                'score_status': 'scored',
+                'score_flag_reason': f'Validation: {error}',
+                'relevance_score': 1,
+                'interview_likelihood': 1,
+                'strengths_alignment': 'LLM failed + title is outside candidate domain.',
+                'industry_sector': '',
+                'comp_estimate': '',
+                'ai_notes': f'LLM validation failed; hard-reject title pattern matched',
+                'remote_status': 'Unknown',
+            }, latency_ms
         return {
             'score_status': 'manual_review',
             'score_flag_reason': f'Validation: {error}',
@@ -686,6 +701,12 @@ def parse_jobs_from_email(msg):
 
         if not title or len(title) < 6 or title.lower() in SKIP_LABELS:
             continue
+        # Skip LinkedIn digest subject lines misread as job titles
+        title_lower = title.lower()
+        if (title_lower.startswith('jobs similar to') or
+                title_lower.startswith('jobs at ') or
+                title_lower.startswith('jobs in ')):
+            continue
         if href in seen_urls:
             continue
         if len(title) > 140:
@@ -849,6 +870,18 @@ def main():
                 conn.execute('UPDATE jobs SET company=? WHERE id=?',
                              (job['company'], job_id))
                 conn.commit()
+            else:
+                # Company unresolvable — reject immediately, don't waste a scorer call
+                conn.execute('''
+                    UPDATE jobs SET stage='rejected', stage_updated=?, status='rejected',
+                           reject_reason='Blank Company', updated_at=?
+                    WHERE id=?
+                ''', (now, now, job_id))
+                conn.commit()
+                write_audit(conn, job_id, 'stage', 'discovered', 'rejected')
+                log_event('blank_company_rejected', job_id=job_id, title=job['title'],
+                          source='gmail_linkedin')
+                continue
 
         contacts = find_contacts(job.get('company', ''))
         network_depth = min(len(contacts), 2)
