@@ -186,14 +186,22 @@ clients:
       - name: gemini-embedding-001
         max_input_tokens: 2048
 
-roles_dir: ~/findajob/config/roles
-
 rag_embedding_model: gemini-embed:gemini-embedding-001
 EOF
     warn "  aichat-ng config created at ${aichat_dir}/config.yaml"
-    warn "  Verify roles_dir path if your repo is not at ~/findajob"
   else
     ok "  aichat-ng config already exists"
+  fi
+
+  # aichat-ng 0.31 does not support roles_dir in config.yaml — symlink required.
+  local roles_link="${aichat_dir}/roles"
+  if [ -L "${roles_link}" ] && [ -d "${roles_link}" ]; then
+    ok "  aichat-ng roles symlink already exists"
+  elif [ -d "${roles_link}" ]; then
+    warn "  ${roles_link} is a real directory — roles may not match repo. Consider replacing with a symlink to ${REPO}/config/roles"
+  else
+    ln -s "${REPO}/config/roles" "${roles_link}"
+    ok "  aichat-ng roles symlink created → ${REPO}/config/roles"
   fi
 }
 
@@ -437,6 +445,7 @@ verify_install() {
   check_item "config/gsheets_creds.json"  "$([ -f ${CONFIG_DIR}/gsheets_creds.json ] && echo true || echo false)"
   check_item "config/sheet_id.txt"        "$([ -f ${CONFIG_DIR}/sheet_id.txt ] && echo true || echo false)"
   check_item "config/ntfy_topic.txt"     "$([ -f ${CONFIG_DIR}/ntfy_topic.txt ] && echo true || echo false)"
+  check_item "aichat-ng roles symlink"   "$([ -L ${HOME}/.config/aichat_ng/roles ] && echo true || echo false)"
   check_item "config/gmail_oauth_client"  "$([ -f ${CONFIG_DIR}/gmail_oauth_client.json ] && echo true || echo false)"
   check_item "CLAUDE.local.md"            "$([ -f ${REPO}/CLAUDE.local.md ] && echo true || echo false)"
 

@@ -41,7 +41,11 @@ def aichat(role, prompt, model_override=None, timeout=300):
         cmd += ['-m', model_override]
     cmd += ['-S', prompt]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-    return result.stdout.strip()
+    output = result.stdout.strip()
+    if result.returncode != 0 or not output:
+        log_event('aichat_failure', role=role, returncode=result.returncode,
+                  stderr=result.stderr.strip()[:500])
+    return output
 
 def abbrev_title(title, max_words=3):
     """Return a folder-safe abbreviated title: first N significant words joined with underscores."""
@@ -132,6 +136,23 @@ def main():
     resume_md = aichat('resume_tailor', resume_prompt)
     with open(f'{outdir}/tailored_resume_DRAFT.md', 'w') as f:
         f.write(resume_md)
+
+    # Quality check — log violation counts for trend tracking
+    try:
+        qc = subprocess.run(
+            [sys.executable, f'{BASE}/scripts/diag/validate_resume.py',
+             '--json', f'{outdir}/tailored_resume_DRAFT.md'],
+            capture_output=True, text=True, timeout=15
+        )
+        if qc.stdout:
+            viols_by_file = json.loads(qc.stdout)
+            viols = list(viols_by_file.values())[0] if viols_by_file else []
+            log_event('resume_quality_check', company=company, title=title,
+                      violations=len(viols),
+                      high=sum(1 for v in viols if v['severity'] == 'HIGH'),
+                      med=sum(1 for v in viols if v['severity'] == 'MED'))
+    except Exception:
+        pass  # quality check is informational only — never block prep
 
     subprocess.run([PANDOC, f'{outdir}/tailored_resume_DRAFT.md',
                     '--lua-filter', f'{BASE}/config/strip-bookmarks.lua',
