@@ -182,6 +182,17 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 
 ## Completed
 
+- [x] **JD text truncated at 8,000 chars — 16.6% of jobs affected** *(closed 2026-04-10)*
+  Root cause: `[:8000]` hardcoded in 6 fetch paths across `triage.py` and `backfill_jd.py`.
+  447 JDs were cut mid-sentence, losing requirements/qualifications. Additionally ~57% of JDs
+  contained trailing EEO/legal boilerplate consuming ~17% of text.
+  Fix: added `strip_jd_boilerplate()` to `utils.py` (removes trailing EEO/legal/benefits
+  paragraphs by walking backwards). Raised cap to `JD_MAX_CHARS=16000`. Extended
+  `backfill_jd.py --truncated` to re-fetch from Greenhouse (free) and LinkedIn API (~$1).
+  Result: 84 JDs expanded beyond 8k, max JD now 16k chars. 164 Indeed truncations permanently
+  lost (no re-fetch path). 144 CoreWeave JDs legitimately short from Greenhouse API (not bugs).
+  Design spec: `docs/superpowers/specs/2026-04-10-jd-quality-design.md`.
+
 - [x] **Duplicate company folders created on Flag for Prep** *(closed 2026-04-10)*
   Root cause: `poll_flags.py` checked `stage IN (scored, manual_review, enriched)` before
   triggering prep, but didn't update the stage until `prep_application.py` finished (~5 min
