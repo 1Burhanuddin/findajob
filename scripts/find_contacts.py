@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # ~/JobSearchPipeline/scripts/find_contacts.py
-# Args: company, jd_text_excerpt, outdir
+# Args: company, jd_text_excerpt, outdir, [file_prefix], [timestamp_fn]
 """
 Find LinkedIn connections at a company and generate outreach drafts.
-Called by prep_application.py with: company, jd_text[:2000], outdir
+Called by prep_application.py with: company, jd_text[:2000], outdir,
+[file_prefix], [timestamp_fn]. The last two are optional; if omitted the
+script reads the prefix from profile.md and generates its own timestamp
+(useful for running this script directly, outside of a prep cycle).
 """
 import os, sys, csv, subprocess, json
 from datetime import datetime, timezone
@@ -23,7 +26,7 @@ def company_match(search, contact_company):
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE, AICHAT
-from utils import log_event, load_env
+from utils import log_event, load_env, read_candidate_name, read_file_prefix, build_outreach_filename
 
 CONNECTIONS = f'{BASE}/data/connections.csv'
 PROFILE_PATH = f'{BASE}/config/profile.md'
@@ -63,31 +66,22 @@ def rank_contacts(contacts):
         return s
     return sorted(contacts, key=score, reverse=True)
 
-def _candidate_name(profile_text):
-    """Extract candidate name from first non-empty line of profile.md."""
-    for line in profile_text.splitlines():
-        line = line.strip().lstrip('#').strip()
-        if line:
-            return line
-    return 'the candidate'
-
-
-def generate_outreach(contact, company, jd_text, outdir, profile_text):
+def generate_outreach(contact, company, jd_text, outdir, profile_text,
+                      file_prefix, timestamp_fn, candidate_name):
     """Call aichat-ng outreach_drafter role. Profile injected directly — no RAG."""
-    name = _candidate_name(profile_text)
     prompt = (
         f"CANDIDATE PROFILE:\n{profile_text}\n\n"
-        f"Draft a brief LinkedIn outreach message from {name} to {contact['name']}, "
+        f"Draft a brief LinkedIn outreach message from {candidate_name} to {contact['name']}, "
         f"who is a {contact['title']} at {company}.\n\n"
-        f"Context: {name} is exploring a role at {company}. JD excerpt:\n{jd_text[:1000]}\n\n"
+        f"Context: {candidate_name} is exploring a role at {company}. JD excerpt:\n{jd_text[:1000]}\n\n"
         f"Keep it under 150 words. No generic opener. Reference their specific role."
     )
     cmd = [AICHAT, '--role', 'outreach_drafter', '-S', prompt]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     draft = result.stdout.strip()
 
-    safe_name = contact['name'].replace(' ', '_')
-    outpath = f"{outdir}/outreach_{safe_name}.txt"
+    filename = build_outreach_filename(contact['name'], company, timestamp_fn, file_prefix)
+    outpath = os.path.join(outdir, filename)
     os.makedirs(outdir, exist_ok=True)
     with open(outpath, 'w') as f:
         f.write(f"TO: {contact['name']} — {contact['title']} at {contact['company']}\n")
@@ -102,18 +96,22 @@ def generate_outreach(contact, company, jd_text, outdir, profile_text):
 
 def main():
     if len(sys.argv) < 4:
-        print("Usage: find_contacts.py <company> <jd_text> <outdir>")
+        print("Usage: find_contacts.py <company> <jd_text> <outdir> [file_prefix] [timestamp_fn]")
         sys.exit(1)
 
     company = sys.argv[1]
     jd_text = sys.argv[2]
     outdir = sys.argv[3]
+    file_prefix = sys.argv[4] if len(sys.argv) > 4 else read_file_prefix()
+    timestamp_fn = sys.argv[5] if len(sys.argv) > 5 else datetime.now().strftime('%Y%m%d-%H%M%S')
 
     try:
         with open(PROFILE_PATH) as f:
             profile_text = f.read()
     except FileNotFoundError:
         profile_text = '[Profile not found]'
+
+    candidate_name = read_candidate_name()
 
     contacts = find_contacts(company)
     ranked = rank_contacts(contacts)
@@ -126,7 +124,8 @@ def main():
     log_event('find_contacts', company=company, found=len(contacts), drafting=len(top))
 
     for contact in top:
-        generate_outreach(contact, company, jd_text, outdir, profile_text)
+        generate_outreach(contact, company, jd_text, outdir, profile_text,
+                          file_prefix, timestamp_fn, candidate_name)
 
     print(f"Generated {len(top)} outreach drafts for {company}")
 

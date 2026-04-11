@@ -7,7 +7,10 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE, AICHAT, PANDOC, RCLONE
-from utils import log_event, write_audit, load_env, JD_MAX_CHARS
+from utils import (
+    log_event, write_audit, load_env, JD_MAX_CHARS,
+    read_file_prefix, build_prep_filenames,
+)
 DB_PATH = f'{BASE}/data/pipeline.db'
 PROFILE_PATH = f'{BASE}/config/profile.md'
 MASTER_RESUME_PATH = f'{BASE}/rag_sources/master_resume.md'
@@ -85,7 +88,16 @@ def main():
     outdir = f'{BASE}/companies/{safe_company}_{abbrev_title(title)}_{date}_{time_str}'
     os.makedirs(outdir, exist_ok=True)
 
-    log_event('prep_started', company=company, title=title, job_id=job_id)
+    # Build per-file output paths using the candidate's file prefix (from profile.md).
+    # Pattern: {Prefix} Resume - {Company} - {Title} - {YYYYMMDD-HHMMSS}.{ext}
+    # See scripts/utils.py:build_prep_filenames for the full pattern.
+    file_prefix = read_file_prefix()
+    timestamp_fn = f"{date.replace('-', '')}-{time_str}"
+    fn = build_prep_filenames(company, title, timestamp_fn, file_prefix)
+    out = {k: os.path.join(outdir, v) for k, v in fn.items()}
+
+    log_event('prep_started', company=company, title=title, job_id=job_id,
+              file_prefix=file_prefix)
 
     # ── Step 1: Load JD from DB (already fetched during triage) ──
     # Do NOT re-curl — LinkedIn and many other URLs require auth and will return garbage.
@@ -104,7 +116,7 @@ def main():
         except Exception:
             jd_text = '[ERROR: Could not fetch JD]'
 
-    with open(f'{outdir}/job_description.txt', 'w') as f:
+    with open(out['jd_txt'], 'w') as f:
         f.write(jd_text)
 
     # ── Load profile and master resume — injected directly, never via RAG ──
@@ -179,13 +191,13 @@ def main():
         except Exception:
             pass
 
-    with open(f'{outdir}/company_briefing.md', 'w') as f:
+    with open(out['briefing_md'], 'w') as f:
         f.write(full_briefing)
     subprocess.run([PANDOC, '-f', 'markdown-yaml_metadata_block',
-                    f'{outdir}/company_briefing.md',
+                    out['briefing_md'],
                     '--lua-filter', f'{BASE}/config/strip-bookmarks.lua',
                     '--reference-doc', f'{BASE}/config/reference.docx',
-                    '-o', f'{outdir}/company_briefing.docx'], check=False)
+                    '-o', out['briefing_docx']], check=False)
 
     # ── Step 3: Resume — briefing context now available ──
     # Truncate briefing to key sections for prompt size management
@@ -203,14 +215,14 @@ def main():
     first_hdr = next((i for i, l in enumerate(rlines) if l.startswith('#')), 0)
     rlines = [l for i, l in enumerate(rlines) if not (i < first_hdr and l.startswith('[VERIFY:'))]
     resume_md = '\n'.join(rlines).strip()
-    with open(f'{outdir}/tailored_resume_DRAFT.md', 'w') as f:
+    with open(out['resume_md'], 'w') as f:
         f.write(resume_md)
 
     # Quality check — log violation counts for trend tracking
     try:
         qc = subprocess.run(
             [sys.executable, f'{BASE}/scripts/diag/validate_resume.py',
-             '--json', f'{outdir}/tailored_resume_DRAFT.md'],
+             '--json', out['resume_md']],
             capture_output=True, text=True, timeout=15
         )
         if qc.stdout:
@@ -223,10 +235,10 @@ def main():
     except Exception:
         pass  # quality check is informational only — never block prep
 
-    subprocess.run([PANDOC, f'{outdir}/tailored_resume_DRAFT.md',
+    subprocess.run([PANDOC, out['resume_md'],
                     '--lua-filter', f'{BASE}/config/strip-bookmarks.lua',
                     '--reference-doc', f'{BASE}/config/reference.docx',
-                    '-o', f'{outdir}/tailored_resume_DRAFT.docx'], check=False)
+                    '-o', out['resume_docx']], check=False)
 
     # Generate change log
     changes_prompt = (
@@ -235,7 +247,7 @@ def main():
         f"TARGET JD:\n{jd_text[:2000]}"
     )
     changes_md = aichat('resume_change_reviewer', changes_prompt)
-    with open(f'{outdir}/tailored_resume_CHANGES.md', 'w') as f:
+    with open(out['changes_md'], 'w') as f:
         f.write(changes_md)
 
     # ── Step 4: Cover letter — briefing context for specific company signals ──
@@ -246,38 +258,40 @@ def main():
         f"JD:\n{jd_text}\n\n"
         f"COMPANY BRIEFING (use for specific signals, news, and context about this company):\n{briefing_context}"
     )
-    cover_md = aichat('cover_letter_writer', cover_prompt)
-    with open(f'{outdir}/cover_letter_DRAFT.md', 'w') as f:
-        f.write(cover_md)
-    subprocess.run([PANDOC, f'{outdir}/cover_letter_DRAFT.md',
+    cover_md_text = aichat('cover_letter_writer', cover_prompt)
+    with open(out['cover_md'], 'w') as f:
+        f.write(cover_md_text)
+    subprocess.run([PANDOC, out['cover_md'],
                     '--lua-filter', f'{BASE}/config/strip-bookmarks.lua',
                     '--reference-doc', f'{BASE}/config/reference.docx',
-                    '-o', f'{outdir}/cover_letter_DRAFT.docx'], check=False)
+                    '-o', out['cover_docx']], check=False)
 
     # ── Step 5: Network outreach ──
+    # Pass the file_prefix and timestamp so outreach files follow the same naming convention.
     subprocess.run([sys.executable, f'{BASE}/scripts/find_contacts.py',
-                    company, jd_text[:2000], outdir], check=False)
+                    company, jd_text[:2000], outdir, file_prefix, timestamp_fn], check=False)
 
     # ── Step 6: Review checklist ──
-    with open(f'{outdir}/REVIEW_CHECKLIST.md', 'w') as f:
+    with open(out['checklist_md'], 'w') as f:
         f.write(f"""# Review Checklist — {company} / {title}
 Generated: {date}
 
 ## Before sending, complete these steps:
-- [ ] Open tailored_resume_CHANGES.md — review every flagged reorder/keyword add
-- [ ] Open tailored_resume_DRAFT.docx — fill any [MISSING: ...] placeholders
-- [ ] Open cover_letter_DRAFT.docx — fill ALL [INSERT: ...] and [MISSING: ...] items
+- [ ] Open `{fn['changes_md']}` — review every flagged reorder/keyword add
+- [ ] Open `{fn['resume_docx']}` — fill any [MISSING: ...] placeholders
+- [ ] Open `{fn['cover_docx']}` — fill ALL [INSERT: ...] and [MISSING: ...] items
 - [ ] Read cover letter aloud — does it sound like you?
 - [ ] Verify every factual claim in the cover letter (metrics, company names, titles)
-- [ ] Check company_briefing.docx — any red flags or new intel to weave in?
+- [ ] Check `{fn['briefing_docx']}` — any red flags or new intel to weave in?
 - [ ] Review outreach drafts if you plan to reach out before applying
 
 ## Files in this folder:
-- tailored_resume_DRAFT.docx    ← start here
-- tailored_resume_CHANGES.md    ← what the AI changed and why
-- cover_letter_DRAFT.docx       ← fill placeholders before sending
-- company_briefing.docx
-- outreach_*.txt
+- `{fn['resume_docx']}`    ← start here
+- `{fn['changes_md']}`    ← what the AI changed and why
+- `{fn['cover_docx']}`       ← fill placeholders before sending
+- `{fn['briefing_docx']}`
+- `{fn['jd_txt']}`    ← original JD for reference
+- `{file_prefix} Outreach to *.txt`    ← network outreach drafts
 """)
 
     # ── Step 7: Update SQLite (stage + scores) ──

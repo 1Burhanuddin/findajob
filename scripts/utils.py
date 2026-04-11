@@ -96,6 +96,133 @@ def jd_is_usable(jd_text):
     return not any(s in lower for s in _JD_WALL_SIGNALS)
 
 
+# ── Candidate name / file prefix helpers ─────────────────────────────────────
+
+_PROFILE_NAME_RE = re.compile(
+    r'^\s*\*{0,2}\s*Name:\s*\*{0,2}\s*(.+?)\s*\*{0,2}\s*$',
+    re.IGNORECASE,
+)
+_PROFILE_FILE_PREFIX_RE = re.compile(
+    r'^\s*\*{0,2}\s*File\s*Prefix:\s*\*{0,2}\s*(.+?)\s*\*{0,2}\s*$',
+    re.IGNORECASE,
+)
+
+
+def _clean_profile_field(raw):
+    """Strip surrounding whitespace, asterisks, and backticks from a profile field value."""
+    return (raw or '').strip().strip('*').strip('`').strip()
+
+
+def read_candidate_name(profile_path=None):
+    """Read the candidate's full name from profile.md.
+
+    Prefers an explicit `Name: Xxx Yyy` line (from the Identity section).
+    Tolerates `**Name:** Xxx Yyy` (bold markdown) and similar variants.
+    Returns 'Candidate' if nothing matches.
+    """
+    if profile_path is None:
+        profile_path = f'{BASE}/config/profile.md'
+    try:
+        with open(profile_path) as f:
+            for line in f:
+                m = _PROFILE_NAME_RE.match(line)
+                if m:
+                    value = _clean_profile_field(m.group(1))
+                    if value:
+                        return value
+    except (FileNotFoundError, OSError):
+        pass
+    return 'Candidate'
+
+
+def read_file_prefix(profile_path=None):
+    """Read the prefix used in generated filenames.
+
+    Prefers an explicit `File Prefix: Xxx` line (from profile.md). Falls back
+    to the last word of the candidate's name (from `Name:`). Returns 'Candidate'
+    if neither is available.
+    """
+    if profile_path is None:
+        profile_path = f'{BASE}/config/profile.md'
+    try:
+        with open(profile_path) as f:
+            for line in f:
+                m = _PROFILE_FILE_PREFIX_RE.match(line)
+                if m:
+                    value = _clean_profile_field(m.group(1))
+                    if value:
+                        return value
+    except (FileNotFoundError, OSError):
+        pass
+
+    name = read_candidate_name(profile_path)
+    parts = name.strip().split()
+    return parts[-1] if parts else 'Candidate'
+
+
+_UNSAFE_FNAME_CHARS = re.compile(r'[^\w\s\-&.,]')
+
+
+def safe_filename_part(s, max_len=80):
+    """Sanitize a string for use as a filename component.
+
+    Keeps word characters, spaces, hyphens, ampersands, periods, and commas.
+    Collapses whitespace. Truncates to max_len. Strips trailing punctuation
+    that would look odd at a word boundary.
+    """
+    s = _UNSAFE_FNAME_CHARS.sub('', s or '')
+    s = re.sub(r'\s+', ' ', s).strip()
+    if len(s) > max_len:
+        s = s[:max_len].rstrip()
+    return s.rstrip(' .-,')
+
+
+def build_prep_filenames(company, title, timestamp_fn, file_prefix):
+    """Return a dict of {logical_name: filename} for a prep folder.
+
+    Naming convention:
+      {Prefix} Resume - {Company} - {Title} - {YYYYMMDD-HHMMSS}.{md,docx}
+      {Prefix} Cover - {Company} - {Title} - {YYYYMMDD-HHMMSS}.{md,docx}
+      {Prefix} Briefing - {Company} - {Title} - {YYYYMMDD-HHMMSS}.{md,docx}
+      {Prefix} Resume Changes - {Company} - {Title} - {YYYYMMDD-HHMMSS}.md
+      JD - {Company} - {Title}.txt
+      Review Checklist - {Company} - {Title}.md
+
+    Outreach filenames are generated separately by find_contacts.py.
+    """
+    co = safe_filename_part(company, 40)
+    t  = safe_filename_part(title,   60)
+    # Core user-facing docs: full pattern with timestamp
+    resume_base  = f'{file_prefix} Resume - {co} - {t} - {timestamp_fn}'
+    cover_base   = f'{file_prefix} Cover - {co} - {t} - {timestamp_fn}'
+    briefing_base = f'{file_prefix} Briefing - {co} - {t} - {timestamp_fn}'
+    changes_base = f'{file_prefix} Resume Changes - {co} - {t} - {timestamp_fn}'
+    # Internal reference docs: short form, no prefix or timestamp
+    jd_base = f'JD - {co} - {t}'
+    checklist_base = f'Review Checklist - {co} - {t}'
+    return {
+        'resume_md':    f'{resume_base}.md',
+        'resume_docx':  f'{resume_base}.docx',
+        'cover_md':     f'{cover_base}.md',
+        'cover_docx':   f'{cover_base}.docx',
+        'briefing_md':  f'{briefing_base}.md',
+        'briefing_docx': f'{briefing_base}.docx',
+        'changes_md':   f'{changes_base}.md',
+        'jd_txt':       f'{jd_base}.txt',
+        'checklist_md': f'{checklist_base}.md',
+    }
+
+
+def build_outreach_filename(contact_name, company, timestamp_fn, file_prefix):
+    """Return filename for an outreach draft.
+
+    Pattern: {Prefix} Outreach to {Contact Name} - {Company} - {YYYYMMDD-HHMMSS}.txt
+    """
+    co = safe_filename_part(company, 40)
+    ct = safe_filename_part(contact_name, 40)
+    return f'{file_prefix} Outreach to {ct} - {co} - {timestamp_fn}.txt'
+
+
 # ── JD boilerplate stripping ───────────────────────────────────────────────
 
 JD_MAX_CHARS = 16000
