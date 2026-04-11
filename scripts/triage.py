@@ -4,13 +4,25 @@
 Daily triage pipeline. Fetches jobs, deduplicates, enriches, scores,
 and writes results to SQLite. Sheet sync is a separate script called at the end.
 """
-import os, sys, json, hashlib, html, re, csv, subprocess, time, uuid, shutil
+import os, sys, json, hashlib, html, re, csv, signal, subprocess, time, uuid, shutil
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE, PANDOC, AICHAT
 from scorer_prefilter import prefilter_score
 from utils import log_event, write_audit, load_env, validate_llm_json, jd_is_usable, _JD_WALL_SIGNALS, strip_jd_boilerplate, JD_MAX_CHARS
+
+
+# ── Signal handler: log a termination event before exiting ───────────────────
+# systemd sends SIGTERM when the service hits TimeoutStartSec (default: 30min).
+# Without this handler the process dies silently and pipeline_complete never
+# fires, causing notify.py health-check to miss a real failure.
+def _on_sigterm(signum, frame):
+    log_event('pipeline_terminated', signal='SIGTERM',
+              note='Received SIGTERM — likely systemd timeout or manual stop.')
+    sys.exit(143)  # 128 + SIGTERM(15)
+
+signal.signal(signal.SIGTERM, _on_sigterm)
 
 DB_PATH = f'{BASE}/data/pipeline.db'
 CONNECTIONS = f'{BASE}/data/connections.csv'

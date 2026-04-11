@@ -161,6 +161,9 @@ def cmd_health_check():
     triage_events = [e for e in events if e.get('event') == 'pipeline_complete']
     triage_ok = bool(triage_events)
 
+    # Check if triage was terminated (SIGTERM from systemd timeout or manual stop)
+    triage_terminated = [e for e in events if e.get('event') == 'pipeline_terminated']
+
     # Check poller ran
     poll_events = [e for e in events if e.get('event') == 'poll_flags']
     poll_ok = bool(poll_events)
@@ -179,8 +182,13 @@ def cmd_health_check():
     null_score = [e for e in events if e.get('score') is None and 'job_scored' in e.get('event', '')]
 
     issues = []
-    if not triage_ok:
-        issues.append('WARN: triage_complete not seen in last 25h')
+    if triage_terminated:
+        issues.append(f'ERROR: triage was terminated (SIGTERM) — likely systemd timeout. '
+                      f'Check TimeoutStartSec on findajob-triage.service.')
+        for e in triage_terminated[:2]:
+            issues.append(f'  • {e.get("ts","?")}: {e.get("note","?")}')
+    elif not triage_ok:
+        issues.append('WARN: pipeline_complete not seen in last 25h')
     if not poll_ok:
         issues.append('WARN: poll_flags not seen in last 25h')
     if not sync_ok:

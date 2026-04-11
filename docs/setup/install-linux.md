@@ -211,6 +211,17 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+# KillMode=process: only terminate the main triage process on service stop.
+# Default (control-group) would also kill sync_sheet.py / aichat-ng children
+# launched via subprocess, leading to incomplete runs.
+KillMode=process
+# TimeoutStartSec: max time the triage can run before systemd sends SIGTERM.
+# A typical run takes 30-40 minutes depending on how many new jobs are scored
+# and how many LLM calls hit. 3600 (1 hour) gives comfortable headroom.
+# Keep this >= the longest legitimate run you have observed. The SIGTERM handler
+# in triage.py logs a 'pipeline_terminated' event, so hitting the timeout will
+# surface in notify.py health-check.
+TimeoutStartSec=3600
 ExecStart=/usr/bin/python3 /home/USERNAME/findajob/scripts/triage.py
 WorkingDirectory=/home/USERNAME/findajob
 EnvironmentFile=/home/USERNAME/findajob/data/.env
