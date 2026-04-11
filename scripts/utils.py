@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Shared utilities for the JobSearchPipeline."""
-import os, json
+import os, json, re
 from datetime import datetime, timezone
 
 from paths import BASE
@@ -94,3 +94,89 @@ def jd_is_usable(jd_text):
         return False
     lower = jd_text.lower()
     return not any(s in lower for s in _JD_WALL_SIGNALS)
+
+
+# ── JD boilerplate stripping ───────────────────────────────────────────────
+
+JD_MAX_CHARS = 16000
+
+_BOILERPLATE_PATTERNS = [
+    # EEO
+    r'equal\s+opportunity\s+employer',
+    r'equal\s+employment\s+opportunity',
+    r'we\s+do\s+not\s+discriminate',
+    r'without\s+regard\s+to\s+race',
+    r'affirmative\s+action',
+    r'all\s+qualified\s+applicants\s+will\s+receive\s+consideration',
+    # Legal / compliance
+    r'reasonable\s+accommodation',
+    r'e-verify',
+    r'employment\s+eligibility\s+verification',
+    r'right\s+to\s+work',
+    r'protected\s+veteran',
+    r'drug[- ]free\s+workplace',
+    # Disclaimers
+    r'this\s+(?:job\s+)?posting\s+is\s+not',
+    r'salary\s+ranges?\s+may\s+vary',
+    r'the\s+above\s+is\s+intended\s+to\s+describe',
+    r'nothing\s+in\s+this\s+job\s+(?:posting|description)',
+    r'this\s+(?:job\s+)?description\s+(?:is\s+not|does\s+not)',
+    # Application boilerplate
+    r'how\s+to\s+apply',
+    r'to\s+apply,?\s+please',
+    r'apply\s+now\s+at',
+    # Benefits headers (start-of-paragraph)
+    r'^benefits\s*:',
+    r'^what\s+we\s+offer\s*:',
+    r'^our\s+benefits\s+include',
+    r'^perks\s+(?:&|and)\s+benefits',
+    r'^total\s+rewards',
+    r'^compensation\s+(?:&|and)\s+benefits',
+]
+
+_BOILERPLATE_RE = re.compile('|'.join(_BOILERPLATE_PATTERNS), re.IGNORECASE | re.MULTILINE)
+
+
+def strip_jd_boilerplate(text):
+    """Remove trailing EEO/legal/benefits boilerplate from JD text.
+
+    Works backwards from the end, paragraph by paragraph. Stops trimming
+    when a paragraph doesn't match any boilerplate pattern. Never removes
+    more than 40% of the text or drops below 200 chars retained.
+    """
+    if not text or len(text) < 200:
+        return text or ''
+
+    # Split into paragraphs on double-newline or blank lines
+    paragraphs = re.split(r'\n\s*\n', text)
+    if len(paragraphs) <= 1:
+        return text  # single block — don't risk stripping it
+
+    original_len = len(text)
+    min_retain = max(200, int(original_len * 0.6))  # never strip more than 40%
+
+    # Walk backwards, marking trailing boilerplate paragraphs for removal
+    trim_from = len(paragraphs)  # index to trim from (exclusive of kept content)
+    for i in range(len(paragraphs) - 1, 0, -1):  # never trim paragraph 0
+        para = paragraphs[i].strip()
+        if not para:
+            continue  # skip empty paragraphs
+        if _BOILERPLATE_RE.search(para):
+            trim_from = i
+        else:
+            break  # hit real content — stop trimming
+
+    if trim_from >= len(paragraphs):
+        return text  # nothing to trim
+
+    kept = '\n\n'.join(paragraphs[:trim_from]).rstrip()
+
+    if len(kept) < min_retain:
+        return text  # safety: would remove too much
+
+    chars_removed = original_len - len(kept)
+    if chars_removed > 0 and chars_removed / original_len > 0.30:
+        log_event('jd_boilerplate_warning', removed_pct=round(chars_removed / original_len * 100, 1),
+                  original_len=original_len, kept_len=len(kept))
+
+    return kept
