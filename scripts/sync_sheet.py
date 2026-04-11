@@ -71,6 +71,19 @@ def hyperlink(url, label):
     return f'=HYPERLINK("{safe_url}","{safe_label}")'
 
 
+def safe_str(val):
+    """Escape leading formula trigger characters to prevent formula injection.
+
+    Google Sheets interprets strings starting with =, +, -, or @ as formulas
+    when valueInputOption='USER_ENTERED'. Prefix with a single quote to force
+    literal text storage. The apostrophe is consumed by Sheets and not displayed.
+    """
+    s = '' if val is None else str(val)
+    if s and s[0] in ('=', '+', '-', '@'):
+        return "'" + s
+    return s
+
+
 def build_row(row, headers, lookup, status_override=None, reject_override=None, use_status=False):
     sheet_row = []
     for header in headers:
@@ -91,9 +104,9 @@ def build_row(row, headers, lookup, status_override=None, reject_override=None, 
                 # Sheet1: write TRUE/FALSE for the checkbox
                 sheet_row.append('TRUE' if bool(val) else 'FALSE')
         elif header == 'REJECT_REASON':
-            sheet_row.append(reject_override if reject_override is not None else (val or ''))
+            sheet_row.append(safe_str(reject_override if reject_override is not None else (val or '')))
         else:
-            sheet_row.append('' if val is None else val)
+            sheet_row.append(safe_str(val))
     return sheet_row
 
 
@@ -272,12 +285,12 @@ def sync_review(svc, conn):
             if header == 'STATUS':
                 sheet_row.append(pending_statuses.get(fp, ''))
             elif header == 'REJECT_REASON':
-                sheet_row.append(pending_rejects.get(fp, row['reject_reason'] or ''))
+                sheet_row.append(safe_str(pending_rejects.get(fp, row['reject_reason'] or '')))
             elif header == 'title':
                 sheet_row.append(hyperlink(row['url'], row['title']))
             else:
                 val = row[sqlite_col] if sqlite_col and sqlite_col in row.keys() else ''
-                sheet_row.append('' if val is None else val)
+                sheet_row.append(safe_str(val))
         sheet_rows.append(sheet_row)
 
     svc.spreadsheets().values().clear(
