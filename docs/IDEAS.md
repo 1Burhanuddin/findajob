@@ -20,11 +20,16 @@ Format: `- [ ]` not started, `- [~]` in progress, `- [x]` shipped.
 
 ## Scoring / Triage
 
-- [ ] **Scoring accuracy analysis — false negative audit**
-  ~2,400 scored jobs are sitting unreviewed below the Dashboard threshold. Unknown how many
-  are false negatives (good jobs scored too low). Analyze: score distribution by source,
-  target-company jobs scored 1-6, title-keyword hits in low-score buckets. Requires JD quality
-  fix first (spec: `docs/superpowers/specs/2026-04-10-jd-quality-design.md`).
+- [x] **Scoring accuracy analysis — false negative audit** *(closed 2026-04-11)*
+  Ran full false negative scan: no alarming buried gems. Score-6 target company jobs are
+  correctly sitting at the Tier 1 floor (working as designed). 17 "data center" titled jobs at
+  score 6 are visible in the Review tab for manual promotion. The real problem was false
+  positives (80.6% FP rate on score 8+), not false negatives. Root cause: scorer rated IC
+  hardware engineering roles (NPI validation, systems engineering, deployment engineering) too
+  high. Fixed via scorer prompt ENGINEER TITLE CALIBRATION section — disambiguates IC hardware
+  work (bench/design/validation) vs ops/program work (candidate's domain).
+  Prefilter additions: quality engineer, process engineer, manufacturing test, systems
+  development engineer. Removed "forward deployed engineer" from Stage 2 in-domain defaults.
 
 - [x] **Feedback loop — systematic learning from rejections** *(shipped 2026-04-11)*
   `scripts/analyze_feedback.py` reads feedback_log + jobs to produce: rejection breakdown,
@@ -54,6 +59,40 @@ Format: `- [ ]` not started, `- [~]` in progress, `- [x]` shipped.
 ## Observability
 
 *(nothing yet)*
+
+---
+
+## Platform / Open Source (Long-term)
+
+The dual goals of this project: (1) get Daniel a job, and (2) eventually make this pipeline
+useful for any job seeker. These are aligned — every hardening improvement also makes it
+more generalizable. The path from personal tool → general tool is roughly:
+
+- [ ] **PII audit + scrub** *(blocker for public repo)*
+  Line-by-line review of all tracked files before making repo public. Catch name, contact
+  info, company-specific details, API keys in comments, etc.
+
+- [ ] **Comprehensive user-facing docs**
+  Setup guide (prerequisites, Google Sheets setup, API keys, first run), usage guide (daily
+  workflow, Dashboard actions, Review tab), tuning guide (search queries, prefilter, scorer
+  prompt), troubleshooting. Currently docs/ is solid for the author but not for a stranger.
+
+- [ ] **Containerize with Docker Compose** *(enables "clone and run")*
+  Single docker-compose.yml that runs triage, poller, and sync on a schedule. Eliminates
+  launchd/systemd setup friction. Makes the "install" story dramatically simpler for non-Linux
+  users. Prerequisites: externalize all personal config to a single .env file.
+
+- [ ] **Web dashboard (replace Google Sheets)**
+  Local web UI that replaces Sheet1/Dashboard/Review tabs. The Google Sheets dependency is the
+  biggest barrier to general adoption — requires GCP project, service account, sharing setup.
+  A simple local Flask/FastAPI app with a React frontend could replace the entire Sheets layer.
+  This is a major effort but transforms the product from "personal tool with cloud plumbing"
+  to "self-hosted job search app."
+
+- [ ] **Generalize personal config layer**
+  Currently CLAUDE.local.md, profile.md, master_resume.md, jsearch_queries.txt, feed_urls.txt
+  are all personal. Need a clean onboarding flow: `cp config/*.example config/` and guided
+  setup. The pipeline logic is already generic — it's the config that's personal.
 
 ---
 
