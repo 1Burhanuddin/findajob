@@ -309,19 +309,24 @@ Generated: {date}
     log_event('prep_complete', company=company, title=title, folder=outdir)
     notify(f"Drafts ready: {company} — {title}\n{outdir}")
 
-    # ── Step 8: Sync companies/ to Google Drive ──
+    # ── Step 8: Push the new prep folder to Google Drive ──
+    # Event-driven push using 'rclone copy' — non-destructive, scoped to JUST
+    # this new folder. Never touches other folders. The jobsync timer runs
+    # 'rclone bisync' every 15 minutes to handle bidirectional reconciliation
+    # (user edits in Drive, moves to _applied/_rejected, etc.).
+    folder_name = os.path.basename(outdir)
     rc = subprocess.run([
-        RCLONE, 'sync',
-        f'{BASE}/companies/', 'gdrive:01 PROJECTS/Jobs To Apply For',
-    ], capture_output=True, text=True)
+        RCLONE, 'copy',
+        outdir,
+        f'gdrive:01 PROJECTS/Jobs To Apply For/{folder_name}',
+    ], capture_output=True, text=True, timeout=300)
     if rc.returncode != 0:
-        log_event('rclone_failed', reason='prep_sync', exit_code=rc.returncode,
+        log_event('rclone_failed', reason='prep_copy', exit_code=rc.returncode,
                   stderr=rc.stderr[:200] if rc.stderr else '')
 
     # ── Step 9: Fetch the Drive folder URL and store it ──
     # Used by sync_sheet.py to render the company name as a HYPERLINK to the Drive folder.
     # Failure is non-fatal: the cell stays plain text if rclone link fails.
-    folder_name = os.path.basename(outdir)
     drive_url = None
     try:
         link_rc = subprocess.run(

@@ -251,6 +251,26 @@ systemctl --user enable --now findajob-triage.timer
 
 See [bootstrap.sh](../../scripts/bootstrap.sh) for all service unit definitions.
 
+### Google Drive jobsync — one-time bisync initialization
+
+The `findajob-jobsync.service` uses `rclone bisync` for bidirectional sync between local `companies/` and Google Drive. This means:
+
+- New prep folders created locally are pushed to Drive (as expected)
+- **Edits you make to files directly in Drive are preserved** and pulled back to local on the next sync (every 15 minutes)
+- Folder moves (reject → `_rejected/`, apply → `_applied/`) propagate in both directions
+
+`bisync` requires a one-time initialization with `--resync` to establish its state file. Run this **once** after your first prep folder exists locally (i.e., after you've run a prep):
+
+```bash
+rclone bisync ~/findajob/companies/ "gdrive:01 PROJECTS/Jobs To Apply For" --resync --max-delete 500
+```
+
+`--resync` means "local wins any conflicts for this initial sync." After this, normal bisync runs (without `--resync`) handle both directions symmetrically.
+
+If bisync ever aborts with a message like `cannot find prior Path1 listing`, the state file is missing or corrupted. Re-run the `--resync` command above and the service will resume normally on the next timer fire.
+
+**Warning:** `bisync` is marked experimental in older rclone versions (< 1.67). The pipeline uses `--max-delete 500` as a safety check — if bisync sees more than 500 deletes pending on either side, it aborts rather than risk data loss. If a legitimate bulk operation (like renaming all prep files) exceeds this, you'll need to run `--resync` again to re-establish the baseline after the local change.
+
 ---
 
 ## 12. Verify the Install

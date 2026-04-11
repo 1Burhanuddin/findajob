@@ -379,15 +379,21 @@ WantedBy=timers.target
 EOF
 
   # rclone jobsync — every 15 min
+  # Uses bidirectional sync (bisync) so edits made in Drive survive.
+  # First run requires a one-time 'rclone bisync --resync ...' to initialize
+  # the state file; see docs/setup/install-linux.md for details.
   cat > "${SYSTEMD_DIR}/findajob-jobsync.service" << EOF
 [Unit]
-Description=findajob Google Drive bisync
+Description=findajob Google Drive bisync (bidirectional)
 After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/rclone bisync ${REPO}/companies/ "gdrive:01 PROJECTS/Jobs To Apply For"
+# --max-delete 500: accommodate bulk operations (renames, folder moves).
+# Default is too low and causes bisync to abort during legitimate reorgs.
+ExecStart=/usr/bin/rclone bisync ${REPO}/companies/ "gdrive:01 PROJECTS/Jobs To Apply For" --max-delete 500
 WorkingDirectory=${REPO}
+TimeoutStartSec=600
 StandardOutput=append:${LOG_DIR}/jobsync.log
 StandardError=append:${LOG_DIR}/jobsync.log
 EOF

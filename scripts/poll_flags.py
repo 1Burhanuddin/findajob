@@ -8,7 +8,7 @@ from googleapiclient.errors import HttpError
 from google.oauth2 import service_account
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE, RCLONE
+from paths import BASE
 from utils import log_event, write_audit
 DB_PATH = f'{BASE}/data/pipeline.db'
 SA_FILE = f'{BASE}/config/gsheets_creds.json'
@@ -38,13 +38,6 @@ def is_valid_company(company):
         return False
     c = company.strip().lower()
     return not any(c.startswith(prefix) for prefix in AGGREGATOR_PREFIXES)
-
-
-RCLONE_CMD = [
-    RCLONE, 'sync',
-    f'{BASE}/companies/',
-    'gdrive:01 PROJECTS/Jobs To Apply For',
-]
 
 
 def handle_rejection(conn, job, reason):
@@ -287,13 +280,12 @@ def main():
     if need_sync:
         subprocess.Popen([sys.executable, f'{BASE}/scripts/sync_sheet.py'])
 
-    # Trigger rclone sync immediately if any folders were moved
+    # Folder moves (reject → _rejected/, apply → _applied/) propagate to Drive
+    # via the jobsync.timer 'rclone bisync' running every 15 minutes. No
+    # event-driven rclone call here — doing one would race with the timer and
+    # risk trashing user edits in Drive.
     if folders_moved:
-        log_event('rclone_triggered', reason='folder_move', count=folders_moved)
-        rc = subprocess.run(RCLONE_CMD, capture_output=True, text=True, timeout=120)
-        if rc.returncode != 0:
-            log_event('rclone_failed', reason='folder_move', exit_code=rc.returncode,
-                      stderr=rc.stderr[:200] if rc.stderr else '')
+        log_event('folder_moves_queued_for_bisync', count=folders_moved)
 
     if not flagged_jobs:
         log_event('poll_flags', found=0, rejections=rejected_count,
