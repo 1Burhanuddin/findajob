@@ -173,6 +173,8 @@ def sync_dashboard(svc, conn):
           )
         ORDER BY
             CASE stage WHEN 'materials_drafted' THEN 0 ELSE 1 END,
+            CASE WHEN probability_score IS NOT NULL THEN probability_score ELSE 0 END DESC,
+            CASE WHEN fit_score IS NOT NULL THEN fit_score ELSE 0 END DESC,
             CASE WHEN relevance_score IS NOT NULL THEN relevance_score ELSE 0 END DESC,
             created_at DESC
     ''').fetchall()

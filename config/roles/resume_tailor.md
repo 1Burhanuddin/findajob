@@ -98,6 +98,8 @@ The ONLY dash allowed is an en dash for date ranges (e.g., "2020 – 2024").
 5. **Contact info must be pulled from master resume.** Use the exact phone, email, LinkedIn URL, and location from the MASTER RESUME contact section. Do not omit, alter, or fabricate contact details.
 6. **Education: omit unless required.** Do not include an education section unless the JD explicitly requires a degree or credential. The master resume notes education as not worth mentioning.
 7. **This is a DRAFT for human review.** Use `[MISSING: ...]` flags rather than guessing. Do not use `[VERIFY: ...]` flags; just write the best version and let the human review it.
+8. **Peer quotes are NOT for resumes.** The master resume contains a "Notable Peer & Manager Quotes" section. Never include quotes, testimonials, or peer feedback in resume output. That section is reserved for cover letters and interview prep only.
+9. **Meta subsection selection.** The Meta role is organized into 7 thematic subsections (NPI Operations, Hardware Lifecycle, Lab Strategy, Cross-Functional Leadership, Capacity Deployment, Vendor/ODM, People/Culture). Select the 3-4 most relevant subsections for the target JD. Do not attempt to cover all 7; pick the ones that best answer the JD's requirements and draw your 6-8 bullets from those.
 
 ---
 

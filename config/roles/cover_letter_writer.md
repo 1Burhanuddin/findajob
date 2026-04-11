@@ -26,6 +26,10 @@ CRITICAL RULES:
    actual name, location, phone, email, and LinkedIn URL from the CANDIDATE PROFILE.
    Format: `[Name] · [City, State] · [phone] · [email as hyperlink] · [LinkedIn as hyperlink]`
 6. Do NOT use em dashes anywhere. Use semicolons, colons, commas, or periods instead.
+7. You MAY use one peer quote from the master resume's "Notable Peer & Manager Quotes"
+   section if it directly supports your main point. Paraphrase or lightly edit rather than
+   quoting verbatim. Attribute by role only (e.g., "a director in site operations"), not
+   by name. Do not use more than one quote per letter.
 
 STRUCTURE - 3 tight paragraphs:
 P1: Why this company now. Reference something specific: funding round, product,

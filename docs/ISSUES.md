@@ -125,6 +125,39 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 
 ---
 
+## Quality & Security
+
+- [ ] **PII / proprietary info audit of all tracked files**
+  Do a line-by-line review of every git-tracked file to confirm no PII (phone, email,
+  addresses, full names of non-public individuals) or proprietary company-specific info
+  has leaked into committed code. Initial automated scan (2026-04-10) found only the
+  candidate's real name in role config files (intentional, required for LLM behavior)
+  and employment history in resume_tailor heading rules (also intentional).
+  A full manual review should confirm nothing was missed, especially in docs/ISSUES.md
+  and any new scripts. Should be repeated before making the repo public.
+
+- [ ] **Write user-facing documentation for setup and best results**
+  The pipeline currently has no end-user documentation beyond CLAUDE.md (which is for
+  Claude Code, not humans). Needed:
+  1. Setup guide: prerequisites, API keys, config file creation, scheduler setup
+  2. Usage guide: daily workflow, how to use the Dashboard/Review/Sheet1 tabs effectively
+  3. Tuning guide: how to get the best results from scoring, prefiltering, resume tailoring,
+     and cover letter generation. Tips for writing an effective profile.md and master_resume.md.
+  4. Troubleshooting: common failure modes, how to read pipeline.jsonl, health check alerts
+
+## Future / Roadmap
+
+- [ ] **Containerize / Dockerize the application with web interface**
+  Long-term goal: package the pipeline as a Docker container with a web UI for
+  configuration and job review. Replace the Google Sheets interface with a self-hosted
+  dashboard that supports the same workflows (flag for prep, reject, review queue).
+  Would make the tool portable, easier to set up, and usable by others without needing
+  to configure Google Sheets, systemd services, and local file paths. Web interface
+  should support: job list with filtering/sorting, one-click prep trigger, material
+  review and editing, rejection workflow, and pipeline health monitoring.
+
+---
+
 ## Infrastructure / Ops
 
 - [ ] **RAG source documents — manual editing pass** *(Low)*
@@ -152,11 +185,12 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 
 ## Side Projects
 
-- [ ] **Build comprehensive master resume from historical documents**
-  Use PDFs of performance reviews, project summaries, and other career materials to extract
-  detailed accomplishments, metrics, and stories. Feed these into the master resume to give
-  the resume_tailor and cover_letter_writer much richer source material to draw from.
-  This is a separate project that would significantly improve output quality across all roles.
+- [x] **Build comprehensive master resume from historical documents** *(closed 2026-04-10)*
+  Enriched master_resume.md and profile.md from performance reviews (Q3 2014–H2 2021).
+  Meta section restructured into 7 thematic subsections. Added 12 peer quotes, 15 new
+  metrics rows, 4 new Core Strengths (#14–17), expanded voice markers. Resolved all
+  `$MM`/`$MMM` placeholders to "8-figure"/"9-figure". Updated resume_tailor.md and
+  cover_letter_writer.md role prompts for Peer Quotes handling and Meta subsection selection.
 
 ---
 
