@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 # ~/JobSearchPipeline/scripts/rescore_all.py
 """
-Re-score all jobs in the DB that have JD text.
+Re-score jobs in the DB that have JD text.
 Useful after switching scorer model or updating the job_scorer role prompt.
 Run manually — not a launchd agent.
+
+Usage:
+    rescore_all.py                    # rescore every job in scored/manual_review/enriched
+    rescore_all.py --min-score 7      # only rescore jobs currently scored >=7
+    rescore_all.py --min-score 7 --limit 40
+    rescore_all.py --dry-run          # report what would be rescored, no LLM calls
 """
-import os, sys, json, sqlite3, subprocess, time
+import os, sys, json, sqlite3, subprocess, time, argparse
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -137,6 +143,15 @@ JD:
     return parsed, latency_ms
 
 def main():
+    parser = argparse.ArgumentParser(description='Rescore jobs in the pipeline DB.')
+    parser.add_argument('--min-score', type=int, default=None,
+                        help='Only rescore jobs with current relevance_score >= this value')
+    parser.add_argument('--limit', type=int, default=None,
+                        help='Stop after rescoring this many jobs')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='Report what would be rescored without making LLM calls')
+    args = parser.parse_args()
+
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA journal_mode=WAL')
@@ -144,21 +159,49 @@ def main():
     # Fetch jobs that have JD text and are in a re-scoreable stage.
     # Exclude jobs that have progressed past scoring (applied, interviewing, etc.) —
     # overwriting their stage would corrupt the pipeline state.
-    rows = conn.execute('''
-        SELECT id, title, company, location, raw_jd_text, stage, score_status
+    query = '''
+        SELECT id, title, company, location, raw_jd_text, stage, score_status, relevance_score
         FROM jobs
         WHERE raw_jd_text IS NOT NULL AND raw_jd_text != ''
           AND stage IN ('scored', 'manual_review', 'enriched')
-        ORDER BY created_at DESC
-    ''').fetchall()
+    '''
+    params = []
+    if args.min_score is not None:
+        query += ' AND relevance_score >= ?'
+        params.append(args.min_score)
+    query += ' ORDER BY relevance_score DESC, created_at DESC'
+    if args.limit is not None:
+        query += ' LIMIT ?'
+        params.append(args.limit)
+
+    rows = conn.execute(query, params).fetchall()
 
     # Load candidate profile for direct injection
     with open(PROFILE_PATH) as f:
         candidate_profile = f.read()
 
     total = len(rows)
-    print(f"Jobs to rescore: {total}")
-    log_event('rescore_started', total=total)
+    filter_desc = []
+    if args.min_score is not None:
+        filter_desc.append(f'min_score={args.min_score}')
+    if args.limit is not None:
+        filter_desc.append(f'limit={args.limit}')
+    if args.dry_run:
+        filter_desc.append('DRY RUN')
+    filter_str = f" ({', '.join(filter_desc)})" if filter_desc else ''
+    print(f"Jobs to rescore: {total}{filter_str}")
+
+    if args.dry_run:
+        print()
+        print('Would rescore:')
+        for r in rows[:20]:
+            print(f"  [{r['relevance_score']}] {r['title'][:50]} @ {r['company']}")
+        if total > 20:
+            print(f"  ... (+{total - 20} more)")
+        conn.close()
+        return
+
+    log_event('rescore_started', total=total, min_score=args.min_score, limit=args.limit)
 
     scored_count = 0
     manual_count = 0
