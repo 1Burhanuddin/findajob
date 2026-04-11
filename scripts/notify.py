@@ -360,21 +360,49 @@ def cmd_apply_reminder():
 
 
 def cmd_feedback_review():
+    import subprocess as sp
+    THRESHOLD = 10
+
     conn = db_connect()
     count = conn.execute('SELECT COUNT(*) FROM feedback_log').fetchone()[0]
     conn.close()
 
-    THRESHOLD = 10
     if count < THRESHOLD:
         print(f'feedback_log has {count} entries — below threshold ({THRESHOLD}). No ping sent.')
         return
 
-    body = (
-        f'feedback_log has {count} rejection entries.\n'
-        f'Time to review: are the AI scores predicting your rejections?\n'
-        f'Run: sqlite3 data/pipeline.db "SELECT reject_reason, COUNT(*) FROM feedback_log GROUP BY reject_reason ORDER BY 2 DESC"'
-    )
-    send('JSP Feedback Log Ready for Review', body, priority='default', tags='magnifying')
+    # Run analyze_feedback.py and capture key stats for the notification
+    try:
+        result = sp.run(
+            [sys.executable, f'{BASE}/scripts/analyze_feedback.py', '--json'],
+            capture_output=True, text=True, timeout=30
+        )
+        data = json.loads(result.stdout) if result.stdout else {}
+    except Exception:
+        data = {}
+
+    if data and not data.get('error'):
+        fp = data.get('false_positives', 0)
+        fp_pct = data.get('fp_pct', 0)
+        top_reason = data['by_reason'][0] if data.get('by_reason') else ('?', 0)
+        top_company = data['company_fp_counts'][0] if data.get('company_fp_counts') else ('?', 0)
+        bad_kws = [kw['keyword'] for kw in data.get('keyword_signals', [])
+                   if kw['ratio'] < 0.4 and kw['rejected_n'] >= 3][:4]
+        body = (
+            f'{count} rejections in feedback_log\n'
+            f'False positives (score 8+): {fp} ({fp_pct}%)\n'
+            f'Top reason: {top_reason[0]} ({top_reason[1]})\n'
+            f'Top FP company: {top_company[0]} ({top_company[1]} rejections)\n'
+            + (f'Prefilter candidates: {", ".join(bad_kws)}\n' if bad_kws else '')
+            + 'Run: python3 scripts/analyze_feedback.py'
+        )
+    else:
+        body = (
+            f'feedback_log has {count} rejection entries.\n'
+            f'Run: python3 scripts/analyze_feedback.py'
+        )
+
+    send('JSP Feedback Analysis', body, priority='default', tags='magnifying')
 
 
 # ── Dispatch ───────────────────────────────────────────────────────────────────

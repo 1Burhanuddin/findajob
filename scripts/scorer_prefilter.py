@@ -169,7 +169,16 @@ _HARD_REJECT_PATTERNS = [
     # Manufacturing / production / plant (non-DC)
     r'\bproduction\s+(buyer|planner|engineer)\b',
     r'\bplant\s+(manager|maintenance)\b',
-    r'\bmanufacturing\s+(engineer|manager|operations)\b',
+    r'\bmanufacturing\s+(engineer|manager|operations|test)\b',
+    r'\bmanufacturing\s+test\b',
+
+    # Quality / process engineering (0% applied rate in feedback data)
+    r'\bquality\s+(engineer|technician|assurance|control)\b',
+    r'\bprocess\s+engineer\b',
+    r'\bprocess\s+quality\s+engineer\b',
+
+    # Systems development engineering (SDE-adjacent, not DC ops)
+    r'\bsystems\s+development\s+engineer\b',
 
     # Transportation / warehouse / logistics expansions
     r'\btransportation\s+coordinator\b',
@@ -262,7 +271,6 @@ _IN_DOMAIN_PATTERNS = [
     r'\bdata\s+center.*\boperations\s+(area\s+)?manager\b',
     r'\bsite\s+operations\s+manager\b',       # without "workplace services"
     r'\bengineering\s+operations\s+manager\b',
-    r'\bforward\s+deployed\s+engineer\b',
     r'\bfield\s+operations\s+(manager|lead)\b',
 ]
 

@@ -26,11 +26,16 @@ Format: `- [ ]` not started, `- [~]` in progress, `- [x]` shipped.
   target-company jobs scored 1-6, title-keyword hits in low-score buckets. Requires JD quality
   fix first (spec: `docs/superpowers/specs/2026-04-10-jd-quality-design.md`).
 
-- [ ] **Feedback loop — systematic learning from rejections**
-  `feedback_log` captures every Dashboard/Review rejection with reason and JD excerpt, but
-  this data doesn't feed back into scoring. Ideas: periodic `reject_reason` clustering to
-  tune prefilter patterns; score calibration (if user consistently rejects score-7 jobs with
-  certain title patterns, auto-demote); track accept/reject ratio by score bucket over time.
+- [x] **Feedback loop — systematic learning from rejections** *(shipped 2026-04-11)*
+  `scripts/analyze_feedback.py` reads feedback_log + jobs to produce: rejection breakdown,
+  false positive analysis (score 8+ rejected), title keyword signals (applied vs rejected),
+  company repeat patterns, source FP rates, and actionable prefilter/search suggestions.
+  `notify.py feedback-review` updated to surface key stats from the analysis.
+  First run findings: 80.6% of rejections are score 8+ (false positives); Greenhouse has 73%
+  FP rate on score-7+ jobs; "engineer" title without "operations/data center" context is the
+  dominant FP signal. Prefilter updated with quality/process/systems-dev engineer patterns.
+  Search queries updated: removed "forward deployed engineer", "data center engineer"; added
+  "data center technician manager", "datacenter site manager", "AI infrastructure operations".
 
 ## Data Sources
 
