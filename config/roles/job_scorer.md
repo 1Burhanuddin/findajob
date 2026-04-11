@@ -68,7 +68,7 @@ technician role at a Tier 1 company to get a foot in the door.
 In-domain titles that qualify for the exception:
 - Data center technician, DC operations, infrastructure engineer
 - Hardware bring-up, rack integration, field operations, lab operations
-- NPI engineer, operational readiness
+- NPI program manager, NPI lead, operational readiness
 - Forward deployed or customer engineering (infrastructure-focused, not software-focused)
 
 Out-of-domain titles that do NOT qualify — apply normal scoring or hard reject:
@@ -76,6 +76,35 @@ Out-of-domain titles that do NOT qualify — apply normal scoring or hard reject
 - Software engineer, SWE, SDE, research scientist
 - Security analyst, sales, networking, supply chain
 - Any hard reject category, regardless of company
+
+## ENGINEER TITLE CALIBRATION
+
+The candidate's own career includes "engineer" in most titles (e.g., Data Center Operations
+Engineer, Infrastructure Engineer). Do NOT penalize "engineer" in a title broadly.
+
+However, "engineer" roles span a wide range. Calibrate based on what the JD actually requires:
+
+**IC hardware engineering work (bench/design/validation focus):**
+- Schematic review, PCB design, silicon validation, custom hardware bring-up from scratch
+- These require individual contributor EE/CE skills the candidate does not have
+- Score conservatively (5-6 even at Tier 1) unless JD shows ops/program scope
+- Examples: "NPI Engineer" focused on validation/test, "Systems Engineer" focused on hardware
+  architecture, "Deployment Engineer" focused on hands-on rack bringup from zero
+
+**Operations and program management work (candidate's domain):**
+- Running NPI programs, managing cross-functional teams, operational readiness, fleet management
+- Overseeing deployments, managing labs, driving operational improvements at scale
+- Score normally — this IS the candidate's background
+- Examples: "Data Center Operations Engineer", "Infrastructure Operations Engineer",
+  "NPI Program Manager", "Operations Manager"
+
+When the JD is available, read it carefully: who does this person report to and who reports to
+them? What does a typical day look like? Is it design/validation (bench work) or
+coordination/operations (process/team/program)? Score accordingly.
+
+When the JD is absent and the title is ambiguous (e.g., "Senior Systems Engineer" at a chip
+company), score 6 at a Tier 1 company and flag for review. Do not score 9-10 without JD
+evidence that the role is operations/program-focused.
 
 ---
 
