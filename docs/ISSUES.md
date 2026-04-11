@@ -15,23 +15,24 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   `triage.py` now auto-rejects gmail_linkedin jobs with unresolvable company immediately
   after enrichment attempt. Row stays in DB with `reject_reason='Blank Company'`.
 
-- [ ] **Duplicate jobs with and without company — fingerprint gap**
-  "Critical Environment Operations Manager" exists twice: `company=Microsoft` (score 8)
-  and `company=""` (score 5). Same for "Senior Manager, Data Center Operations, JoinOCI"
-  (Oracle vs blank). Fingerprint includes company, so blank-company and resolved-company
-  copies don't dedup. Fix: add a secondary dedup pass on `title + location` (ignoring
-  company) for `gmail_linkedin` jobs, or dedup at scoring time by checking if a
-  higher-scored version of the same title already exists.
+- [x] **Duplicate jobs with and without company — fingerprint gap** *(closed 2026-04-10)*
+  Root cause: fingerprint was computed with blank company at insert time (line 835), then
+  company resolved via LinkedIn API (line 868), but fingerprint was never recomputed. When
+  the same job arrived from another source with company pre-resolved, it got a different
+  fingerprint and passed the dedup check. 197 duplicate pairs found in DB.
+  Fix: after company resolution in `triage.py`, recompute fingerprint with resolved company,
+  check for existing job with new fingerprint, and if found mark the blank-company row as
+  `dupe_of` + reject. Otherwise update both company and fingerprint on the row.
+  Existing 197 dupes are harmless (blank-company copies mostly already rejected).
 
 - [x] **Feedback block over-correction — zero 9-10 scores** *(closed 2026-04-10)*
   Softened instruction: "score it LOW (1-4)" → "reduce by 2-3 points"; "weight heavily" →
   "consider"; added "Minimum score is always 1" guard. Monitor next 2-3 runs.
 
-- [ ] **`sync_sheet.py` has no log confirmation**
-  Called inline by `triage.py` with `subprocess.run(check=False)`. If it fails, there is
-  no `pipeline.jsonl` event and no alert. Fix: add a `log_event('sync_complete', ...)` at
-  the end of `sync_sheet.py` with row counts for each tab. Surface sync failures in
-  `notify.py health-check`.
+- [x] **`sync_sheet.py` has no log confirmation** *(closed 2026-04-10)*
+  Added `log_event()` to `sync_sheet.py`. Logs `sync_complete` with row counts for Sheet1,
+  Dashboard, and Review on success; logs `sync_failed` with error on exception. `notify.py
+  health-check` now checks for `sync_complete` in last 25h and surfaces `sync_failed` events.
 
 - [x] **LinkedIn JD missing for all gmail jobs** *(closed 2026-04-10)*
   Root cause: `extract_linkedin_job_id()` regex matched `linkedin.com/jobs/view/(\d+)`
@@ -65,11 +66,14 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   Fixed: `ingest_form.py` now uses the same `normalize()`-based fingerprint as `triage.py`
   (title + company + location), replacing the old URL+company+title approach.
 
-- [ ] **Resume exceeding 2 pages despite margin and bullet count rules** *(Low)*
-  reference.docx margins set to 0.4" L/R, 0.5" T/B, and bullet count limits enforced in
-  resume_tailor prompt, but some resumes still render at 3 pages in .docx output. May need
-  pandoc geometry flags, font size adjustments in reference.docx, or tighter bullet count
-  limits for roles with long bullets. Lower priority; user can trim manually.
+- [x] **Resume exceeding 2 pages despite margin and bullet count rules** *(closed 2026-04-10)*
+  Root cause: reference.docx had 12pt default font, 1.15x line spacing, large heading sizes
+  (H1=20pt, H2=16pt, H3=14pt), generous paragraph spacing (before/after=180 on Body Text),
+  and wide bullet indent (0.50" left + 0.33" hanging in numbering.xml).
+  Fix: default font 10.5pt, single line spacing (240 twips), heading sizes reduced
+  (H1=16pt, H2=12pt bold, H3=11pt bold), paragraph spacing tightened (after=20-40),
+  bullet indent reduced to 0.25" left + 0.125" hanging. All three test resumes (Nscale,
+  OpenAI, Fluidstack) now render at exactly 2 pages. Backup at reference.docx.bak.
 
 - [x] **`cost_log` model name is hardcoded** *(closed 2026-04-10)*
   Added `_role_model('job_scorer')` helper in both `triage.py` and `rescore_all.py` that
@@ -82,16 +86,10 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   Fix: consolidate into `scripts/utils.py` (or extend `paths.py`). Not urgent — all copies
   are in sync — but creates a maintenance hazard when any one of them needs a change.
 
-- [ ] **`apply-reminder` notification should include daily checklist** *(Low)*
-  The motivational nudge (`notify.py apply-reminder`) is just a quip. Add a brief
-  daily task checklist after the quip to keep the workflow top-of-mind:
-  1. Review high-scoring matches on the Dashboard — Flag for Prep or Reject each one
-  2. Check "Ready to Apply" jobs — review generated materials, then Apply or Reject
-  3. Triage the Review tab — Promote promising jobs to Dashboard or Reject
-  4. Scan Sheet1 for any target-company jobs that may have been mis-scored
-  5. Check ntfy health notification for pipeline errors or warnings
-  Include real counts from the DB (e.g., "3 jobs awaiting review, 2 ready to apply,
-  47 in manual review") so the checklist is actionable, not generic.
+- [x] **`apply-reminder` notification should include daily checklist** *(closed 2026-04-10)*
+  Daily 05:00 reminder now includes a 5-item checklist with live DB counts: Dashboard
+  queue (score>=7 awaiting action), Ready to Apply (materials_drafted), Review tab
+  (manual_review), plus total applied. Quip still rotates daily by day-of-year.
 
 - [x] **Review tab flooded with obvious mismatches — prefilter expansion** *(closed 2026-04-10)*
   Expanded `_HARD_REJECT_PATTERNS` with ~40 new patterns across 12 categories (healthcare,
@@ -109,10 +107,9 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   the DB stage but don't move the folder — it stays in `_applied/`. Should there be
   `_interviewing/` or similar? Or is `_applied/` the final active location and only the
   marker file changes? Needs a decision.
-  **2. No reconciliation:** If rclone fails silently, or a folder is manually moved on disk
-  or Drive, the DB `prep_folder_path` goes stale. Need a periodic reconciliation check
-  (e.g., in `notify.py health-check`) that verifies `prep_folder_path` exists for all
-  `materials_drafted`/`applied`/`interview` jobs and flags mismatches.
+  **2. ~~No reconciliation~~** *(partially closed 2026-04-10)*: `notify.py health-check` now
+  detects orphaned `prep_folder_path` (DB points to missing dir) for non-rejected/withdrawn
+  jobs. Still missing: proactive reconciliation that *fixes* the mismatch, not just alerts.
   **3. No rclone failure detection:** `poll_flags.py` and `prep_application.py` fire rclone
   with `check=False` / `Popen` (fire-and-forget). If the sync fails, no retry and no alert.
   Fix: capture rclone exit code, log failures, and surface in health check.
@@ -195,6 +192,18 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 ---
 
 ## Completed
+
+- [x] **Duplicate company folders created on Flag for Prep** *(closed 2026-04-10)*
+  Root cause: `poll_flags.py` checked `stage IN (scored, manual_review, enriched)` before
+  triggering prep, but didn't update the stage until `prep_application.py` finished (~5 min
+  of LLM calls). Next poll cycle found the same job still in `scored` and fired prep again.
+  Each run got a unique `HHMMSS` timestamp → new folder every time.
+  Fix: `poll_flags.py` now sets `stage='prep_in_progress'` in the DB *before* launching the
+  subprocess (closes the race window). `prep_application.py` also guards: exits early if
+  `prep_folder_path` is already set and `stage=materials_drafted`. Added `prep_in_progress`
+  to the `stage` CHECK constraint (init_db.py + live DB migration). `sync_sheet.py` and
+  `notify.py health-check` updated to handle the new stage. Health check now also detects
+  duplicate folders and stuck `prep_in_progress` jobs (>1h).
 
 - [x] **Poller systemd service failing — KillMode** *(closed 2026-04-10)*
   `findajob-poller.service` was `Type=oneshot` with default `KillMode=control-group`.

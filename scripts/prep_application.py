@@ -85,6 +85,19 @@ def notify(message):
 
 def main():
     company, title, url, job_id = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+
+    # Guard: skip if prep already completed for this job
+    conn_check = sqlite3.connect(DB_PATH)
+    conn_check.row_factory = sqlite3.Row
+    existing = conn_check.execute(
+        'SELECT prep_folder_path, stage FROM jobs WHERE id=?', (job_id,)
+    ).fetchone()
+    conn_check.close()
+    if existing and existing['prep_folder_path'] and existing['stage'] == 'materials_drafted':
+        log_event('prep_skipped_duplicate', company=company, title=title, job_id=job_id)
+        print(f"PREP_SKIPPED: materials already drafted for {job_id}")
+        return
+
     # Sanitize company for filesystem safety (title already goes through abbrev_title)
     safe_company = re.sub(r'[^\w\s\-&.,]', '_', company).strip()
     date = datetime.now().strftime('%Y-%m-%d')

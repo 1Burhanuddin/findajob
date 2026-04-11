@@ -67,7 +67,7 @@ The candidate's name on the resume is **Daniel Brock**. Never "Brock Brock", nev
 - If you are going long, cut bullets from older/less-relevant roles first.
 - Never cut a role entirely; condense to 2 bullets minimum.
 - The summary must be 3-4 sentences. Not 5. Not a paragraph.
-- Core Competencies: 12-18 terms, 3-column grid. No more.
+- Core Competencies: 12-18 terms, middle-dot separated flowing block. No bullets.
 
 ---
 
@@ -139,16 +139,20 @@ The master resume Skills section contains the candidate's competency terms, orga
 
 For each tailored resume:
 - Select 12-18 competency terms drawn from the skills section in proportion to the JD's emphasis.
-- Reorder and weight toward what the JD prioritizes.
-- Use exact terms from the master resume skills section; do not rephrase or invent new ones.
-- Present as a single "Core Competencies" section formatted as a 3-column grid of bullet items, placed after the professional summary and before Experience.
+- **Ordering:** Rank primarily by relevance to the target JD. As a secondary principle, group logically related competencies together (e.g., hardware skills near other hardware skills, leadership near process management). The result should read relevance-first with natural thematic flow.
+- **Wording:** Tighten for ATS/AI resume screening. Drop filler words like "at Scale," "Enablement," "Authoring." Prefer industry-standard keyword tokens (e.g., "Program Management" not "Program Leadership," "Team Leadership & Development" not "Team Building and Management," "Workflow Optimization" not "Technician Workflow Design"). Use ampersands (&) instead of "and." Keep each item to 1-4 words where possible.
+- **Format:** Render as a single flowing block of plain text, each item separated by ` · ` (space, middle dot, space). No bullet points, no columns, no line breaks within the block. Center the block.
 
 Example format:
 ```
 ## Core Competencies
-- New Product Introduction (NPI)     - Cross-functional Program Leadership    - Data Center Operations
-- Operational Readiness Engineering  - Incident Response (SEV-0/SEV-1)        - Hardware Validation
+
+::: centered
+New Product Introduction (NPI) · Data Center Operations · Operational Readiness · Hardware Validation · Cross-functional Program Management · Incident Response (SEV-0/SEV-1) · Capacity Planning · Asset Lifecycle Management · Vendor & ODM Management · Rack Integration & Bring-Up · Fleet Management · Root Cause Analysis
+:::
 ```
+
+The `::: centered` and `:::` fencing is required. Do not use bullet points, columns, HTML tags, or line breaks within the block.
 
 ---
 

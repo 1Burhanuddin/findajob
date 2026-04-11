@@ -215,6 +215,12 @@ def main():
                 log_event('poll_flags_skipped', reason='invalid_company',
                           company=job['company'], title=job['title'], job_id=job['id'])
                 continue
+            # Guard: set stage immediately so next poll cycle won't re-trigger
+            now = datetime.now(timezone.utc).isoformat()
+            conn.execute('UPDATE jobs SET stage=?, stage_updated=?, updated_at=? WHERE id=?',
+                        ('prep_in_progress', now, now, job['id']))
+            conn.commit()
+            write_audit(conn, job['id'], 'stage', job['stage'], 'prep_in_progress')
             flagged_jobs.append({
                 'id': job['id'], 'title': job['title'],
                 'company': job['company'], 'url': job['url']

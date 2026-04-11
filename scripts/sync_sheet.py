@@ -7,7 +7,8 @@ Sync SQLite → Google Sheets.
   Review:    Manual review triage queue (stage=manual_review, null-score scorer failures).
              poll_flags.py reads STATUS + REJECT_REASON from Dashboard and Review tabs.
 """
-import os, sys, sqlite3
+import os, sys, sqlite3, json
+from datetime import datetime, timezone
 from googleapiclient.discovery import build
 from pathlib import Path
 from google.oauth2 import service_account
@@ -16,6 +17,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE
 from scorer_prefilter import _is_tier1
 DB_PATH = f'{BASE}/data/pipeline.db'
+LOG_PATH = f'{BASE}/logs/pipeline.jsonl'
+
+def log_event(event_type, **kwargs):
+    entry = {
+        'ts': datetime.now(timezone.utc).isoformat(),
+        'event': event_type,
+        **kwargs
+    }
+    with open(LOG_PATH, 'a') as f:
+        f.write(json.dumps(entry) + '\n')
 SA_FILE = f'{BASE}/config/gsheets_creds.json'
 with open(f'{BASE}/config/sheet_id.txt') as f:
     SHEET_ID = f.read().strip()
@@ -105,8 +116,8 @@ def sync_sheet1(svc, conn):
         WHERE (dupe_of = '' OR dupe_of IS NULL)
           AND (
             relevance_score >= 5
-            OR stage IN ('manual_review', 'materials_drafted', 'applied',
-                         'interview', 'offer', 'withdrawn')
+            OR stage IN ('manual_review', 'prep_in_progress', 'materials_drafted',
+                         'applied', 'interview', 'offer', 'withdrawn')
             OR julianday('now') - julianday(created_at) <= ?
           )
         ORDER BY
@@ -121,8 +132,8 @@ def sync_sheet1(svc, conn):
         WHERE (dupe_of = '' OR dupe_of IS NULL)
           AND relevance_score IS NOT NULL
           AND relevance_score < 5
-          AND stage NOT IN ('manual_review', 'materials_drafted', 'applied',
-                            'interview', 'offer', 'withdrawn')
+          AND stage NOT IN ('manual_review', 'prep_in_progress', 'materials_drafted',
+                            'applied', 'interview', 'offer', 'withdrawn')
           AND julianday('now') - julianday(created_at) > ?
     ''', (SHEET1_ARCHIVE_DAYS,)).fetchall()
     target_extras = [r for r in all_rows if r['id'] not in target_ids and _is_tier1(r['company'])]
@@ -142,7 +153,9 @@ def sync_sheet1(svc, conn):
         valueInputOption='USER_ENTERED', body={'values': sheet_rows}
     ).execute()
     total_db = conn.execute('SELECT count(*) FROM jobs WHERE dupe_of = "" OR dupe_of IS NULL').fetchone()[0]
-    print(f'Sheet1: {len(sheet_rows)-1} rows synced ({total_db - len(sheet_rows) + 1} archived from view)')
+    n_synced = len(sheet_rows) - 1
+    print(f'Sheet1: {n_synced} rows synced ({total_db - n_synced} archived from view)')
+    return n_synced
 
 
 def sync_dashboard(svc, conn):
@@ -169,7 +182,7 @@ def sync_dashboard(svc, conn):
         WHERE (dupe_of = '' OR dupe_of IS NULL)
           AND (
             (relevance_score >= 7 AND stage IN ('scored', 'manual_review'))
-            OR stage = 'materials_drafted'
+            OR stage IN ('prep_in_progress', 'materials_drafted')
           )
         ORDER BY
             CASE stage WHEN 'materials_drafted' THEN 0 ELSE 1 END,
@@ -217,7 +230,9 @@ def sync_dashboard(svc, conn):
     ).execute()
     n_prepped = sum(1 for r in rows if r['stage'] == 'materials_drafted')
     n_queued  = len(rows) - n_prepped
-    print(f'Dashboard: {len(sheet_rows)-1} jobs ({n_queued} queued, {n_prepped} prepped/pending apply)')
+    n_dash = len(sheet_rows) - 1
+    print(f'Dashboard: {n_dash} jobs ({n_queued} queued, {n_prepped} prepped/pending apply)')
+    return n_dash
 
 
 # ── Review: manual_review triage queue ────────────────────────────────────────
@@ -281,7 +296,9 @@ def sync_review(svc, conn):
         spreadsheetId=SHEET_ID, range='Review!A1',
         valueInputOption='USER_ENTERED', body={'values': sheet_rows}
     ).execute()
-    print(f'Review: {len(sheet_rows)-1} manual_review jobs synced')
+    n_review = len(sheet_rows) - 1
+    print(f'Review: {n_review} manual_review jobs synced')
+    return n_review
 
 
 def main():
@@ -290,9 +307,14 @@ def main():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
 
-    sync_sheet1(svc, conn)
-    sync_dashboard(svc, conn)
-    sync_review(svc, conn)
+    try:
+        n_sheet1 = sync_sheet1(svc, conn)
+        n_dash = sync_dashboard(svc, conn)
+        n_review = sync_review(svc, conn)
+        log_event('sync_complete', sheet1=n_sheet1, dashboard=n_dash, review=n_review)
+    except Exception as e:
+        log_event('sync_failed', error=str(e))
+        raise
 
     conn.close()
 

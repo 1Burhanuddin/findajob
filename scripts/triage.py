@@ -866,9 +866,25 @@ def main():
             resolved = job.get('_linkedin_company')
             if resolved:
                 job['company'] = resolved
-                # Update the already-inserted row with the resolved company
-                conn.execute('UPDATE jobs SET company=? WHERE id=?',
-                             (job['company'], job_id))
+                # Recompute fingerprint with resolved company and check for dupes
+                new_fp = fingerprint(job['title'], job['company'], job.get('location', ''))
+                existing_resolved = conn.execute(
+                    'SELECT id FROM jobs WHERE fingerprint = ? AND id != ?', (new_fp, job_id)
+                ).fetchone()
+                if existing_resolved:
+                    # A copy with the resolved company already exists — mark this one as dupe
+                    conn.execute(
+                        'UPDATE jobs SET dupe_of=?, stage=?, stage_updated=?, updated_at=? WHERE id=?',
+                        (existing_resolved['id'], 'rejected', now, now, job_id))
+                    conn.commit()
+                    write_audit(conn, job_id, 'stage', 'discovered', 'rejected')
+                    log_event('dupe_after_enrichment', job_id=job_id, title=job['title'],
+                              company=job['company'], dupe_of=existing_resolved['id'])
+                    dupe_count += 1
+                    continue
+                # No dupe — update company and fingerprint on the inserted row
+                conn.execute('UPDATE jobs SET company=?, fingerprint=? WHERE id=?',
+                             (job['company'], new_fp, job_id))
                 conn.commit()
             else:
                 # Company unresolvable — reject immediately, don't waste a scorer call

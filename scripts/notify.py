@@ -12,8 +12,9 @@ Usage:
 
 ntfy topic is read from NTFY_TOPIC in data/.env, or falls back to NTFY_TOPIC env var.
 """
-import os, sys, sqlite3, json, subprocess, re
+import os, sys, sqlite3, json, subprocess, re, glob
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE
@@ -177,6 +178,11 @@ def cmd_health_check():
     poll_events = [e for e in events if e.get('event') == 'poll_flags']
     poll_ok = bool(poll_events)
 
+    # Check sync_sheet ran
+    sync_events = [e for e in events if e.get('event') == 'sync_complete']
+    sync_ok = bool(sync_events)
+    sync_failures = [e for e in events if e.get('event') == 'sync_failed']
+
     # Error events
     error_events = [e for e in events
                     if any(k in e for k in ('error', 'exception', 'failed'))
@@ -190,6 +196,12 @@ def cmd_health_check():
         issues.append('WARN: triage_complete not seen in last 25h')
     if not poll_ok:
         issues.append('WARN: poll_flags not seen in last 25h')
+    if not sync_ok:
+        issues.append('WARN: sync_complete not seen in last 25h')
+    if sync_failures:
+        issues.append(f'ERROR: {len(sync_failures)} sync_sheet failure(s) in last 25h')
+        for e in sync_failures[:2]:
+            issues.append(f'  • {e.get("error", "unknown")}')
     if error_events:
         issues.append(f'ERRORS: {len(error_events)} error events in log')
         for e in error_events[:3]:
@@ -240,10 +252,46 @@ def cmd_health_check():
         for title, company, score in mis_scored[:5]:
             issues.append(f'  • {company}: {title} (score={score})')
 
+    # ── Duplicate company folders ────────────────────────────────────────────
+    companies_dir = os.path.join(BASE, 'companies')
+    folder_names = [d for d in os.listdir(companies_dir)
+                    if not d.startswith('_') and os.path.isdir(os.path.join(companies_dir, d))]
+    # Strip timestamp suffix to find duplicates (same company_title_date, different HHMMSS)
+    from collections import Counter
+    prefixes = [name.rsplit('_', 1)[0] for name in folder_names]
+    dupes = {p: n for p, n in Counter(prefixes).items() if n > 1}
+    if dupes:
+        issues.append(f'WARN: {len(dupes)} duplicate company folder set(s):')
+        for prefix, count in list(dupes.items())[:5]:
+            issues.append(f'  • {prefix} ({count} copies)')
+
+    # ── Stuck prep_in_progress jobs ──────────────────────────────────────────
+    stuck_cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    stuck = conn.execute('''
+        SELECT title, company, stage_updated FROM jobs
+        WHERE stage = 'prep_in_progress' AND stage_updated < ?
+    ''', (stuck_cutoff,)).fetchall()
+    if stuck:
+        issues.append(f'WARN: {len(stuck)} job(s) stuck in prep_in_progress >1h:')
+        for r in stuck[:5]:
+            issues.append(f'  • {r["company"]}: {r["title"]}')
+
+    # ── Orphaned prep_folder_path (DB points to missing dir) ─────────────────
+    prepped = conn.execute('''
+        SELECT title, company, prep_folder_path FROM jobs
+        WHERE prep_folder_path IS NOT NULL AND prep_folder_path != ''
+          AND stage NOT IN ('rejected', 'withdrawn')
+    ''').fetchall()
+    orphaned = [r for r in prepped if not Path(r['prep_folder_path']).is_dir()]
+    if orphaned:
+        issues.append(f'WARN: {len(orphaned)} job(s) have prep_folder_path pointing to missing dir:')
+        for r in orphaned[:5]:
+            issues.append(f'  • {r["company"]}: {r["title"]}')
+
     conn.close()
 
     if not issues:
-        body = 'All systems nominal.\nTriage ran. Poller ran. No errors in last 25h.'
+        body = 'All systems nominal.\nTriage ran. Poller ran. Sheet synced. No errors in last 25h.'
         priority = 'low'
         tags = 'white_check_mark'
     else:
@@ -281,11 +329,40 @@ def cmd_apply_reminder():
         "Fun fact: 0% of jobs you don't apply to result in interviews.",
         "The Dashboard is not an art installation. It has checkboxes for a reason.",
     ]
-    import random
     # Rotate by day-of-year so it's deterministic per day but varies daily
     day_index = datetime.now().timetuple().tm_yday % len(QUIPS)
     quip = QUIPS[day_index]
-    send('Apply To Something Today', quip, priority='default', tags='rocket')
+
+    # Pull real counts for the daily checklist
+    conn = db_connect()
+    n_dashboard = conn.execute('''
+        SELECT COUNT(*) FROM jobs
+        WHERE (dupe_of = '' OR dupe_of IS NULL)
+          AND relevance_score >= 7 AND stage IN ('scored', 'manual_review')
+    ''').fetchone()[0]
+    n_ready = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE stage = 'materials_drafted'"
+    ).fetchone()[0]
+    n_review = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE stage = 'manual_review'"
+    ).fetchone()[0]
+    n_applied = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE stage = 'applied'"
+    ).fetchone()[0]
+    conn.close()
+
+    checklist = (
+        f'\n---\n'
+        f'1. Dashboard: {n_dashboard} high-score jobs to Flag for Prep or Reject\n'
+        f'2. Ready to Apply: {n_ready} jobs with materials drafted — review and submit\n'
+        f'3. Review tab: {n_review} jobs in manual review — Promote or Reject\n'
+        f'4. Scan Sheet1 for mis-scored target company jobs\n'
+        f'5. Check ntfy health notification for pipeline warnings\n'
+        f'---\n'
+        f'Applied so far: {n_applied}'
+    )
+
+    send('Apply To Something Today', quip + checklist, priority='default', tags='rocket')
 
 
 def cmd_feedback_review():
