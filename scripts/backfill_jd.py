@@ -17,31 +17,17 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE
+from utils import log_event, load_env
 
 DB_PATH = f'{BASE}/data/pipeline.db'
-LOG_PATH = f'{BASE}/logs/pipeline.jsonl'
 
-# Load env for RAPIDAPI_KEY
-def load_env(path):
-    with open(os.path.expanduser(path)) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, val = line.split('=', 1)
-                os.environ[key.strip()] = val.strip().strip("'\"")
-
-load_env(f'{BASE}/data/.env')
+load_env()
 
 _LINKEDIN_JOB_ID_RE = re.compile(r'linkedin\.com/(?:comm/)?jobs/view/(\d+)', re.IGNORECASE)
 
 def extract_job_id(url):
     m = _LINKEDIN_JOB_ID_RE.search(url or '')
     return m.group(1) if m else None
-
-def log_event(event_type, **kwargs):
-    entry = {'ts': datetime.now(timezone.utc).isoformat(), 'event': event_type, **kwargs}
-    with open(LOG_PATH, 'a') as f:
-        f.write(json.dumps(entry) + '\n')
 
 def clean_company(raw):
     """Minimal company cleaning — strip trailing metadata."""

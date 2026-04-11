@@ -11,9 +11,9 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE, AICHAT
 from scorer_prefilter import prefilter_score
+from utils import log_event, write_audit, load_env, validate_llm_json, jd_is_usable
 
 DB_PATH = f'{BASE}/data/pipeline.db'
-LOG_PATH = f'{BASE}/logs/pipeline.jsonl'
 SCHEMA_PATH = f'{BASE}/config/scoring_schema.json'
 PROFILE_PATH = f'{BASE}/config/profile.md'
 
@@ -35,68 +35,9 @@ def _role_model(role_name):
 
 SCORER_MODEL = _role_model('job_scorer')
 
-def load_env(path):
-    with open(os.path.expanduser(path)) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, val = line.split('=', 1)
-                os.environ[key.strip()] = val.strip().strip("'\"")
-
-load_env(f'{BASE}/data/.env')
+load_env()
 
 import sqlite3
-
-def log_event(event_type, **kwargs):
-    entry = {'ts': datetime.now(timezone.utc).isoformat(), 'event': event_type, **kwargs}
-    with open(LOG_PATH, 'a') as f:
-        f.write(json.dumps(entry) + '\n')
-
-def write_audit(conn, job_id, field_changed, old_value, new_value):
-    conn.execute(
-        'INSERT INTO audit_log (job_id, field_changed, old_value, new_value) VALUES (?, ?, ?, ?)',
-        (job_id, field_changed, str(old_value) if old_value is not None else None, str(new_value))
-    )
-    conn.commit()
-
-def validate_llm_json(raw_output, schema_path):
-    import jsonschema
-    text = raw_output.strip()
-    if text.startswith('```'):
-        text = '\n'.join(text.split('\n')[1:])
-    if text.endswith('```'):
-        text = text[:text.rfind('```')]
-    text = text.strip()
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError as e:
-        return None, f"JSON parse: {e}"
-    try:
-        with open(schema_path) as f:
-            schema = json.load(f)
-        jsonschema.validate(parsed, schema)
-    except jsonschema.ValidationError as e:
-        return None, f"Schema: {e.message}"
-    return parsed, None
-
-_JD_WALL_SIGNALS = [
-    'you need to enable javascript',
-    'enable javascript to run this app',
-    '403 forbidden',
-    'cross-site request forgeries',
-    'we\'re signing you in',
-    'sign in to',
-    'access denied',
-    'job not found',
-    'this job may have been',
-    'our careers site has moved',
-]
-
-def jd_is_usable(jd_text):
-    if not jd_text or len(jd_text.strip()) < 30:
-        return False
-    lower = jd_text.lower()
-    return not any(s in lower for s in _JD_WALL_SIGNALS)
 
 def _build_feedback_block():
     """Query feedback_log and return a compact rejection-history block for the scorer prompt."""

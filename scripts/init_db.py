@@ -31,8 +31,6 @@ CREATE TABLE IF NOT EXISTS jobs (
 
     network_depth INTEGER DEFAULT 0,
     known_contacts TEXT DEFAULT '',
-    company_signal TEXT DEFAULT '',
-
     stage TEXT DEFAULT 'discovered' CHECK(stage IN (
         'discovered', 'enriched', 'scored', 'manual_review',
         'prep_in_progress', 'materials_drafted', 'applied',

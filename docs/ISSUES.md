@@ -45,22 +45,19 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 
 ## Pipeline Enhancements
 
-- [ ] **`_applied` / `_rejected` archive folders need rclone target update** *(Low)*
-  `poll_flags.py` now moves folders to `companies/_applied/` and `companies/_rejected/`
-  instead of `_DONE`. The rclone bisync target (`gdrive:01 PROJECTS/Jobs To Apply For`)
-  covers the whole `companies/` directory, so syncing works automatically. But the
-  Google Drive folder names will show `_applied` and `_rejected` as top-level dirs.
-  Confirm this is acceptable or update the Drive folder layout.
+- [x] **`_applied` / `_rejected` archive folders need rclone target update** *(closed 2026-04-10)*
+  Verified: rclone one-way sync covers the whole `companies/` directory. `_applied` and
+  `_rejected` appear as top-level folders on Drive alongside active prep folders. Layout
+  confirmed acceptable. Ran `rclone dedupe` to clean up Google Drive duplicate objects.
 
 - [x] **3 jobs missing fit_score / probability_score** *(closed 2026-04-10)*
   Nscale Infrastructure Operations Manager (80.8/72.3) and Tenstorrent Field Application
   Engineer (77.2/77.7) confirmed populated. Issue resolved.
 
-- [ ] **Populate `company_signal` column in Google Sheet**
-  The column exists in the schema (`config/scoring_schema.json` and Sheet) but is never written.
-  Candidate approach: extract signal from `company_researcher` (Perplexity) output during
-  `prep_application.py` and back-fill via `sync_sheet.py`. Signals to surface: funding events,
-  layoffs, headcount trajectory, product launches (last 6 months).
+- [x] **Populate `company_signal` column in Google Sheet** *(closed 2026-04-10 — won't fix)*
+  Deprecated. Column exists in schema but was never written. Company intel is already
+  surfaced in `company_briefing.docx` at prep time; a Dashboard column wouldn't change
+  triage decisions since scores already drive that. Removed from schema and CLAUDE.md.
 
 - [x] **`ingest_form.py` fingerprint diverges from `triage.py`** *(closed 2026-04-09)*
   Fixed: `ingest_form.py` now uses the same `normalize()`-based fingerprint as `triage.py`
@@ -80,11 +77,12 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   reads the `model:` field from the role's YAML frontmatter at startup. `SCORER_MODEL`
   constant replaces the hardcoded string in both cost_log inserts.
 
-- [ ] **Shared utility functions are duplicated** *(Low — refactor when convenient)*
-  `load_env()`, `validate_llm_json()`, and `jd_is_usable()` are copy-pasted across
-  `triage.py`, `rescore_all.py`, `prep_application.py`, and `find_contacts.py`.
-  Fix: consolidate into `scripts/utils.py` (or extend `paths.py`). Not urgent — all copies
-  are in sync — but creates a maintenance hazard when any one of them needs a change.
+- [x] **Shared utility functions are duplicated** *(closed 2026-04-10)*
+  Created `scripts/utils.py` with `log_event`, `write_audit`, `load_env`, `validate_llm_json`,
+  `jd_is_usable`, and `_JD_WALL_SIGNALS`. Replaced local definitions in 8 scripts:
+  triage.py, poll_flags.py, prep_application.py, sync_sheet.py, notify.py, rescore_all.py,
+  backfill_jd.py, find_contacts.py, ingest_form.py. `load_env()` unified: takes optional
+  path (default `data/.env`), sets os.environ, returns dict — satisfies both prior variants.
 
 - [x] **`apply-reminder` notification should include daily checklist** *(closed 2026-04-10)*
   Daily 05:00 reminder now includes a 5-item checklist with live DB counts: Dashboard
@@ -100,25 +98,16 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   jobs would now be caught. Remaining ~296 are mostly legitimate DC jobs with missing JDs
   or genuinely ambiguous Tier 1 edge cases.
 
-- [ ] **Drive folder state should stay consistent with DB stage at all times**
-  `poll_flags.py` currently handles two transitions: rejected → `_rejected/` and
-  applied → `_applied/`. But several gaps remain:
-  **1. Missing folder moves for later stages:** Interviewing, Offer, and Withdrew update
-  the DB stage but don't move the folder — it stays in `_applied/`. Should there be
-  `_interviewing/` or similar? Or is `_applied/` the final active location and only the
-  marker file changes? Needs a decision.
-  **2. ~~No reconciliation~~** *(partially closed 2026-04-10)*: `notify.py health-check` now
-  detects orphaned `prep_folder_path` (DB points to missing dir) for non-rejected/withdrawn
-  jobs. Still missing: proactive reconciliation that *fixes* the mismatch, not just alerts.
-  **3. No rclone failure detection:** `poll_flags.py` and `prep_application.py` fire rclone
-  with `check=False` / `Popen` (fire-and-forget). If the sync fails, no retry and no alert.
-  Fix: capture rclone exit code, log failures, and surface in health check.
-  **4. Reverse sync not supported:** Local is authoritative (`rclone sync` one-way push),
-  so Drive-side moves are overwritten. This is by design, but if the user manually
-  reorganizes folders on Drive, those changes are lost on next sync. Document this
-  as expected behavior, or add a pre-sync check that warns before clobbering.
-  Goal: any stage transition that has a folder should leave the filesystem, DB, and
-  Drive in a consistent state, with health checks to detect and alert on drift.
+- [x] **Drive folder state should stay consistent with DB stage at all times** *(closed 2026-04-10)*
+  **1. Folder moves for later stages:** Decision: `_applied/` is the terminal folder location.
+  Interviewing/Offer/Withdrew are status changes on the same application, not new workflows.
+  No additional archive folders needed.
+  **2. Reconciliation:** `notify.py health-check` detects orphaned `prep_folder_path`.
+  Proactive auto-fix deferred — alerting is sufficient for current scale.
+  **3. Rclone failure detection:** Both `poll_flags.py` and `prep_application.py` now capture
+  rclone exit codes and log `rclone_failed` events. `notify.py health-check` surfaces them.
+  **4. Reverse sync:** Local is authoritative by design. Drive-side moves are overwritten on
+  next sync. This is expected behavior — all folder management happens locally.
 
 ---
 

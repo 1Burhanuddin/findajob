@@ -28,8 +28,8 @@ from google.oauth2 import service_account
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE
+from utils import log_event, load_env
 DB_PATH = f'{BASE}/data/pipeline.db'
-LOG_PATH = f'{BASE}/logs/pipeline.jsonl'
 SA_FILE = f'{BASE}/config/gsheets_creds.json'
 FORM_SHEET_ID_FILE = f'{BASE}/config/form_responses_sheet_id.txt'
 
@@ -47,25 +47,6 @@ COL_CONTACTS   = 7   # H — Q7: Known contacts
 COL_GEN_FOLDER = 8   # I — Q8: Generate company folder immediately
 COL_PROCESSED  = 9   # J — written by this script
 
-
-def load_env():
-    env = {}
-    try:
-        with open(f'{BASE}/data/.env') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    k, _, v = line.partition('=')
-                    env[k.strip()] = v.strip().strip('"').strip("'")
-    except FileNotFoundError:
-        pass
-    return env
-
-
-def log_event(event_type, **kwargs):
-    entry = {'ts': datetime.now(timezone.utc).isoformat(), 'event': event_type, **kwargs}
-    with open(LOG_PATH, 'a') as f:
-        f.write(json.dumps(entry) + '\n')
 
 
 def clean(s):

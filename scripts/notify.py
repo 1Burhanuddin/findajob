@@ -18,25 +18,12 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE
+from utils import load_env
 DB_PATH = f'{BASE}/data/pipeline.db'
 LOG_PATH = f'{BASE}/logs/pipeline.jsonl'
 ISSUES_PATH = f'{BASE}/docs/ISSUES.md'
-ENV_PATH = f'{BASE}/data/.env'
 
 # ── Load ntfy topic ────────────────────────────────────────────────────────────
-def load_env():
-    env = {}
-    try:
-        with open(ENV_PATH) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    k, _, v = line.partition('=')
-                    env[k.strip()] = v.strip().strip('"').strip("'")
-    except FileNotFoundError:
-        pass
-    return env
-
 _env = load_env()
 NTFY_TOPIC = _env.get('NTFY_TOPIC') or os.environ.get('NTFY_TOPIC', 'jobsearch-pipeline')
 NTFY_URL   = f'https://ntfy.sh/{NTFY_TOPIC}'
@@ -208,6 +195,13 @@ def cmd_health_check():
             issues.append(f'  • [{e.get("event","?")}] {e.get("error", e.get("note", ""))}')
     if null_score:
         issues.append(f'INFO: {len(null_score)} jobs scored None (likely LLM timeout)')
+
+    # Check rclone sync health
+    rclone_failures = [e for e in events if e.get('event') == 'rclone_failed']
+    if rclone_failures:
+        issues.append(f'WARN: {len(rclone_failures)} rclone sync failure(s) in last 25h')
+        for e in rclone_failures[:2]:
+            issues.append(f'  • {e.get("reason","?")} exit={e.get("exit_code","?")}')
 
     # ── Sheet / queue health checks ──────────────────────────────────────
     conn = db_connect()

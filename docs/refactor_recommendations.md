@@ -43,8 +43,8 @@ The launchd plist and `prep_application.py` use `gdrive:01 PROJECTS/Jobs To Appl
 **8. `company_match()` in `find_contacts.py` has false-positive risk**
 Uses substring containment after stripping suffixes. "Apple" matches "GreenApple Inc." If `company` is a short or common string (like "AI"), it will match everything. Should use word-boundary regex instead of `in`.
 
-**9. The `company_signal` column exists everywhere but is never written**
-DB schema, JSON scoring schema, Google Sheet — all have the column. It's been empty since day one. Either wire it up during `prep_application.py` (extract signal from Perplexity `company_researcher` output) or drop it everywhere to reduce confusion.
+**9. ~~The `company_signal` column exists everywhere but is never written~~ (resolved — deprecated)**
+Column removed from init_db.py schema. Company intel surfaced via company_briefing.docx at prep time instead. Live DB column left in place (harmless, always empty).
 
 **10. `needs_info` is a valid stage in the DB schema but not in `scoring_schema.json` and never used in code**
 Dead code that adds confusion. Either implement it or remove it from the DB constraint.
@@ -76,6 +76,6 @@ The function it patched is already live in `triage.py`. Delete it.
 | 4 | Fix prep subprocess error handling (`check=True`, log failures) | No more silent failures |
 | 5 | DB transaction safety in triage.py (wrap per-job cycle) | No partial state on crash |
 | ~~6~~ | ~~Fix O(n²) COL_MAP lookup in sync_sheet.py~~ | **Done 2026-04-08** |
-| 7 | Wire up `company_signal` column from Perplexity output | Closes long-open gap |
+| ~~7~~ | ~~Wire up `company_signal` column from Perplexity output~~ | **Deprecated 2026-04-10** |
 | 8 | Log rotation via newsyslog | Housekeeping |
 | 9 | Delete `scripts/clean_company.py` | Cleanup |

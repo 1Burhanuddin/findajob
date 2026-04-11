@@ -16,17 +16,8 @@ from google.oauth2 import service_account
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE
 from scorer_prefilter import _is_tier1
+from utils import log_event
 DB_PATH = f'{BASE}/data/pipeline.db'
-LOG_PATH = f'{BASE}/logs/pipeline.jsonl'
-
-def log_event(event_type, **kwargs):
-    entry = {
-        'ts': datetime.now(timezone.utc).isoformat(),
-        'event': event_type,
-        **kwargs
-    }
-    with open(LOG_PATH, 'a') as f:
-        f.write(json.dumps(entry) + '\n')
 SA_FILE = f'{BASE}/config/gsheets_creds.json'
 with open(f'{BASE}/config/sheet_id.txt') as f:
     SHEET_ID = f.read().strip()

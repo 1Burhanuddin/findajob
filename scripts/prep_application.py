@@ -7,32 +7,12 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE, AICHAT, PANDOC, RCLONE
+from utils import log_event, write_audit, load_env
 DB_PATH = f'{BASE}/data/pipeline.db'
-LOG_PATH = f'{BASE}/logs/pipeline.jsonl'
 PROFILE_PATH = f'{BASE}/config/profile.md'
 MASTER_RESUME_PATH = f'{BASE}/rag_sources/master_resume.md'
 
-# Load env
-def load_env(path):
-    with open(os.path.expanduser(path)) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, val = line.split('=', 1)
-                os.environ[key.strip()] = val.strip().strip("'\"")
-load_env(f'{BASE}/data/.env')
-
-def log_event(event_type, **kwargs):
-    entry = {'ts': datetime.now(timezone.utc).isoformat(), 'event': event_type, **kwargs}
-    with open(LOG_PATH, 'a') as f:
-        f.write(json.dumps(entry) + '\n')
-
-def write_audit(conn, job_id, field_changed, old_value, new_value):
-    conn.execute(
-        'INSERT INTO audit_log (job_id, field_changed, old_value, new_value) VALUES (?, ?, ?, ?)',
-        (job_id, field_changed, str(old_value) if old_value is not None else None, str(new_value))
-    )
-    conn.commit()
+load_env()
 
 def aichat(role, prompt, model_override=None, timeout=300):
     """Call aichat-ng and return stdout. No RAG — all context injected directly."""
@@ -319,10 +299,13 @@ Generated: {date}
     notify(f"Drafts ready: {company} — {title}\n{outdir}")
 
     # ── Sync companies/ to Google Drive ──
-    subprocess.run([
+    rc = subprocess.run([
         RCLONE, 'sync',
         f'{BASE}/companies/', 'gdrive:01 PROJECTS/Jobs To Apply For',
-    ], check=False)
+    ], capture_output=True, text=True)
+    if rc.returncode != 0:
+        log_event('rclone_failed', reason='prep_sync', exit_code=rc.returncode,
+                  stderr=rc.stderr[:200] if rc.stderr else '')
 
     print(f"PREP_COMPLETE:{outdir}")
 

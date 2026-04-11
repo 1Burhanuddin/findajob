@@ -9,8 +9,8 @@ from google.oauth2 import service_account
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE, RCLONE
+from utils import log_event, write_audit
 DB_PATH = f'{BASE}/data/pipeline.db'
-LOG_PATH = f'{BASE}/logs/pipeline.jsonl'
 SA_FILE = f'{BASE}/config/gsheets_creds.json'
 with open(f'{BASE}/config/sheet_id.txt') as f:
     SHEET_ID = f.read().strip()
@@ -39,18 +39,6 @@ def is_valid_company(company):
     c = company.strip().lower()
     return not any(c.startswith(prefix) for prefix in AGGREGATOR_PREFIXES)
 
-def log_event(event_type, **kwargs):
-    entry = {'ts': datetime.now(timezone.utc).isoformat(), 'event': event_type, **kwargs}
-    with open(LOG_PATH, 'a') as f:
-        f.write(json.dumps(entry) + '\n')
-
-def write_audit(conn, job_id, field_changed, old_value, new_value):
-    """Write a stage/field transition to audit_log."""
-    conn.execute(
-        'INSERT INTO audit_log (job_id, field_changed, old_value, new_value) VALUES (?, ?, ?, ?)',
-        (job_id, field_changed, str(old_value) if old_value is not None else None, str(new_value))
-    )
-    conn.commit()
 
 RCLONE_CMD = [
     RCLONE, 'sync',
@@ -302,7 +290,10 @@ def main():
     # Trigger rclone sync immediately if any folders were moved
     if folders_moved:
         log_event('rclone_triggered', reason='folder_move', count=folders_moved)
-        subprocess.Popen(RCLONE_CMD)  # fire-and-forget, don't block the poller
+        rc = subprocess.run(RCLONE_CMD, capture_output=True, text=True, timeout=120)
+        if rc.returncode != 0:
+            log_event('rclone_failed', reason='folder_move', exit_code=rc.returncode,
+                      stderr=rc.stderr[:200] if rc.stderr else '')
 
     if not flagged_jobs:
         log_event('poll_flags', found=0, rejections=rejected_count,
