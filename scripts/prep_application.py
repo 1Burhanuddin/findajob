@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE, AICHAT, PANDOC, RCLONE
-from utils import log_event, write_audit, load_env
+from utils import log_event, write_audit, load_env, JD_MAX_CHARS
 DB_PATH = f'{BASE}/data/pipeline.db'
 PROFILE_PATH = f'{BASE}/config/profile.md'
 MASTER_RESUME_PATH = f'{BASE}/rag_sources/master_resume.md'
@@ -100,7 +100,7 @@ def main():
             raw = subprocess.run(['curl', '-sL', '--max-time', '15', url],
                                  capture_output=True, text=True).stdout
             jd_text = subprocess.run([PANDOC, '-f', 'html', '-t', 'plain'],
-                                     input=raw, capture_output=True, text=True).stdout[:8000]
+                                     input=raw, capture_output=True, text=True).stdout[:JD_MAX_CHARS]
         except Exception:
             jd_text = '[ERROR: Could not fetch JD]'
 
