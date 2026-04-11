@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE, PANDOC, AICHAT
 from scorer_prefilter import prefilter_score
-from utils import log_event, write_audit, load_env, validate_llm_json, jd_is_usable, _JD_WALL_SIGNALS
+from utils import log_event, write_audit, load_env, validate_llm_json, jd_is_usable, _JD_WALL_SIGNALS, strip_jd_boilerplate, JD_MAX_CHARS
 
 DB_PATH = f'{BASE}/data/pipeline.db'
 CONNECTIONS = f'{BASE}/data/connections.csv'
@@ -119,7 +119,7 @@ def fetch_jd_curl(url):
             capture_output=True, text=True).stdout
         text = subprocess.run([PANDOC, '-f', 'html', '-t', 'plain'],
             input=raw, capture_output=True, text=True).stdout
-        return text[:8000]
+        return strip_jd_boilerplate(text)[:JD_MAX_CHARS]
     except Exception as e:
         return f'[ERROR fetching JD: {e}]'
 
@@ -160,7 +160,7 @@ def fetch_linkedin_job_data(job_id):
             ''
         )
         return {
-            'description': description[:8000] if description else None,
+            'description': strip_jd_boilerplate(description)[:JD_MAX_CHARS] if description else None,
             'company': clean_company(company) if company else None,
         }
     except Exception as e:
@@ -190,7 +190,7 @@ def fetch_jd(job):
     if source == 'jobsapi_indeed':
         desc = job.get('description', '')
         if desc and len(desc.strip()) > 30:
-            return desc[:8000]
+            return strip_jd_boilerplate(desc)[:JD_MAX_CHARS]
         # No inline description — do NOT curl; Indeed apply URLs are JS-rendered SPAs
         # that always return unusable content. Return sentinel instead.
         return '[No description available]'
@@ -202,10 +202,11 @@ def fetch_jd(job):
                 plain = subprocess.run(
                     [PANDOC, '-f', 'html', '-t', 'plain'],
                     input=desc, capture_output=True, text=True, timeout=10
-                ).stdout[:8000]
+                ).stdout
+                plain = strip_jd_boilerplate(plain)[:JD_MAX_CHARS]
                 return plain if plain.strip() else '[No description available]'
             except Exception:
-                return desc[:8000]
+                return strip_jd_boilerplate(desc)[:JD_MAX_CHARS]
         return '[No description available]'
 
     if source in ('jobsapi_linkedin', 'gmail_linkedin'):
