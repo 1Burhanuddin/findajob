@@ -220,9 +220,16 @@ def sync_dashboard(svc, conn):
                               status_override=status_override,
                               reject_override=reject_override,
                               use_status=True)
-        # Replace plain title with a HYPERLINK formula (title column is index 4 in DASH_HEADERS)
+        # Replace plain title with a HYPERLINK formula pointing to the JD URL
         title_idx = DASH_HEADERS.index('title')
         sheet_row[title_idx] = hyperlink(row['url'], row['title'])
+        # If materials have been prepped and we have a Drive folder URL, turn the
+        # company cell into a HYPERLINK to the Drive folder for quick access.
+        gdrive_url = row['gdrive_folder_url'] if 'gdrive_folder_url' in row.keys() else None
+        if (row['stage'] == 'materials_drafted' and gdrive_url
+                and str(gdrive_url).startswith('http')):
+            company_idx = DASH_HEADERS.index('company')
+            sheet_row[company_idx] = hyperlink(gdrive_url, row['company'])
         sheet_rows.append(sheet_row)
 
     svc.spreadsheets().values().clear(
