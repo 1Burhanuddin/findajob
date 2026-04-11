@@ -68,10 +68,11 @@ Before writing any command, path, binary call, or file location:
 <repo>/config/gmail_oauth_client.json       # Gmail OAuth2 credentials (gitignored)
 <repo>/config/gmail_token.json              # Gmail token cache (gitignored)
 <repo>/data/connections.csv                 # LinkedIn connections export (gitignored)
+<repo>/scripts/utils.py                     # shared utilities: log_event(), write_audit(), load_env()
 <repo>/scripts/scorer_prefilter.py          # deterministic pre-filter (Stage 1 + 2)
 <repo>/scripts/triage.py                    # daily ingest → score → DB
 <repo>/scripts/poll_flags.py                # reads Dashboard + Review tabs (STATUS, REJECT_REASON, fingerprint)
-<repo>/scripts/sync_sheet.py                # SQLite → Sheet1 + Dashboard + Review
+<repo>/scripts/sync_sheet.py                # SQLite → Sheet1 + Dashboard + Review tabs
 <repo>/scripts/setup_sheets.py             # one-time sheet formatting (idempotent)
 <repo>/scripts/prep_application.py          # on-demand LLM material generation
 <repo>/scripts/find_contacts.py             # LinkedIn contact matching + outreach drafts
@@ -82,7 +83,6 @@ Before writing any command, path, binary call, or file location:
 <repo>/companies/_applied/                   # applied job folders
 <repo>/companies/_rejected/                  # rejected job folders (with marker files)
 <repo>/logs/pipeline.jsonl                  # structured event log
-<repo>/data/pipeline.db                     # feedback_log table: rejection history
 ```
 
 ---
@@ -158,7 +158,9 @@ Low-score old jobs from non-target companies stay in DB only.
 
 **poll_flags.py** reads `Dashboard!A2:C10000` and `Review!A2:C10000`. Rejection takes priority over prep/promote.
 
-**Health checks** (`notify.py health-check`): warns if Sheet1 > 1000 rows, manual_review backlog > 100, or any target-company job scored ≤4 in last 7 days.
+**Stage `prep_in_progress`:** Set by `poll_flags.py` immediately before launching `prep_application.py` as a subprocess. Prevents duplicate prep runs across poll cycles. Cleared to `materials_drafted` on success. Health check warns if any job is stuck in this stage >1h.
+
+**Health checks** (`notify.py health-check`): warns if Sheet1 > 1000 rows, manual_review backlog > 100, or any target-company job scored 3–6 in last 7 days (potential mis-scores).
 
 ---
 
