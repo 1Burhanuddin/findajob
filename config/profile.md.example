@@ -2,37 +2,72 @@
 # Copy this file to config/profile.md and replace with your real content.
 # This file is injected directly into resume tailor, cover letter, and outreach prompts.
 # It is NOT passed through RAG. Keep it dense and factual.
+#
+# The pipeline is field-agnostic — the examples below show a software engineer, but this
+# file works equally well for social workers, teachers, nurses, designers, and any other
+# field. Fill in your own details.
 
 ## Identity
 Name: Jane Smith
 Location: San Francisco, CA
 LinkedIn: https://linkedin.com/in/janesmith
 Email: jane@example.com
+Phone: (555) 555-5555
 
 ## Target Role
-Senior hardware engineer / technical program manager at AI infrastructure companies.
-Open to: IC and management, on-site or hybrid.
-Not open to: pure software, consulting firms, staffing agencies.
+[1-2 sentences describing the role you are targeting. Examples:
+  - "Senior backend engineer at developer-tools companies. IC or tech lead, remote or SF hybrid."
+  - "Clinical social worker in community mental health. LCSW, focused on adult outpatient."
+  - "Middle school math teacher in a progressive public or charter school. Grades 6-8 preferred."
+  - "Nonprofit development director at an environmental org. $2-10M budget range."
+]
+Open to: [types of roles, work arrangements, locations]
+Not open to: [explicit exclusions]
 
 ## What Makes You Unusual
-[2–3 sentences describing your differentiated background]
+[2–3 sentences describing your differentiated background. What do you bring that a typical
+applicant in your field does not?]
 
 ## Core Competencies
-- [Skill or domain 1]
+- [Skill or domain 1 — something specific that maps to what employers hire for in your field]
 - [Skill or domain 2]
 - [Skill or domain 3]
+- [...]
 
 ## Career Summary
-[3–5 sentences. Who you are, what you have built, what kind of problems you solve.]
+[3–5 sentences. Who you are, what you have built, what kind of problems you solve.
+Use plain language — not the industry jargon, but your actual story.]
 
 ## Employer History (most recent first)
-[List employers with rough date ranges and 1-line summary of role]
+[List employers with rough date ranges and 1-line summary of role. Include contract or
+volunteer work if relevant. Example:
+  Acme Corp — 2020-present — Senior Engineer on the billing platform team
+  City Health Dept — 2018-2020 — Social Worker II, adult services division
+]
 
-## Target Companies
-[List primary companies of interest]
+## Target Companies / Organizations
+[List primary targets. Could be companies, nonprofits, school districts, hospital systems,
+government agencies — whatever fits your field. These inform the "Tier 1" logic in
+target_companies.md]
+
+## Excluded Categories
+[Optional but highly recommended: list categories of roles to auto-reject. Examples:
+  - Software engineer:  "Do not show me security/SOC roles, sales engineer, solution architect"
+  - Social worker:      "Do not show me child protective services, corrections, or collections roles"
+  - Teacher:            "Do not show me substitute positions, assistant teacher, daycare"
+  - Designer:           "Do not show me print production, 3D modeling, game art"
+These feed the scorer's hard-reject logic.]
 
 ## What to Emphasize
-[1–2 paragraphs on the themes to lead with in tailored applications]
+[1–2 paragraphs on the themes to lead with in tailored applications. What's your "elevator
+pitch" when framing yourself for this kind of role?]
 
 ## Things to Avoid Mentioning
-[Optional: topics, roles, or experiences to downplay]
+[Optional: topics, roles, or experiences to downplay in tailoring. Common reasons: roles
+that are no longer representative of who you are, gaps, non-relevant early career.]
+
+## Employer Formatting Rules
+[Optional: if your resume has employer-specific formatting needs (e.g., "Acme Corp was a
+contract role — mark with (Contract) after the date range", "always write 'FormerCorp /
+CurrentCorp' because we were acquired"), list them here. The resume_tailor role will read
+this section and apply the rules.]

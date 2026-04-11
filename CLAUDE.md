@@ -24,6 +24,52 @@ Before writing any command, path, binary call, or file location:
 
 ---
 
+## PII and Domain-Neutrality — HARD RULES
+
+This repo is intended to eventually be public and useful for job seekers in any field.
+**Never commit personal identifiers or field-specific hardcoded content to tracked files.**
+
+### Never commit to tracked files
+- [ ] Real names, email addresses, phone numbers, physical addresses, LinkedIn handles
+- [ ] Real employer names from the user's career history
+- [ ] Real certification names, project names, or internal program names from the user's history
+- [ ] Specific city/region ties to the user (e.g., "based in LA")
+- [ ] The user's ntfy topic, Google Form URL, or other personal service handles
+- [ ] Git email addresses or usernames that contain the user's real name (handled by git config, not code)
+
+If personal content must exist in the pipeline (e.g., name enforcement in a role prompt),
+move it to a **gitignored** file such as `config/profile.md`, `CLAUDE.local.md`, or
+`rag_sources/*`, and have the tracked file reference it instead.
+
+### Never hardcode field-specific content in tracked files
+- [ ] Company lists (Meta, Google, OpenAI, etc.) — belong in `config/target_companies.md` or `config/tier1.txt` (gitignored)
+- [ ] Job title patterns specific to one field (software engineer, data center operations, nurse, teacher) — belong in `config/prefilter_rules.yaml` or similar (gitignored)
+- [ ] Industry vocabulary in role prompts ("NPI", "IC6", "Tier 1 company") — rewrite to reference the candidate profile
+- [ ] Hard-reject categories enumerated in `config/roles/job_scorer.md` — should reference profile categories, not enumerate tech/healthcare/finance/etc. inline
+- [ ] Example files (`*.example`) should show **multiple fields** or use abstract placeholders, not just tech examples
+
+### Pre-commit hook
+A local pre-commit hook at `.git/hooks/pre-commit` blocks commits containing the user's
+personal identifiers. The hook is **not tracked** — each clone must install its own. See
+`docs/setup/configure.md` for setup. When adding new personal identifiers (new ntfy topic,
+new form URL), extend the hook's `PATTERNS` array.
+
+### Self-check before any commit
+
+Before staging any change to a tracked file, ask:
+1. Does this introduce any personal identifier (name, employer, cert, city, email, URL)?
+2. Does this hardcode any company name, job title category, or industry vocabulary?
+3. Would this change make the pipeline harder to use for someone in a different field (social work, education, healthcare, finance, skilled trades)?
+
+If YES to any: put the content in a gitignored config file and reference it from the tracked
+file. If you're refactoring an old hardcoded section, add a note to `docs/GENERALIZATION.md`.
+
+### See also
+- `docs/GENERALIZATION.md` — tracks every remaining piece of domain-locked content and the plan to neutralize it
+- `docs/setup/configure.md` — how to configure the pre-commit hook and set up personal config files
+
+---
+
 ## Pipeline Context Table
 
 | Item | Value |

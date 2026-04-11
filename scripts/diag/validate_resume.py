@@ -207,15 +207,50 @@ def check_em_dashes(lines):
     return violations
 
 
+def _expected_name_from_profile():
+    """Read the candidate name from the profile.md Identity section. Returns None if not found."""
+    # Resolve profile.md relative to this script's location
+    here = os.path.dirname(os.path.abspath(__file__))
+    profile_path = os.path.join(here, '..', '..', 'config', 'profile.md')
+    try:
+        with open(profile_path) as f:
+            for line in f:
+                # Match "Name: Something" at the start of a line
+                m = re.match(r'^\s*Name:\s*(.+?)\s*$', line)
+                if m:
+                    return m.group(1).strip()
+    except (FileNotFoundError, OSError):
+        pass
+    return None
+
+
 def check_name(lines):
-    """Flag incorrect name formatting."""
+    """Flag incorrect name formatting on the resume H1.
+
+    Looks up the expected name from config/profile.md. Flags:
+      - First name or surname duplicated (e.g., "Smith Smith")
+      - H1 does not match the profile name exactly
+    If profile.md is missing, falls back to detecting any duplicated word in the H1.
+    """
     violations = []
+    expected = _expected_name_from_profile()
+
     for i, line in enumerate(lines):
         if line.startswith('# '):
             name = line[2:].strip()
-            if 'brock brock' in name.lower():
+            # Always flag duplicated words regardless of profile
+            words = name.split()
+            if len(words) >= 2:
+                lower = [w.lower() for w in words]
+                for j in range(len(lower) - 1):
+                    if lower[j] == lower[j + 1]:
+                        violations.append(violation('HIGH', 'wrong_name',
+                                                    f'Duplicated name word in H1: "{name}"', i + 1))
+                        break
+            # If we know the expected name from profile, enforce exact match
+            if expected and name != expected:
                 violations.append(violation('HIGH', 'wrong_name',
-                                            f'Name should be "Daniel Brock", not "{name}"', i + 1))
+                                            f'H1 should be "{expected}" (from profile.md), not "{name}"', i + 1))
             break
     return violations
 

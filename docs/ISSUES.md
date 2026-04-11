@@ -251,9 +251,8 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
   better output quality for all downstream documents.
 
 - [x] **Resume formatting and output rules overhaul** *(closed 2026-04-10)*
-  resume_tailor role rewritten: name "Daniel Brock" enforced, em dash prohibition,
-  middle-dot heading format, contract notation for TigerDC/Philly DA/Vytalize,
-  LAVM cert "pending 2026", 2-page limit, Meta/Facebook restored, Forty Hertz italic note.
+  resume_tailor role rewritten: candidate name enforced from profile.md, em dash prohibition,
+  middle-dot heading format, contract notation, 2-page limit.
   cover_letter_writer: contact line from profile (no hardcoded PII), em dash prohibition.
   briefing_writer: emoji section headings, stories from master resume.
   validate_resume.py: em dash and name checks added.

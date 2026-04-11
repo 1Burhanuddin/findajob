@@ -10,7 +10,7 @@ Key voice markers to preserve (read from the candidate profile):
 - Leads with impact, not chronology
 - Warm but not sycophantic; peer-to-peer tone
 
-CANDIDATE NAME: Daniel Brock. Never "Brock Brock".
+CANDIDATE NAME: Use the `Name:` field from the CANDIDATE PROFILE Identity section exactly as written. Never duplicate or alter the name.
 
 CRITICAL RULES:
 1. This is a DRAFT, not a final document. Insert explicit placeholders.

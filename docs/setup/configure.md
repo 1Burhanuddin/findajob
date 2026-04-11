@@ -189,3 +189,39 @@ Good samples:
 - Professional blog posts or emails that sound like you
 
 Add 3–5 minimum. Don't overthink the naming.
+
+---
+
+## Pre-commit PII hook (strongly recommended)
+
+This repo is intended to be domain-agnostic and eventually public. A local pre-commit hook
+blocks accidental commits of personal identifiers (your name, employer history, ntfy topic,
+Google Form URL, etc.).
+
+The hook lives at `.git/hooks/pre-commit` — **not tracked by git**, so each clone of the
+repo must install its own.
+
+**Install:**
+```bash
+cp docs/setup/pre-commit-hook.example.sh .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+**Configure:** Open `.git/hooks/pre-commit` and edit the `PATTERNS` array with your real
+identifiers. Categories to add:
+- Your first/last name and nicknames
+- Email username (the part before `@`)
+- Phone number (if ever a risk of leaking)
+- Employer names from your career history
+- Personal service handles (ntfy topic, Google Form short URLs)
+- Launchd/systemd label prefixes
+
+**Test:** Create a dummy file with one of your patterns, stage it, and attempt a commit.
+The hook should block it. Then unstage and delete the file.
+
+**When it fires:** Fix the issue (move personal content to gitignored config files, or
+redact) and retry the commit. Do NOT use `--no-verify` to bypass except in emergencies —
+it defeats the whole purpose.
+
+See also `docs/GENERALIZATION.md` for the broader tracking of domain-specific content that
+should not land in tracked files.

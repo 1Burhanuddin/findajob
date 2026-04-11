@@ -1,13 +1,41 @@
 # LinkedIn/Indeed search queries — EXAMPLE
 # Copy this file to config/jsearch_queries.txt and replace with your own searches.
+#
 # Rules:
 #   - 3-4 word natural phrases only. 5+ word keyword strings return 0 LinkedIn results.
 #   - One query per line. Blank lines and # comments are ignored.
 #   - Validate each query manually in LinkedIn before adding.
 #   - 10 queries is a good ceiling; more is not better.
+#
+# The pipeline is field-agnostic. Replace the queries below with terms for YOUR field.
+#
+# Examples across fields:
+#
+# Software engineer:
+#   senior backend engineer
+#   platform engineer
+#   infrastructure engineer
+#   staff software engineer
+#
+# Clinical social worker:
+#   clinical social worker
+#   LCSW outpatient
+#   mental health case manager
+#   adult services social worker
+#
+# Middle school teacher:
+#   middle school math teacher
+#   7th grade teacher
+#   STEM teacher
+#
+# Nonprofit development director:
+#   development director nonprofit
+#   major gifts officer
+#   fundraising manager
+#
+# Graphic designer:
+#   senior graphic designer
+#   brand designer
+#   product designer
 
-hardware infrastructure engineer
-data center program manager
-AI hardware operations
-NPI technical lead
-infrastructure reliability engineer
+[replace these lines with your own queries]

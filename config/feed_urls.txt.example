@@ -4,11 +4,16 @@
 # The pipeline calls: boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true
 #
 # To find a company's slug: look at their jobs page URL, e.g.
-#   https://boards.greenhouse.io/openai  →  slug is "openai"
+#   https://boards.greenhouse.io/acmecorp  →  slug is "acmecorp"
 #
 # Validate each slug works before adding: curl that URL and check for a jobs list.
+#
+# NOTE: Greenhouse is heavily used by tech companies and some modern nonprofits, but
+# many employers use other ATSes (Workday, Taleo, iCIMS, Lever, Ashby, SmartRecruiters).
+# If your target employers are not on Greenhouse, leave this file empty and rely on
+# the LinkedIn/Indeed search queries in jsearch_queries.txt plus the Google Form
+# manual ingestion for jobs you find yourself.
+#
+# See docs/GENERALIZATION.md for notes on adding support for other ATSes.
 
-openai
-anthropic
-coreweave
-google
+[replace these lines with slugs for your target companies, or leave empty]

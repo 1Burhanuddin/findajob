@@ -35,28 +35,26 @@ The structure is: `### Header` then date/location line then bullets. Nothing els
 
 ## HEADING FORMAT — HARD RULES
 
-- Use middle dot (`·`) to separate employer from title: `### Meta · Manager, Release to Production (RTP) Labs`
+- Use middle dot (`·`) to separate employer from title: `### Employer Name · Title`
 - Each heading must fit on ONE LINE. If it's too long, abbreviate the title.
 - Do not repeat information in the heading that already appears in bullets.
 
-### Company-specific heading rules:
-- **Meta**: Use "Meta / Facebook". Title: "Manager, Release to Production (RTP) Labs"
-- **TigerDC**: Abbreviate "Data Center" to "DC". Do not put facility size (MW) in the heading.
-- **Philadelphia DA's Office**: Omit "Gun Violence Task Force" from heading. Use "Systems Administrator"
-- **Forty Hertz**: Use "Forty Hertz, Inc. · Founder and Lead Consultant"
+### Employer-specific formatting rules
 
-### Contract positions:
-TigerDC, Philadelphia District Attorney's Office, and Vytalize Health were contract roles.
-After the date range on the location/date line, append `(Contract)`:
-```
-Spartanburg, SC | March 2025 – June 2025 (Contract)
-```
+If the MASTER RESUME or CANDIDATE PROFILE contains an `## Employer Formatting Rules` section, follow those rules exactly. They may specify:
+- How to abbreviate long employer names or titles
+- How to mark contract positions (e.g., append `(Contract)` to the date range)
+- Which brand/parent name pair to use (e.g., "Current / Former")
+- Which closing italic line to add to a role
+- Any subsection selection logic for multi-section roles
+
+If no such section exists, apply standard formatting.
 
 ---
 
 ## CANDIDATE NAME — HARD RULE
 
-The candidate's name on the resume is **Daniel Brock**. Never "Brock Brock", never "Daniel 'Brock' Brock", never "John Daniel Brock". Just: `# Daniel Brock`
+The candidate's name comes from the `Name:` field in the Identity section of the CANDIDATE PROFILE. Use that exact spelling, unchanged. Do not duplicate any part of the name (e.g., for a candidate named "Jane Smith", never write "Smith Smith" or "Jane 'Smith' Smith"). Do not invent middle names. Do not reorder the name. The `# H1` heading on the resume must be exactly the name as written in the profile — nothing more, nothing less.
 
 ---
 
@@ -98,23 +96,9 @@ The ONLY dash allowed is an en dash for date ranges (e.g., "2020 – 2024").
 5. **Contact info must be pulled from master resume.** Use the exact phone, email, LinkedIn URL, and location from the MASTER RESUME contact section. Do not omit, alter, or fabricate contact details.
 6. **Education: omit unless required.** Do not include an education section unless the JD explicitly requires a degree or credential. The master resume notes education as not worth mentioning.
 7. **This is a DRAFT for human review.** Use `[MISSING: ...]` flags rather than guessing. Do not use `[VERIFY: ...]` flags; just write the best version and let the human review it.
-8. **Peer quotes are NOT for resumes.** The master resume contains a "Notable Peer & Manager Quotes" section. Never include quotes, testimonials, or peer feedback in resume output. That section is reserved for cover letters and interview prep only.
-9. **Meta subsection selection.** The Meta role is organized into 7 thematic subsections (NPI Operations, Hardware Lifecycle, Lab Strategy, Cross-Functional Leadership, Capacity Deployment, Vendor/ODM, People/Culture). Select the 3-4 most relevant subsections for the target JD. Do not attempt to cover all 7; pick the ones that best answer the JD's requirements and draw your 6-8 bullets from those.
-
----
-
-## COMPANY-SPECIFIC RULES
-
-### Forty Hertz, Inc.
-At the END of the Forty Hertz bullet list, add one italic line:
-```
-- *Additional representative project details available for discussion.*
-```
-This signals to the reader that this section contains selected highlights. The resume writer should pick the most relevant examples from the master resume for this role.
-
-### Certifications
-- LAVM: list as "Lean Agile Visual Management (LAVM), pending, 2026"
-- Do not add `[VERIFY:]` or other flags to certifications. Just state them as written in the master resume.
+8. **Peer quotes are NOT for resumes.** If the master resume contains a "Notable Peer & Manager Quotes" section, never include quotes, testimonials, or peer feedback in resume output. That section is reserved for cover letters and interview prep only.
+9. **Multi-section role subsetting.** If a role in the master resume is organized into multiple thematic subsections, select only the 3-4 most relevant subsections for the target JD. Do not attempt to cover all of them. Draw your bullets from the selected subsections.
+10. **Certifications.** List certifications exactly as written in the master resume. Do not add `[VERIFY:]` or other flags to certifications.
 
 ---
 
@@ -143,12 +127,12 @@ For each tailored resume:
 - **Wording:** Tighten for ATS/AI resume screening. Drop filler words like "at Scale," "Enablement," "Authoring." Prefer industry-standard keyword tokens (e.g., "Program Management" not "Program Leadership," "Team Leadership & Development" not "Team Building and Management," "Workflow Optimization" not "Technician Workflow Design"). Use ampersands (&) instead of "and." Keep each item to 1-4 words where possible.
 - **Format:** Render as a single flowing block of plain text, each item separated by ` · ` (space, middle dot, space). No bullet points, no columns, no line breaks within the block. Center the block.
 
-Example format:
+Example format (for a hypothetical candidate):
 ```
 ## Core Competencies
 
 ::: centered
-New Product Introduction (NPI) · Data Center Operations · Operational Readiness · Hardware Validation · Cross-functional Program Management · Incident Response (SEV-0/SEV-1) · Capacity Planning · Asset Lifecycle Management · Vendor & ODM Management · Rack Integration & Bring-Up · Fleet Management · Root Cause Analysis
+Term One · Term Two · Term Three · Term Four · Term Five · Term Six · Term Seven · Term Eight · Term Nine · Term Ten · Term Eleven · Term Twelve
 :::
 ```
 
@@ -159,15 +143,14 @@ The `::: centered` and `:::` fencing is required. Do not use bullet points, colu
 ## SELF-CHECK BEFORE OUTPUTTING
 
 Before writing the final resume, verify:
-- [ ] Candidate name is "Daniel Brock" (not "Brock Brock")
+- [ ] Candidate name matches the `Name:` field in the profile exactly (no duplication, no invented middle names)
 - [ ] Every experience role: header then date/location line then bullets. No prose. No bold group labels.
 - [ ] No em dashes anywhere in the document
 - [ ] Each heading fits on one line
-- [ ] Meta/primary role has 6-8 bullets total
+- [ ] Primary (most recent relevant) role has 6-8 bullets total
 - [ ] All other roles have 2-4 bullets each
 - [ ] No sub-headers, no bold thematic labels, no italic paragraphs inside any role
-- [ ] Contract roles (TigerDC, Philly DA, Vytalize) marked with (Contract) on date line
-- [ ] Forty Hertz has italic closing bullet
+- [ ] Any employer-specific formatting rules from the master resume or profile have been applied
 - [ ] Total length looks like 1.5 pages, not 3
 
 If any check fails, fix it before outputting.

@@ -1,20 +1,37 @@
-# Target Companies — EXAMPLE
+# Target Companies / Organizations — EXAMPLE
 # Copy this file to config/target_companies.md and replace with your list.
 # Also copy to rag_sources/target_companies.md (used in RAG context for REPL mode).
 #
-# Format is flexible — this is read by the company_researcher and briefing_writer roles.
+# The pipeline is field-agnostic. Replace the placeholders below with employers
+# relevant to YOUR field — companies, nonprofits, school districts, government
+# agencies, hospital systems, consulting firms, etc.
 
 ## Tier 1 — Active Focus
-- OpenAI
-- Anthropic
-- Google DeepMind
+# Employers you'd take a role at today if the right position opened up.
+# The scorer applies a "Tier 1 bonus" — in-domain roles at these get scored at least 6.
+- [Employer One]
+- [Employer Two]
+- [Employer Three]
 
 ## Tier 2 — Strong Interest
-- Microsoft Azure
-- Amazon AWS
+# Good employers but you'd be choosier about the specific role.
+- [Employer Four]
+- [Employer Five]
 
 ## Tier 3 — Opportunistic
-- [Company]
+# Employers you'd consider if the role were exceptional.
+- [Employer Six]
 
 ## Notes
-[Any notes on why these companies, what roles you're targeting there, etc.]
+# Any reasoning behind this list — why these employers, what roles fit each tier,
+# geographic constraints, culture preferences, etc.
+#
+# Example for a software engineer:
+#   Tier 1 is AI infrastructure companies with strong eng culture.
+#   Tier 2 adds general-purpose tech where the team matters more than the brand.
+#   Tier 3 is everything else that isn't an explicit no.
+#
+# Example for a nurse:
+#   Tier 1 is the three largest hospital systems in my metro with Magnet designation.
+#   Tier 2 is community hospitals with good staffing ratios.
+#   Tier 3 is anything else that's day-shift and in-network for my license.
