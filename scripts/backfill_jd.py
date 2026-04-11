@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 # ~/JobSearchPipeline/scripts/backfill_jd.py
 """
-One-time backfill: fetch missing LinkedIn JD text for gmail_linkedin jobs.
-The /comm/ regex bug meant extract_linkedin_job_id() never matched gmail URLs,
-so all gmail_linkedin jobs were scored without JD. This script fetches JDs
-via the RapidAPI LinkedIn get endpoint and updates the DB.
+Backfill job descriptions in the pipeline DB.
 
-Also backfills blank company names from the API response.
+Modes:
+    backfill_jd.py              -- fetch missing JDs for gmail_linkedin jobs
+    backfill_jd.py --truncated  -- re-fetch JDs truncated at old 8k cap (all sources)
 
-Usage:
-    python3 scripts/backfill_jd.py          # fetch JDs only
-    python3 scripts/backfill_jd.py --rescore # fetch JDs then rescore affected jobs
+Flags:
+    --rescore    rescore affected jobs after backfill
+    --dry-run    report what would be fetched (--truncated mode only)
 """
 import os, sys, re, sqlite3, json, time
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE
-from utils import log_event, load_env
+from utils import log_event, load_env, strip_jd_boilerplate, JD_MAX_CHARS
 
 DB_PATH = f'{BASE}/data/pipeline.db'
 
@@ -66,16 +65,137 @@ def fetch_linkedin_jd(api_id):
             (payload.get('hiringOrganization') or {}).get('name') or
             ''
         )
-        desc = description[:8000] if description else None
+        desc = strip_jd_boilerplate(description)[:JD_MAX_CHARS] if description else None
         co = clean_company(company) if company else None
         return desc, co
     except Exception as e:
         return None, None
 
 
+def fetch_greenhouse_jd(url):
+    """Re-fetch JD from a Greenhouse URL. Returns stripped text or None."""
+    import subprocess as sp
+    from paths import PANDOC
+    try:
+        raw = sp.run(['curl', '-sL', '--max-time', '15', url],
+                     capture_output=True, text=True).stdout
+        if not raw or len(raw.strip()) < 50:
+            return None
+        text = sp.run([PANDOC, '-f', 'html', '-t', 'plain'],
+                      input=raw, capture_output=True, text=True, timeout=10).stdout
+        text = strip_jd_boilerplate(text)[:JD_MAX_CHARS]
+        return text if len(text.strip()) >= 50 else None
+    except Exception:
+        return None
+
+
+def fetch_curl_jd(url):
+    """Re-fetch JD by curling a public URL. Returns stripped text or None."""
+    import subprocess as sp
+    from paths import PANDOC
+    try:
+        raw = sp.run(['curl', '-sL', '--max-time', '15', url],
+                     capture_output=True, text=True).stdout
+        if not raw or len(raw.strip()) < 50:
+            return None
+        text = sp.run([PANDOC, '-f', 'html', '-t', 'plain'],
+                      input=raw, capture_output=True, text=True, timeout=10).stdout
+        text = strip_jd_boilerplate(text)[:JD_MAX_CHARS]
+        return text if len(text.strip()) >= 50 else None
+    except Exception:
+        return None
+
+
+def backfill_truncated(dry_run=False):
+    """Re-fetch JDs that were truncated at the old 8000-char cap."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute('PRAGMA journal_mode=WAL')
+
+    rows = conn.execute('''
+        SELECT id, url, title, company, source, raw_jd_text, stage
+        FROM jobs
+        WHERE LENGTH(raw_jd_text) BETWEEN 7900 AND 8000
+          AND (dupe_of = '' OR dupe_of IS NULL)
+          AND stage NOT IN ('rejected', 'withdrawn')
+    ''').fetchall()
+
+    print(f"Truncated JDs to backfill: {len(rows)}")
+
+    from collections import Counter
+    source_counts = Counter(r['source'] for r in rows)
+    for src, cnt in source_counts.most_common():
+        print(f"  {src}: {cnt}")
+
+    if dry_run:
+        print("\n--dry-run: no changes made.")
+        conn.close()
+        return 0
+
+    log_event('backfill_truncated_started', total=len(rows),
+              by_source=dict(source_counts))
+
+    fetched = 0
+    skipped = 0
+    failed = 0
+
+    for i, row in enumerate(rows, 1):
+        source = row['source']
+        old_len = len(row['raw_jd_text'])
+        label = f"[{i}/{len(rows)}] {row['title'][:40]} @ {row['company'] or '(blank)'} ({source})"
+
+        if source in ('jobsapi_indeed', 'manual', 'manual_form'):
+            print(f"{label} -- SKIP (no re-fetch path)")
+            skipped += 1
+            continue
+
+        new_jd = None
+        if source == 'greenhouse_json':
+            new_jd = fetch_greenhouse_jd(row['url'])
+            time.sleep(0.1)
+        elif source in ('jobsapi_linkedin', 'gmail_linkedin'):
+            api_id = extract_job_id(row['url'])
+            if api_id:
+                new_jd, _ = fetch_linkedin_jd(api_id)
+            time.sleep(0.3)
+        else:
+            new_jd = fetch_curl_jd(row['url'])
+            time.sleep(0.1)
+
+        if new_jd and len(new_jd.strip()) > old_len:
+            now = datetime.now(timezone.utc).isoformat()
+            conn.execute('UPDATE jobs SET raw_jd_text=?, updated_at=? WHERE id=?',
+                         (new_jd, now, row['id']))
+            conn.commit()
+            fetched += 1
+            print(f"{label} -- OK {old_len} -> {len(new_jd)}")
+        elif new_jd:
+            skipped += 1
+            print(f"{label} -- SKIP (new={len(new_jd)} <= old={old_len})")
+        else:
+            failed += 1
+            print(f"{label} -- FAIL (no JD returned)")
+
+    print(f"\nDone: {fetched} updated, {skipped} skipped, {failed} failed")
+    log_event('backfill_truncated_complete', fetched=fetched, skipped=skipped, failed=failed)
+    conn.close()
+    return fetched
+
+
 def main():
     rescore = '--rescore' in sys.argv
+    truncated = '--truncated' in sys.argv
+    dry_run = '--dry-run' in sys.argv
 
+    if truncated:
+        count = backfill_truncated(dry_run=dry_run)
+        if rescore and count and not dry_run:
+            print(f"\nRescoring {count} backfilled jobs...")
+            import subprocess
+            subprocess.run([sys.executable, f'{BASE}/scripts/rescore_all.py'], check=False)
+        return
+
+    # Original behavior: backfill missing gmail_linkedin JDs
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA journal_mode=WAL')
@@ -88,7 +208,6 @@ def main():
           AND stage != 'rejected'
     ''').fetchall()
 
-    # Filter to jobs with extractable IDs and missing/unusable JD
     candidates = []
     for r in rows:
         api_id = extract_job_id(r['url'])
@@ -96,7 +215,7 @@ def main():
             continue
         jd = r['raw_jd_text'] or ''
         if jd.strip() and len(jd.strip()) >= 50 and 'unavailable' not in jd.lower():
-            continue  # already has good JD
+            continue
         candidates.append((r, api_id))
 
     print(f"Jobs to backfill: {len(candidates)}")
@@ -116,19 +235,18 @@ def main():
             now = datetime.now(timezone.utc).isoformat()
             conn.execute('UPDATE jobs SET raw_jd_text=?, updated_at=? WHERE id=?',
                          (desc, now, row['id']))
-            # Backfill blank company if API returned one
             if company and not row['company']:
                 conn.execute('UPDATE jobs SET company=? WHERE id=?', (company, row['id']))
                 company_updated += 1
             conn.commit()
             fetched += 1
             backfilled_ids.append(row['id'])
-            print(f"  ✓ {len(desc)} chars" + (f" +company={company}" if company and not row['company'] else ''))
+            print(f"  OK {len(desc)} chars" + (f" +company={company}" if company and not row['company'] else ''))
         else:
             failed += 1
-            print(f"  ✗ no JD returned")
+            print(f"  FAIL no JD returned")
 
-        time.sleep(0.3)  # rate limit
+        time.sleep(0.3)
 
     print(f"\nBackfill complete: {fetched} fetched, {failed} failed, {company_updated} companies updated")
     log_event('backfill_jd_complete', fetched=fetched, failed=failed,
