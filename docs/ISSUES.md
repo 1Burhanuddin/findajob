@@ -113,14 +113,22 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 
 ## Quality & Security
 
-- [ ] **PII / proprietary info audit of all tracked files**
-  Do a line-by-line review of every git-tracked file to confirm no PII (phone, email,
-  addresses, full names of non-public individuals) or proprietary company-specific info
-  has leaked into committed code. Initial automated scan (2026-04-10) found only the
-  candidate's real name in role config files (intentional, required for LLM behavior)
-  and employment history in resume_tailor heading rules (also intentional).
-  A full manual review should confirm nothing was missed, especially in docs/ISSUES.md
-  and any new scripts. Should be repeated before making the repo public.
+- [x] **PII / proprietary info audit of all tracked files** *(closed 2026-04-11)*
+  Full audit of every git-tracked file. Scrubbed candidate name from 4 role prompts
+  (resume_tailor, cover_letter_writer, fit_analyst, briefing_writer) and validate_resume.py
+  — name is now read from config/profile.md (gitignored). Stripped employer-specific
+  formatting rules (brand pairs, contract markers, subsection selection, italic closing
+  lines, cert names) from resume_tailor.md — prompts now read per-employer rules from the
+  candidate profile instead. Redacted employer names from ISSUES.md historical context.
+  Rewrote config/*.example files to be field-agnostic with examples across software,
+  social work, teaching, nonprofit, nursing, and design.
+  Added docs/GENERALIZATION.md tracking the remaining domain-locked content (TIER1
+  companies, prefilter regex patterns, scorer prompt tech vocabulary) with a phased plan.
+  Added docs/setup/pre-commit-hook.example.sh as a tracked template for the local PII
+  hook, plus documentation in docs/setup/configure.md. Added a PII/Domain-Neutrality
+  HARD RULES section to CLAUDE.md for future sessions.
+  Final sweep: zero tracked files contain candidate name, employer names, or personal
+  service handles.
 
 - [ ] **Write user-facing documentation for setup and best results**
   The pipeline currently has no end-user documentation beyond CLAUDE.md (which is for
