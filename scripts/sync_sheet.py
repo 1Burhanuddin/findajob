@@ -160,7 +160,7 @@ def sync_sheet1(svc, conn):
           AND (
             relevance_score >= 5
             OR stage IN ('manual_review', 'prep_in_progress', 'materials_drafted',
-                         'applied', 'interview', 'offer', 'withdrawn')
+                         'waitlisted', 'applied', 'interview', 'offer', 'withdrawn')
             OR julianday('now') - julianday(created_at) <= ?
           )
         ORDER BY
@@ -179,7 +179,7 @@ def sync_sheet1(svc, conn):
           AND relevance_score IS NOT NULL
           AND relevance_score < 5
           AND stage NOT IN ('manual_review', 'prep_in_progress', 'materials_drafted',
-                            'applied', 'interview', 'offer', 'withdrawn')
+                            'waitlisted', 'applied', 'interview', 'offer', 'withdrawn')
           AND julianday('now') - julianday(created_at) > ?
     """,
         (SHEET1_ARCHIVE_DAYS,),
@@ -218,7 +218,7 @@ def sync_dashboard(svc, conn):
         # Only preserve user-driven statuses not yet polled.
         # 'Ready to Apply' is system-derived (from stage=materials_drafted) — don't preserve.
         # 'Flag for Prep' is preserved so user actions survive the next sync before poll runs.
-        VALID_STATUSES = {"Flag for Prep", "Applied", "Interviewing", "Offer", "Withdrew"}
+        VALID_STATUSES = {"Flag for Prep", "Applied", "Interviewing", "Offer", "Withdrew", "Waitlist"}
         pending_statuses = {r[2]: r[0] for r in current if len(r) >= 3 and r[0] in VALID_STATUSES}
         pending_rejects = {r[2]: r[1] for r in current if len(r) >= 3 and r[1]}
     except Exception:
@@ -313,6 +313,35 @@ REVIEW_LOOKUP = {
     "date_found": "created_at",
 }
 
+# ── Waitlist: deferred jobs ──────────────────────────────────────────────────
+# Col A: STATUS (Reactivate / blank), Col B: REJECT_REASON, Col C: fingerprint (hidden).
+WAITLIST_HEADERS = [
+    "STATUS",
+    "REJECT_REASON",
+    "fingerprint",
+    "title",
+    "company",
+    "relevance_score",
+    "location",
+    "remote_status",
+    "ai_notes",
+    "date_found",
+    "blocking_app",
+]
+WAITLIST_LOOKUP = {
+    "STATUS": None,
+    "REJECT_REASON": "reject_reason",
+    "fingerprint": "fingerprint",
+    "title": "title",
+    "company": "company",
+    "relevance_score": "relevance_score",
+    "location": "location",
+    "remote_status": "remote_status",
+    "ai_notes": "ai_notes",
+    "date_found": "created_at",
+    "blocking_app": None,  # computed at sync time
+}
+
 
 def sync_review(svc, conn):
     """Sync stage=manual_review jobs to the Review tab for human triage."""
@@ -366,6 +395,72 @@ def sync_review(svc, conn):
     return n_review
 
 
+def sync_waitlist(svc, conn):
+    """Sync stage=waitlisted jobs to the Waitlist tab."""
+    # Read current Waitlist tab state to preserve user-set values not yet polled
+    try:
+        current = (
+            svc.spreadsheets()
+            .values()
+            .get(spreadsheetId=SHEET_ID, range="Waitlist!A2:C10000")
+            .execute()
+            .get("values", [])
+        )
+        pending_statuses = {r[2]: r[0] for r in current if len(r) >= 3 and r[0].strip()}
+        pending_rejects = {r[2]: r[1] for r in current if len(r) >= 3 and r[1].strip()}
+    except Exception:
+        pending_statuses = {}
+        pending_rejects = {}
+
+    rows = conn.execute("""
+        SELECT * FROM jobs
+        WHERE (dupe_of = '' OR dupe_of IS NULL)
+          AND stage = 'waitlisted'
+        ORDER BY company, created_at DESC
+    """).fetchall()
+
+    # Build blocking_app lookup: active applications by company
+    active_rows = conn.execute("""
+        SELECT title, company, stage FROM jobs
+        WHERE (dupe_of = '' OR dupe_of IS NULL)
+          AND stage IN ('prep_in_progress', 'materials_drafted', 'applied', 'interview')
+        ORDER BY created_at DESC
+    """).fetchall()
+    active_by_company = {}
+    for ar in active_rows:
+        co = (ar["company"] or "").strip().lower()
+        if co and co not in active_by_company:
+            active_by_company[co] = f"{ar['title']} ({ar['stage']})"
+
+    sheet_rows = [WAITLIST_HEADERS]
+    for row in rows:
+        fp = row["fingerprint"]
+        sheet_row = []
+        for header in WAITLIST_HEADERS:
+            sqlite_col = WAITLIST_LOOKUP.get(header)
+            if header == "STATUS":
+                sheet_row.append(pending_statuses.get(fp, ""))
+            elif header == "REJECT_REASON":
+                sheet_row.append(safe_str(pending_rejects.get(fp, row["reject_reason"] or "")))
+            elif header == "title":
+                sheet_row.append(hyperlink(row["url"], row["title"]))
+            elif header == "blocking_app":
+                co = (row["company"] or "").strip().lower()
+                sheet_row.append(safe_str(active_by_company.get(co, "")))
+            else:
+                val = row[sqlite_col] if sqlite_col and sqlite_col in row.keys() else ""
+                sheet_row.append(safe_str(val))
+        sheet_rows.append(sheet_row)
+
+    svc.spreadsheets().values().clear(spreadsheetId=SHEET_ID, range="Waitlist!A2:K10000").execute()
+    svc.spreadsheets().values().update(
+        spreadsheetId=SHEET_ID, range="Waitlist!A1", valueInputOption="USER_ENTERED", body={"values": sheet_rows}
+    ).execute()
+    n_waitlist = len(sheet_rows) - 1
+    print(f"Waitlist: {n_waitlist} waitlisted jobs synced")
+    return n_waitlist
+
+
 def main():
     creds = service_account.Credentials.from_service_account_file(SA_FILE, scopes=SCOPES)
     svc = build("sheets", "v4", credentials=creds)
@@ -376,7 +471,8 @@ def main():
         n_sheet1 = sync_sheet1(svc, conn)
         n_dash = sync_dashboard(svc, conn)
         n_review = sync_review(svc, conn)
-        log_event("sync_complete", sheet1=n_sheet1, dashboard=n_dash, review=n_review)
+        n_waitlist = sync_waitlist(svc, conn)
+        log_event("sync_complete", sheet1=n_sheet1, dashboard=n_dash, review=n_review, waitlist=n_waitlist)
     except Exception as e:
         log_event("sync_failed", error=str(e))
         raise
