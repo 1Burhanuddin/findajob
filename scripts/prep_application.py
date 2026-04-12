@@ -281,10 +281,11 @@ def main():
         f.write(changes_md)
 
     # ── Step 4: Cover letter — briefing context for specific company signals ──
+    today_str = datetime.now().strftime("%B %d, %Y")
     cover_prompt = (
         f"CANDIDATE PROFILE:\n{profile_text}\n\n"
         f"MASTER RESUME:\n{master_text}\n\n"
-        f"Company: {company}\nTitle: {title}\n\n"
+        f"Company: {company}\nTitle: {title}\nDate: {today_str}\n\n"
         f"JD:\n{jd_text}\n\n"
         f"COMPANY BRIEFING (use for specific signals, news, and context about this company):\n{briefing_context}"
     )
@@ -328,7 +329,7 @@ Generated: {date}
 ## Before sending, complete these steps:
 - [ ] Open `{fn["changes_md"]}` — review every flagged reorder/keyword add
 - [ ] Open `{fn["resume_docx"]}` — fill any [MISSING: ...] placeholders
-- [ ] Open `{fn["cover_docx"]}` — fill ALL [INSERT: ...] and [MISSING: ...] items
+- [ ] Open `{fn["cover_docx"]}` — fill any [MISSING: ...] placeholders (expect 1-2 max)
 - [ ] Read cover letter aloud — does it sound like you?
 - [ ] Verify every factual claim in the cover letter (metrics, company names, titles)
 - [ ] Check `{fn["briefing_docx"]}` — any red flags or new intel to weave in?
