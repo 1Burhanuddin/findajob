@@ -54,6 +54,12 @@ Format: `- [ ]` not started, `- [~]` in progress, `- [x]` shipped.
 
 ## Prep / Output
 
+- [x] **Waitlist — "yes but not right now" deferred jobs** *(shipped 2026-04-12)*
+  New `waitlisted` stage and Waitlist sheet tab. Jobs at companies where user already
+  applied can be moved off Dashboard without rejection. Folders move to `_waitlisted/`.
+  "Reactivate" on Waitlist tab restores to scored or materials_drafted. ntfy notification
+  fires when blocking application is rejected/withdrawn. 16 unit tests added.
+
 ---
 
 ## Observability

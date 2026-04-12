@@ -111,13 +111,13 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 
 # ── Entry point scripts (called by systemd / CLI) ──────────────────────────
 <repo>/scripts/triage.py                    # daily ingest → score → DB
-<repo>/scripts/poll_flags.py                # reads Dashboard + Review tabs (STATUS, REJECT_REASON, fingerprint)
-<repo>/scripts/sync_sheet.py                # SQLite → Sheet1 + Dashboard + Review tabs
+<repo>/scripts/poll_flags.py                # reads Dashboard + Review + Waitlist tabs (STATUS, REJECT_REASON, fingerprint)
+<repo>/scripts/sync_sheet.py                # SQLite → Sheet1 + Dashboard + Review + Waitlist tabs
 <repo>/scripts/setup_sheets.py             # one-time sheet formatting (idempotent)
 <repo>/scripts/prep_application.py          # on-demand LLM material generation
 <repo>/scripts/find_contacts.py             # LinkedIn contact matching + outreach drafts
 <repo>/scripts/ingest_form.py               # Google Form → DB ingestion
-<repo>/scripts/notify.py                    # ntfy push notifications (5 subcommands)
+<repo>/scripts/notify.py                    # ntfy push notifications (6 subcommands incl. send-raw)
 <repo>/scripts/rename_folders.py            # rename company folders to new format (idempotent)
 
 # ── Config (mostly gitignored) ──────────────────────────────────────────────
@@ -137,12 +137,13 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 # ── Output & logs ───────────────────────────────────────────────────────────
 <repo>/companies/                           # prep output folders ({Company}_{AbbrevTitle}_{date}_{time})
 <repo>/companies/_applied/                   # applied job folders
+<repo>/companies/_waitlisted/                # waitlisted job folders (deferred, not rejected)
 <repo>/companies/_rejected/                  # rejected job folders (with marker files)
 <repo>/logs/pipeline.jsonl                  # structured event log
 
 # ── Quality ─────────────────────────────────────────────────────────────────
 <repo>/pyproject.toml                       # deps, pytest, ruff, mypy config
-<repo>/tests/                               # 302 unit tests (pytest)
+<repo>/tests/                               # 318 unit tests (pytest)
 <repo>/.github/workflows/ci.yml            # CI: ruff + mypy + pytest on every push
 ```
 
@@ -211,14 +212,23 @@ Low-score old jobs from non-target companies stay in DB only.
 - `Promote` = `poll_flags.py` sets `score=7, stage=scored` → job appears on Dashboard
 - `REJECT_REASON` = same as Dashboard → `poll_flags.py` rejects the job
 
-**STATUS dropdown options** (Dashboard col A): `Flag for Prep` → `Ready to Apply` → `Applied` → `Interviewing` → `Offer` → `Withdrew`
+**Waitlist** — deferred jobs (A–K), filter: `stage=waitlisted`:
+`STATUS(dropdown:Reactivate) | REJECT_REASON(dropdown) | fingerprint(hidden) | title(hyperlink) | company | relevance_score | location | remote | ai_notes | date | blocking_app`
+- `Reactivate` = `poll_flags.py` restores to `scored` (no folder) or `materials_drafted` (has folder), moves folder back from `_waitlisted/`
+- `REJECT_REASON` = same as Dashboard → `poll_flags.py` rejects the job from waitlist
+- `blocking_app` = computed at sync time: title + stage of active application at same company
+
+**STATUS dropdown options** (Dashboard col A): `Flag for Prep` → `Ready to Apply` → `Waitlist` → `Applied` → `Interviewing` → `Offer` → `Withdrew`
 - `Flag for Prep` = user action → triggers `prep_application.py` via `poll_flags.py`
 - `Ready to Apply` = system-set when `stage=materials_drafted` (prep done, folder exists)
+- `Waitlist` = user action → `poll_flags.py` sets `stage=waitlisted`, moves folder to `_waitlisted/`
 - `Applied/Interviewing/Offer/Withdrew` = user action → `poll_flags.py` updates DB stage
 
 **REJECT_REASON dropdown** (col B): 11 options (includes "Low Fit Score") → `poll_flags.py` sets `stage=rejected`, writes `feedback_log`, moves folder to `companies/_rejected/`, triggers rclone sync immediately.
 
-**poll_flags.py** reads `Dashboard!A2:C10000` and `Review!A2:C10000`. Rejection takes priority over prep/promote.
+**poll_flags.py** reads `Dashboard!A2:C10000`, `Review!A2:C10000`, and `Waitlist!A2:C10000`. Rejection takes priority over prep/promote/reactivate.
+
+**Stage `waitlisted`:** Set by `poll_flags.py` when user selects "Waitlist" on Dashboard. Folder moves to `companies/_waitlisted/`. Job disappears from Dashboard, appears on Waitlist tab. Not a rejection — does not write to feedback_log or contaminate scorer feedback loop. When active application at same company is rejected/withdrawn, ntfy notification surfaces waitlisted jobs.
 
 **Stage `prep_in_progress`:** Set by `poll_flags.py` immediately before launching `prep_application.py` as a subprocess. Prevents duplicate prep runs across poll cycles. Cleared to `materials_drafted` on success. Health check warns if any job is stuck in this stage >1h.
 
