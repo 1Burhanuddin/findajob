@@ -902,15 +902,15 @@ def main():
             }
         },
         # Column widths
-        col_width(waitlist_id, 0, 110),   # A: STATUS
-        col_width(waitlist_id, 1, 140),   # B: REJECT_REASON
-        col_width(waitlist_id, 3, 280),   # D: title (hyperlink)
-        col_width(waitlist_id, 4, 150),   # E: company
-        col_width(waitlist_id, 5, 55),    # F: score
-        col_width(waitlist_id, 6, 130),   # G: location
-        col_width(waitlist_id, 7, 80),    # H: remote
-        col_width(waitlist_id, 8, 300),   # I: ai_notes
-        col_width(waitlist_id, 9, 100),   # J: date
+        col_width(waitlist_id, 0, 110),  # A: STATUS
+        col_width(waitlist_id, 1, 140),  # B: REJECT_REASON
+        col_width(waitlist_id, 3, 280),  # D: title (hyperlink)
+        col_width(waitlist_id, 4, 150),  # E: company
+        col_width(waitlist_id, 5, 55),  # F: score
+        col_width(waitlist_id, 6, 130),  # G: location
+        col_width(waitlist_id, 7, 80),  # H: remote
+        col_width(waitlist_id, 8, 300),  # I: ai_notes
+        col_width(waitlist_id, 9, 100),  # J: date
         col_width(waitlist_id, 10, 250),  # K: blocking_app
     ]
 

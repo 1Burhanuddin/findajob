@@ -69,8 +69,7 @@ def companies_dir(tmp_path):
     return base
 
 
-def insert_job(conn, *, stage="scored", company="Acme Corp", title="Operations Manager",
-               score=7, folder=None):
+def insert_job(conn, *, stage="scored", company="Acme Corp", title="Operations Manager", score=7, folder=None):
     """Insert a job with sane defaults; returns the row as sqlite3.Row."""
     job_id = str(uuid.uuid4())[:8]
     fp = f"fp_{job_id}"
@@ -141,8 +140,9 @@ class TestReactivation:
         if src and os.path.isdir(src):
             dest = str(companies_dir / os.path.basename(src))
             shutil.move(src, dest)
-            db.execute("UPDATE jobs SET stage = 'materials_drafted', prep_folder_path = ? WHERE id = ?",
-                        (dest, job["id"]))
+            db.execute(
+                "UPDATE jobs SET stage = 'materials_drafted', prep_folder_path = ? WHERE id = ?", (dest, job["id"])
+            )
             db.commit()
 
         result = db.execute("SELECT stage, prep_folder_path FROM jobs WHERE id = ?", (job["id"],)).fetchone()
@@ -180,8 +180,7 @@ class TestFolderMoves:
         waitlisted_dir = companies_dir / "_waitlisted"
         dest = str(waitlisted_dir / folder.name)
         shutil.move(str(folder), dest)
-        db.execute("UPDATE jobs SET stage = 'waitlisted', prep_folder_path = ? WHERE id = ?",
-                    (dest, job["id"]))
+        db.execute("UPDATE jobs SET stage = 'waitlisted', prep_folder_path = ? WHERE id = ?", (dest, job["id"]))
         db.commit()
 
         assert not folder.exists()
@@ -201,8 +200,7 @@ class TestFolderMoves:
         # Reactivate: move back to companies/
         dest = str(companies_dir / folder.name)
         shutil.move(str(folder), dest)
-        db.execute("UPDATE jobs SET stage = 'materials_drafted', prep_folder_path = ? WHERE id = ?",
-                    (dest, job["id"]))
+        db.execute("UPDATE jobs SET stage = 'materials_drafted', prep_folder_path = ? WHERE id = ?", (dest, job["id"]))
         db.commit()
 
         assert not folder.exists()
