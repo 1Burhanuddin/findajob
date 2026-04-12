@@ -2,14 +2,10 @@
 # scripts/init_sheet.py
 """Write column headers to Sheet1 row 1. Run once on initial setup or after restructure."""
 
-import os
-import sys
-
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE
+from findajob.paths import BASE
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SA_FILE = f"{BASE}/config/gsheets_creds.json"

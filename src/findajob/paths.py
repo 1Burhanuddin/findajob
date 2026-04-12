@@ -7,15 +7,8 @@ regardless of directory name or home folder. No hardcoded paths.
 Binary paths (AICHAT, PANDOC, RCLONE) are read from config/paths.env.
 Defaults are Linux-appropriate; macOS users set overrides in that file.
 
-Usage in scripts/*.py:
-    import sys, os
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from paths import BASE, AICHAT, PANDOC, RCLONE
-
-Usage in scripts/diag/*.py:
-    import sys, os
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-    from paths import BASE, AICHAT, PANDOC, RCLONE
+Usage:
+    from findajob.paths import BASE, AICHAT, PANDOC, RCLONE
 
 Use sys.executable (not a PYTHON constant) for subprocess calls to other pipeline scripts.
 """
@@ -23,8 +16,8 @@ Use sys.executable (not a PYTHON constant) for subprocess calls to other pipelin
 import os
 import pathlib
 
-# Repo root = parent of the directory containing this file (scripts/paths.py → repo root)
-BASE: str = str(pathlib.Path(__file__).parent.parent.resolve())
+# Repo root: src/findajob/paths.py → findajob/ → src/ → repo root
+BASE: str = str(pathlib.Path(__file__).parent.parent.parent.resolve())
 
 # Allow env-var override for non-standard install locations or testing
 if "JSP_BASE" in os.environ:

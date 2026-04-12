@@ -11,9 +11,8 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import AICHAT, BASE, PANDOC, RCLONE
-from utils import (
+from findajob.paths import AICHAT, BASE, PANDOC, RCLONE
+from findajob.utils import (
     JD_MAX_CHARS,
     build_prep_filenames,
     load_env,

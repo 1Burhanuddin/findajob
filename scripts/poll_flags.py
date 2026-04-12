@@ -14,9 +14,8 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE
-from utils import is_valid_company, log_event, write_audit
+from findajob.paths import BASE
+from findajob.utils import is_valid_company, log_event, write_audit
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 SA_FILE = f"{BASE}/config/gsheets_creds.json"

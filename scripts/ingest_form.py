@@ -33,9 +33,8 @@ from datetime import UTC, datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE
-from utils import load_env, log_event
+from findajob.paths import BASE
+from findajob.utils import load_env, log_event
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 SA_FILE = f"{BASE}/config/gsheets_creds.json"

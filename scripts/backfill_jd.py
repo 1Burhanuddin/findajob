@@ -19,9 +19,8 @@ import sys
 import time
 from datetime import UTC, datetime
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE
-from utils import JD_MAX_CHARS, load_env, log_event, strip_jd_boilerplate
+from findajob.paths import BASE
+from findajob.utils import JD_MAX_CHARS, load_env, log_event, strip_jd_boilerplate
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 
@@ -85,7 +84,7 @@ def fetch_greenhouse_jd(url):
     """Re-fetch JD from a Greenhouse URL. Returns stripped text or None."""
     import subprocess as sp
 
-    from paths import PANDOC
+    from findajob.paths import PANDOC
 
     try:
         raw = sp.run(["curl", "-sL", "--max-time", "15", url], capture_output=True, text=True).stdout
@@ -104,7 +103,7 @@ def fetch_curl_jd(url):
     """Re-fetch JD by curling a public URL. Returns stripped text or None."""
     import subprocess as sp
 
-    from paths import PANDOC
+    from findajob.paths import PANDOC
 
     try:
         raw = sp.run(["curl", "-sL", "--max-time", "15", url], capture_output=True, text=True).stdout

@@ -6,7 +6,7 @@ import os
 import re
 from datetime import UTC, datetime
 
-from paths import BASE
+from findajob.paths import BASE
 
 LOG_PATH = f"{BASE}/logs/pipeline.jsonl"
 

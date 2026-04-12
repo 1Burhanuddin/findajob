@@ -7,10 +7,9 @@ import subprocess
 import sys
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from cleaning import clean_company, clean_title, extract_linkedin_job_id
-from paths import BASE, PANDOC
-from utils import JD_MAX_CHARS, log_event, strip_jd_boilerplate
+from findajob.cleaning import clean_company, clean_title, extract_linkedin_job_id
+from findajob.paths import BASE, PANDOC
+from findajob.utils import JD_MAX_CHARS, log_event, strip_jd_boilerplate
 
 GMAIL_CREDS = f"{BASE}/config/gmail_oauth_client.json"
 GMAIL_TOKEN = f"{BASE}/config/gmail_token.json"

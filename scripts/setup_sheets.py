@@ -47,14 +47,10 @@ Review layout (A–H):
   H: date_found
 """
 
-import os
-import sys
-
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE
+from findajob.paths import BASE
 
 SA_FILE = f"{BASE}/config/gsheets_creds.json"
 with open(f"{BASE}/config/sheet_id.txt") as f:

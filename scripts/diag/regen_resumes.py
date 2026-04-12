@@ -8,10 +8,8 @@ Works from folder contents only — no DB lookup required.
 
 import os
 import subprocess
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from paths import AICHAT, BASE, PANDOC
+from findajob.paths import AICHAT, BASE, PANDOC
 
 COMPANIES_DIR = f"{BASE}/companies"
 MASTER_RESUME_PATH = f"{BASE}/rag_sources/master_resume.md"

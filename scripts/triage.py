@@ -9,18 +9,18 @@ import csv
 import os
 import shutil
 import signal
+import sqlite3
 import subprocess
 import sys
 import time
 import uuid
 from datetime import UTC, datetime
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from cleaning import fingerprint
-from fetchers import fetch_gmail_jobs, fetch_greenhouse_jobs, fetch_jd, fetch_jobsapi_jobs
-from paths import BASE
-from scoring import _build_feedback_block, score_job
-from utils import (
+from findajob.cleaning import fingerprint
+from findajob.fetchers import fetch_gmail_jobs, fetch_greenhouse_jobs, fetch_jd, fetch_jobsapi_jobs
+from findajob.paths import BASE
+from findajob.scoring import _build_feedback_block, score_job
+from findajob.utils import (
     is_aggregator_company,
     is_ingest_noise_title,
     load_env,
@@ -65,8 +65,6 @@ def _role_model(role_name):
 SCORER_MODEL = _role_model("job_scorer")
 
 load_env()
-
-import sqlite3
 
 # Cache feedback block at module load — rebuilt each triage run
 _FEEDBACK_BLOCK = _build_feedback_block()

@@ -10,10 +10,8 @@ import json
 import os
 import sqlite3
 import subprocess
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from paths import AICHAT, BASE
+from findajob.paths import AICHAT, BASE
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 PROFILE_PATH = f"{BASE}/config/profile.md"

@@ -1,7 +1,8 @@
 """Tests for pure functions in scripts/utils.py."""
 
 import pytest
-from utils import (
+
+from findajob.utils import (
     _clean_profile_field,
     build_outreach_filename,
     build_prep_filenames,

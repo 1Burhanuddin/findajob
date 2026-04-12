@@ -3,13 +3,10 @@
 # Shows contact matching for a batch of jobs, with per-match diagnostics.
 
 import csv
-import os
 import re
 import sqlite3
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from paths import BASE
+from findajob.paths import BASE
 
 DB = f"{BASE}/data/pipeline.db"
 CSV = f"{BASE}/data/connections.csv"

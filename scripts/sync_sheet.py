@@ -8,18 +8,15 @@ Sync SQLite → Google Sheets.
              poll_flags.py reads STATUS + REJECT_REASON from Dashboard and Review tabs.
 """
 
-import os
 import sqlite3
-import sys
 from pathlib import Path
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE
-from scorer_prefilter import _is_tier1
-from utils import log_event
+from findajob.paths import BASE
+from findajob.scorer_prefilter import _is_tier1
+from findajob.utils import log_event
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 SA_FILE = f"{BASE}/config/gsheets_creds.json"

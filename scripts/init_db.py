@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 # scripts/init_db.py
-import os
 import sqlite3
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE
+from findajob.paths import BASE
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 

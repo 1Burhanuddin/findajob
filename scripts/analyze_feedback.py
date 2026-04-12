@@ -18,16 +18,14 @@ Usage:
 """
 
 import json
-import os
 import re
 import sqlite3
 import sys
 from collections import Counter
 from datetime import datetime
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE
-from utils import load_env
+from findajob.paths import BASE
+from findajob.utils import load_env
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 

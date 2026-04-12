@@ -13,17 +13,15 @@ Usage:
 """
 
 import argparse
-import os
 import sqlite3
 import subprocess
 import sys
 import time
 from datetime import UTC, datetime
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import AICHAT, BASE
-from scorer_prefilter import prefilter_score
-from utils import jd_is_usable, load_env, log_event, validate_llm_json, write_audit
+from findajob.paths import AICHAT, BASE
+from findajob.scorer_prefilter import prefilter_score
+from findajob.utils import jd_is_usable, load_env, log_event, validate_llm_json, write_audit
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 SCHEMA_PATH = f"{BASE}/config/scoring_schema.json"
@@ -120,7 +118,7 @@ JD:
     if error:
         log_event("rescore_validation_failed", error=error, title=title, company=company)
         # Stage 1.5: if LLM failed AND title matches a hard reject pattern, auto-reject
-        from scorer_prefilter import _hard_reject_match
+        from findajob.scorer_prefilter import _hard_reject_match
 
         if _hard_reject_match(title):
             return {

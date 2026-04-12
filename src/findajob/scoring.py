@@ -1,16 +1,12 @@
 """Job scoring: deterministic prefilter + LLM scoring via aichat-ng."""
 
-import os
+import sqlite3
 import subprocess
-import sys
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import sqlite3
-
-from paths import AICHAT, BASE
-from scorer_prefilter import _hard_reject_match, prefilter_score
-from utils import jd_is_usable, log_event, validate_llm_json
+from findajob.paths import AICHAT, BASE
+from findajob.scorer_prefilter import _hard_reject_match, prefilter_score
+from findajob.utils import jd_is_usable, log_event, validate_llm_json
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 SCHEMA_PATH = f"{BASE}/config/scoring_schema.json"

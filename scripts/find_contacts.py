@@ -11,14 +11,16 @@ script reads the prefix from profile.md and generates its own timestamp
 
 import csv
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime
 
+from findajob.paths import AICHAT, BASE
+from findajob.utils import build_outreach_filename, load_env, log_event, read_candidate_name, read_file_prefix
+
 
 def company_match(search, contact_company):
-    import re
-
     def normalize_co(s):
         s = s.lower().strip()
         s = re.sub(r"\b(inc|llc|ltd|corp|co|\.com|\.io)\b\.?", "", s)
@@ -31,10 +33,6 @@ def company_match(search, contact_company):
         return False
     return s in c or c in s
 
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import AICHAT, BASE
-from utils import build_outreach_filename, load_env, log_event, read_candidate_name, read_file_prefix
 
 CONNECTIONS = f"{BASE}/data/connections.csv"
 PROFILE_PATH = f"{BASE}/config/profile.md"

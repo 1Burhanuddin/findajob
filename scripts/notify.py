@@ -22,9 +22,8 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE
-from utils import load_env
+from findajob.paths import BASE
+from findajob.utils import load_env
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 LOG_PATH = f"{BASE}/logs/pipeline.jsonl"
@@ -240,7 +239,7 @@ def cmd_health_check():
 
     # Target company jobs scored 3-6 in the last N days (potential mis-scores worth reviewing).
     # Score 1-2 are excluded — prefilter hard rejects or clear mismatches, not actionable.
-    from scorer_prefilter import TIER1
+    from findajob.scorer_prefilter import TIER1
 
     cutoff = (datetime.now(UTC) - timedelta(days=TARGET_LOWSCORE_DAYS)).isoformat()
     low_target = conn.execute(

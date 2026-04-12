@@ -18,12 +18,11 @@ dev = [
     "ruff>=0.11.0",
 ]
 
-[tool.setuptools]
-py-modules = []
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["scripts"]
 
 [tool.ruff]
 target-version = "py312"
@@ -34,10 +33,8 @@ exclude = ["scripts/clean_company.py"]
 select = ["E", "F", "W", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
-"scripts/scorer_prefilter.py" = ["E501"]
+"src/findajob/scorer_prefilter.py" = ["E501"]
 "scripts/analyze_feedback.py" = ["E501"]
 "scripts/diag/probe_scorer.py" = ["E501"]
 "scripts/manual_prep.py" = ["E501"]
 "scripts/rescore_all.py" = ["E501"]
-"scripts/*.py" = ["E402"]  # sys.path.insert before local imports is intentional
-"scripts/diag/*.py" = ["E402"]

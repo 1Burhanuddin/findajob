@@ -1,7 +1,8 @@
 """Tests for scorer_prefilter.py — deterministic pre-filter logic."""
 
 import pytest
-from scorer_prefilter import _hard_reject_match, _in_domain_match, _is_tier1, prefilter_score
+
+from findajob.scorer_prefilter import _hard_reject_match, _in_domain_match, _is_tier1, prefilter_score
 
 # ── _is_tier1 ────────────────────────────────────────────────────────────────
 

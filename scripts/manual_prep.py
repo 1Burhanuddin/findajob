@@ -24,8 +24,7 @@ import sys
 import uuid
 from datetime import UTC, datetime
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE
+from findajob.paths import BASE
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 DEFAULT_FILE = f"{BASE}/manual_job.txt"
