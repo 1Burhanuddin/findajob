@@ -224,8 +224,8 @@ def cmd_health_check():
         WHERE (dupe_of = '' OR dupe_of IS NULL)
           AND (
             relevance_score >= 5
-            OR stage IN ('manual_review', 'materials_drafted', 'applied',
-                         'interview', 'offer', 'withdrawn')
+            OR stage IN ('manual_review', 'materials_drafted', 'waitlisted',
+                         'applied', 'interview', 'offer', 'withdrawn')
             OR julianday('now') - julianday(created_at) <= 14
           )
     """).fetchone()[0]
@@ -358,6 +358,7 @@ def cmd_apply_reminder():
     n_ready = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'materials_drafted'").fetchone()[0]
     n_review = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'manual_review'").fetchone()[0]
     n_applied = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'applied'").fetchone()[0]
+    n_waitlisted = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'waitlisted'").fetchone()[0]
     conn.close()
 
     checklist = (
@@ -368,7 +369,8 @@ def cmd_apply_reminder():
         f"4. Scan Sheet1 for mis-scored target company jobs\n"
         f"5. Check ntfy health notification for pipeline warnings\n"
         f"---\n"
-        f"Applied so far: {n_applied}"
+        f"Applied so far: {n_applied}\n"
+        f"Waitlisted: {n_waitlisted} deferred jobs"
     )
 
     send("Apply To Something Today", quip + checklist, priority="default", tags="rocket")
