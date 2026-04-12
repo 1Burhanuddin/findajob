@@ -152,6 +152,27 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 
 ---
 
+## Resilience
+
+- [x] **Recurring systemd timers stop firing after boot** *(closed 2026-04-12)*
+  Root cause: `OnUnitActiveSec=` timers (poller, jobsync, form-ingest) lost their re-arm
+  chain after the initial `OnBootSec=5min` trigger. `systemctl list-timers` showed
+  `Trigger: n/a` — no future runs scheduled. These services hadn't fired since boot.
+  Fix: switched all three interval timers from `OnUnitActiveSec=Nmin` + `OnBootSec=5min`
+  to `OnCalendar=*:0/N` (calendar-based). Updated both live systemd units and
+  `scripts/bootstrap.sh` generator. Verified all three now show NEXT trigger times.
+
+- [x] **Triage silently completes with 0 jobs during DNS outage** *(closed 2026-04-12)*
+  Root cause: transient DNS outage at 07:00 caused all fetch sources (RapidAPI, Greenhouse,
+  Gmail OAuth) to fail with `NameResolutionError`. Triage completed with `new=0, dupes=0,
+  scored=0` — a lost day with no retry or alert.
+  Fix: added fetch retry loop in `triage.py main()`. On 0 jobs fetched, probes connectivity
+  (curl google.com). If network is down, retries up to 3 times with 120s gaps (well within
+  the 3600s systemd timeout). If network is up but 0 jobs, accepts as a genuine empty day.
+  All attempts logged with `attempt=N` in the `jobs_fetched` event.
+
+---
+
 ## Infrastructure / Ops
 
 - [ ] **RAG source documents — manual editing pass** *(Low)*

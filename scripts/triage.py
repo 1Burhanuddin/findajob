@@ -763,12 +763,45 @@ def main():
     with open(PROFILE_PATH) as f:
         candidate_profile = f.read()
 
-    greenhouse_jobs = fetch_greenhouse_jobs(f'{BASE}/config/feed_urls.txt')
-    api_jobs = fetch_jobsapi_jobs(f'{BASE}/config/jsearch_queries.txt')
-    gmail_jobs = fetch_gmail_jobs()
-    raw_jobs = greenhouse_jobs + api_jobs + gmail_jobs
-    log_event('jobs_fetched', count=len(raw_jobs),
-              greenhouse=len(greenhouse_jobs), api=len(api_jobs), gmail=len(gmail_jobs))
+    # ── Fetch with retry ──────────────────────────────────────────────────
+    # The triage runs once daily. If DNS or network is down at run time,
+    # all sources return 0 jobs and the day is lost. Retry up to 3 times
+    # with 2-minute gaps (well within the 3600s systemd timeout).
+    MAX_FETCH_ATTEMPTS = 3
+    FETCH_RETRY_DELAY = 120  # seconds
+
+    for attempt in range(1, MAX_FETCH_ATTEMPTS + 1):
+        greenhouse_jobs = fetch_greenhouse_jobs(f'{BASE}/config/feed_urls.txt')
+        api_jobs = fetch_jobsapi_jobs(f'{BASE}/config/jsearch_queries.txt')
+        gmail_jobs = fetch_gmail_jobs()
+        raw_jobs = greenhouse_jobs + api_jobs + gmail_jobs
+        log_event('jobs_fetched', count=len(raw_jobs),
+                  greenhouse=len(greenhouse_jobs), api=len(api_jobs),
+                  gmail=len(gmail_jobs), attempt=attempt)
+
+        if raw_jobs or attempt == MAX_FETCH_ATTEMPTS:
+            break
+
+        # Zero jobs — probe connectivity before retrying
+        try:
+            probe = subprocess.run(
+                ['curl', '-s', '--max-time', '5', '-o', '/dev/null',
+                 '-w', '%{http_code}', 'https://google.com'],
+                capture_output=True, text=True, timeout=10,
+            )
+            online = probe.stdout.strip().startswith(('2', '3'))
+        except Exception:
+            online = False
+
+        if online:
+            # Network is up but still 0 jobs — genuine empty day, stop retrying
+            log_event('fetch_retry_skipped', reason='network_up_but_zero_jobs',
+                      attempt=attempt)
+            break
+
+        log_event('fetch_retry', attempt=attempt, next_attempt_in=FETCH_RETRY_DELAY,
+                  reason='zero_jobs_and_network_down')
+        time.sleep(FETCH_RETRY_DELAY)
 
     if not raw_jobs:
         log_event('pipeline_complete', new=0, dupes=0, scored=0)

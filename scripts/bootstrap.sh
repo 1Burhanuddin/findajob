@@ -266,13 +266,16 @@ write_interval_service() {
 
 write_interval_timer() {
   local name="$1" description="$2" interval="$3"
+  # Convert interval (e.g. "15min", "30min") to OnCalendar spec (e.g. "*:0/15", "*:0/30").
+  # OnCalendar is more reliable than OnUnitActiveSec, which can lose its re-arm chain
+  # if the service exits abnormally or the timer state file is lost.
+  local minutes="${interval%min}"
   cat > "${SYSTEMD_DIR}/findajob-${name}.timer" << EOF
 [Unit]
 Description=${description}
 
 [Timer]
-OnUnitActiveSec=${interval}
-OnBootSec=5min
+OnCalendar=*:0/${minutes}
 Persistent=true
 
 [Install]
