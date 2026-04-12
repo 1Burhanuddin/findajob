@@ -10,7 +10,11 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE, PANDOC, AICHAT
 from scorer_prefilter import prefilter_score
-from utils import log_event, write_audit, load_env, validate_llm_json, jd_is_usable, _JD_WALL_SIGNALS, strip_jd_boilerplate, JD_MAX_CHARS
+from utils import (
+    log_event, write_audit, load_env, validate_llm_json, jd_is_usable,
+    _JD_WALL_SIGNALS, strip_jd_boilerplate, JD_MAX_CHARS,
+    is_aggregator_company, is_ingest_noise_title,
+)
 
 
 # ── Signal handler: log a termination event before exiting ───────────────────
@@ -774,9 +778,26 @@ def main():
     new_count = 0
     dupe_count = 0
     scored_count = 0
+    noise_count = 0
 
     for job in raw_jobs:
         if not job.get('title') or not job.get('url'):
+            continue
+
+        # ── Ingest noise filters ──
+        # 1. LinkedIn "Jobs similar to" recommendations-carousel items.
+        #    These aren't real jobs — the API returned a UI element.
+        if is_ingest_noise_title(job.get('title', '')):
+            log_event('ingest_skipped', reason='jobs_similar_to',
+                      title=job.get('title', '')[:80], company=job.get('company', '')[:80])
+            noise_count += 1
+            continue
+        # 2. Aggregator / recruiter wrappers (Jobs via Dice, Robert Half, etc.).
+        #    The "company" is the board, not the actual employer — unactionable.
+        if is_aggregator_company(job.get('company', '')):
+            log_event('ingest_skipped', reason='aggregator_company',
+                      title=job.get('title', '')[:80], company=job.get('company', '')[:80])
+            noise_count += 1
             continue
 
         fp = fingerprint(job['title'], job.get('company', ''), job.get('location', ''))
@@ -897,8 +918,52 @@ def main():
 
         time.sleep(0.5)
 
+    # ── Orphan recovery: rescue any rows stuck in 'enriched' stage ──
+    # If a prior run crashed mid-scoring (SIGTERM from systemd timeout, etc.),
+    # jobs that were enriched but not yet scored get stranded. Pick them up
+    # here on the next run so they don't sit in DB limbo forever.
+    orphan_scored = 0
+    orphans = conn.execute('''
+        SELECT id, title, company, location, raw_jd_text FROM jobs
+        WHERE stage = 'enriched'
+          AND (dupe_of = '' OR dupe_of IS NULL)
+    ''').fetchall()
+    if orphans:
+        log_event('orphan_recovery_started', count=len(orphans))
+        for row in orphans:
+            try:
+                scored, latency_ms = score_job(
+                    row['title'], row['company'] or '', row['location'] or '',
+                    row['raw_jd_text'] or '', candidate_profile,
+                )
+                now = datetime.now(timezone.utc).isoformat()
+                new_stage = 'manual_review' if scored.get('score_status') == 'manual_review' else 'scored'
+                conn.execute('''
+                    UPDATE jobs SET
+                        relevance_score=?, interview_likelihood=?, strengths_alignment=?,
+                        industry_sector=?, comp_estimate=?, ai_notes=?,
+                        score_status=?, score_flag_reason=?, remote_status=?,
+                        stage=?, stage_updated=?, updated_at=?
+                    WHERE id=?
+                ''', (
+                    scored.get('relevance_score'), scored.get('interview_likelihood'),
+                    scored.get('strengths_alignment'), scored.get('industry_sector', ''),
+                    scored.get('comp_estimate', ''), scored.get('ai_notes', ''),
+                    scored.get('score_status', 'manual_review'),
+                    scored.get('score_flag_reason', ''),
+                    scored.get('remote_status', 'Unknown'),
+                    new_stage, now, now, row['id']
+                ))
+                conn.commit()
+                orphan_scored += 1
+            except Exception as e:
+                log_event('orphan_recovery_error', job_id=row['id'], error=str(e))
+        log_event('orphan_recovery_complete', total=len(orphans), scored=orphan_scored)
+
     conn.close()
-    log_event('pipeline_complete', new=new_count, dupes=dupe_count, scored=scored_count)
+    log_event('pipeline_complete', new=new_count, dupes=dupe_count,
+              scored=scored_count, noise_skipped=noise_count,
+              orphans_recovered=orphan_scored)
 
     subprocess.run([sys.executable, f'{BASE}/scripts/sync_sheet.py'], check=False)
     notify(f"Triage done: {new_count} new, {dupe_count} dupes, {scored_count} scored")

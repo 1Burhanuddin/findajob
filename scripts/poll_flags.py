@@ -9,36 +9,13 @@ from google.oauth2 import service_account
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE
-from utils import log_event, write_audit
+from utils import log_event, write_audit, is_valid_company
 DB_PATH = f'{BASE}/data/pipeline.db'
 SA_FILE = f'{BASE}/config/gsheets_creds.json'
 with open(f'{BASE}/config/sheet_id.txt') as f:
     SHEET_ID = f.read().strip()
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
-
-# Job board aggregators that should never trigger prep — the "company" is the board, not the employer
-AGGREGATOR_PREFIXES = (
-    'jobs via ',
-    'job via ',
-    'posted via ',
-    'staffmark',
-    'adecco',
-    'manpower',
-    'randstad',
-    'insight global',
-    'robert half',
-    'kforce',
-    'dice',
-)
-
-def is_valid_company(company):
-    """Return False if company is blank or a known aggregator/job-board wrapper."""
-    if not company or not company.strip():
-        return False
-    c = company.strip().lower()
-    return not any(c.startswith(prefix) for prefix in AGGREGATOR_PREFIXES)
-
 
 def handle_rejection(conn, job, reason):
     """Store rejection in DB, write to feedback_log, and move company folder to _rejected.

@@ -213,6 +213,61 @@ def build_prep_filenames(company, title, timestamp_fn, file_prefix):
     }
 
 
+# ── Ingest noise filters ─────────────────────────────────────────────────────
+
+# Job-board aggregators / recruiting firms whose "company" field is the board
+# or the recruiter, not the actual employer. Jobs from these sources are
+# effectively useless without knowing the real hiring company — the candidate
+# cannot research culture, target specific contacts, or tailor outreach.
+# Filtered at both ingest time (triage.py) and prep-trigger time (poll_flags.py).
+AGGREGATOR_PREFIXES = (
+    'jobs via ',
+    'job via ',
+    'posted via ',
+    'staffmark',
+    'adecco',
+    'manpower',
+    'randstad',
+    'insight global',
+    'robert half',
+    'kforce',
+    'dice',
+)
+
+
+def is_aggregator_company(company):
+    """Return True if the company field looks like an aggregator / recruiter wrapper."""
+    if not company:
+        return False
+    c = company.strip().lower()
+    return any(c.startswith(prefix) for prefix in AGGREGATOR_PREFIXES)
+
+
+def is_valid_company(company):
+    """Return False if company is blank OR a known aggregator / job-board wrapper."""
+    if not company or not company.strip():
+        return False
+    return not is_aggregator_company(company)
+
+
+def is_ingest_noise_title(title):
+    """Return True if the title looks like a LinkedIn UI element, not an actual job posting.
+
+    The LinkedIn API occasionally returns recommendations-carousel items
+    ("Jobs similar to X") as if they were real postings. These have mangled
+    field semantics — the 'title' is the UI label, and the 'company' is
+    typically the actual job title with "at Company Name" appended.
+    """
+    if not title:
+        return False
+    t = title.strip().lower()
+    if t.startswith('jobs similar'):
+        return True
+    if t == 'job similar to':
+        return True
+    return False
+
+
 def build_outreach_filename(contact_name, company, timestamp_fn, file_prefix):
     """Return filename for an outreach draft.
 
