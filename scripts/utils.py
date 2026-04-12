@@ -1,47 +1,49 @@
 #!/usr/bin/env python3
 """Shared utilities for the JobSearchPipeline."""
-import os, json, re
-from datetime import datetime, timezone
+
+import json
+import os
+import re
+from datetime import UTC, datetime
 
 from paths import BASE
 
-LOG_PATH = f'{BASE}/logs/pipeline.jsonl'
+LOG_PATH = f"{BASE}/logs/pipeline.jsonl"
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 
+
 def log_event(event_type, **kwargs):
-    entry = {
-        'ts': datetime.now(timezone.utc).isoformat(),
-        'event': event_type,
-        **kwargs
-    }
-    with open(LOG_PATH, 'a') as f:
-        f.write(json.dumps(entry) + '\n')
+    entry = {"ts": datetime.now(UTC).isoformat(), "event": event_type, **kwargs}
+    with open(LOG_PATH, "a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 
 # ── Audit log ────────────────────────────────────────────────────────────────
 
+
 def write_audit(conn, job_id, field_changed, old_value, new_value):
     conn.execute(
-        'INSERT INTO audit_log (job_id, field_changed, old_value, new_value) VALUES (?, ?, ?, ?)',
-        (job_id, field_changed, str(old_value) if old_value is not None else None, str(new_value))
+        "INSERT INTO audit_log (job_id, field_changed, old_value, new_value) VALUES (?, ?, ?, ?)",
+        (job_id, field_changed, str(old_value) if old_value is not None else None, str(new_value)),
     )
     conn.commit()
 
 
 # ── Environment loading ──────────────────────────────────────────────────────
 
+
 def load_env(path=None):
     """Load key=value pairs from a .env file into os.environ. Returns dict."""
     if path is None:
-        path = f'{BASE}/data/.env'
+        path = f"{BASE}/data/.env"
     env = {}
     try:
         with open(os.path.expanduser(path)) as f:
             for line in f:
                 line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, _, val = line.partition('=')
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, val = line.partition("=")
                     key = key.strip()
                     val = val.strip().strip("'\"")
                     os.environ[key] = val
@@ -53,13 +55,15 @@ def load_env(path=None):
 
 # ── LLM JSON validation ─────────────────────────────────────────────────────
 
+
 def validate_llm_json(raw_output, schema_path):
     import jsonschema
+
     text = raw_output.strip()
-    if text.startswith('```'):
-        text = '\n'.join(text.split('\n')[1:])
-    if text.endswith('```'):
-        text = text[:text.rfind('```')]
+    if text.startswith("```"):
+        text = "\n".join(text.split("\n")[1:])
+    if text.endswith("```"):
+        text = text[: text.rfind("```")]
     text = text.strip()
     try:
         parsed = json.loads(text)
@@ -77,17 +81,18 @@ def validate_llm_json(raw_output, schema_path):
 # ── JD quality check ─────────────────────────────────────────────────────────
 
 _JD_WALL_SIGNALS = [
-    'you need to enable javascript',
-    'enable javascript to run this app',
-    '403 forbidden',
-    'cross-site request forgeries',
-    'we\'re signing you in',
-    'sign in to',
-    'access denied',
-    'job not found',
-    'this job may have been',
-    'our careers site has moved',
+    "you need to enable javascript",
+    "enable javascript to run this app",
+    "403 forbidden",
+    "cross-site request forgeries",
+    "we're signing you in",
+    "sign in to",
+    "access denied",
+    "job not found",
+    "this job may have been",
+    "our careers site has moved",
 ]
+
 
 def jd_is_usable(jd_text):
     if not jd_text or len(jd_text.strip()) < 30:
@@ -99,18 +104,18 @@ def jd_is_usable(jd_text):
 # ── Candidate name / file prefix helpers ─────────────────────────────────────
 
 _PROFILE_NAME_RE = re.compile(
-    r'^\s*\*{0,2}\s*Name:\s*\*{0,2}\s*(.+?)\s*\*{0,2}\s*$',
+    r"^\s*\*{0,2}\s*Name:\s*\*{0,2}\s*(.+?)\s*\*{0,2}\s*$",
     re.IGNORECASE,
 )
 _PROFILE_FILE_PREFIX_RE = re.compile(
-    r'^\s*\*{0,2}\s*File\s*Prefix:\s*\*{0,2}\s*(.+?)\s*\*{0,2}\s*$',
+    r"^\s*\*{0,2}\s*File\s*Prefix:\s*\*{0,2}\s*(.+?)\s*\*{0,2}\s*$",
     re.IGNORECASE,
 )
 
 
 def _clean_profile_field(raw):
     """Strip surrounding whitespace, asterisks, and backticks from a profile field value."""
-    return (raw or '').strip().strip('*').strip('`').strip()
+    return (raw or "").strip().strip("*").strip("`").strip()
 
 
 def read_candidate_name(profile_path=None):
@@ -121,7 +126,7 @@ def read_candidate_name(profile_path=None):
     Returns 'Candidate' if nothing matches.
     """
     if profile_path is None:
-        profile_path = f'{BASE}/config/profile.md'
+        profile_path = f"{BASE}/config/profile.md"
     try:
         with open(profile_path) as f:
             for line in f:
@@ -132,7 +137,7 @@ def read_candidate_name(profile_path=None):
                         return value
     except (FileNotFoundError, OSError):
         pass
-    return 'Candidate'
+    return "Candidate"
 
 
 def read_file_prefix(profile_path=None):
@@ -143,7 +148,7 @@ def read_file_prefix(profile_path=None):
     if neither is available.
     """
     if profile_path is None:
-        profile_path = f'{BASE}/config/profile.md'
+        profile_path = f"{BASE}/config/profile.md"
     try:
         with open(profile_path) as f:
             for line in f:
@@ -157,10 +162,10 @@ def read_file_prefix(profile_path=None):
 
     name = read_candidate_name(profile_path)
     parts = name.strip().split()
-    return parts[-1] if parts else 'Candidate'
+    return parts[-1] if parts else "Candidate"
 
 
-_UNSAFE_FNAME_CHARS = re.compile(r'[^\w\s\-&.,]')
+_UNSAFE_FNAME_CHARS = re.compile(r"[^\w\s\-&.,]")
 
 
 def safe_filename_part(s, max_len=80):
@@ -170,11 +175,11 @@ def safe_filename_part(s, max_len=80):
     Collapses whitespace. Truncates to max_len. Strips trailing punctuation
     that would look odd at a word boundary.
     """
-    s = _UNSAFE_FNAME_CHARS.sub('', s or '')
-    s = re.sub(r'\s+', ' ', s).strip()
+    s = _UNSAFE_FNAME_CHARS.sub("", s or "")
+    s = re.sub(r"\s+", " ", s).strip()
     if len(s) > max_len:
         s = s[:max_len].rstrip()
-    return s.rstrip(' .-,')
+    return s.rstrip(" .-,")
 
 
 def build_prep_filenames(company, title, timestamp_fn, file_prefix):
@@ -191,25 +196,25 @@ def build_prep_filenames(company, title, timestamp_fn, file_prefix):
     Outreach filenames are generated separately by find_contacts.py.
     """
     co = safe_filename_part(company, 40)
-    t  = safe_filename_part(title,   60)
+    t = safe_filename_part(title, 60)
     # Core user-facing docs: full pattern with timestamp
-    resume_base  = f'{file_prefix} Resume - {co} - {t} - {timestamp_fn}'
-    cover_base   = f'{file_prefix} Cover - {co} - {t} - {timestamp_fn}'
-    briefing_base = f'{file_prefix} Briefing - {co} - {t} - {timestamp_fn}'
-    changes_base = f'{file_prefix} Resume Changes - {co} - {t} - {timestamp_fn}'
+    resume_base = f"{file_prefix} Resume - {co} - {t} - {timestamp_fn}"
+    cover_base = f"{file_prefix} Cover - {co} - {t} - {timestamp_fn}"
+    briefing_base = f"{file_prefix} Briefing - {co} - {t} - {timestamp_fn}"
+    changes_base = f"{file_prefix} Resume Changes - {co} - {t} - {timestamp_fn}"
     # Internal reference docs: short form, no prefix or timestamp
-    jd_base = f'JD - {co} - {t}'
-    checklist_base = f'Review Checklist - {co} - {t}'
+    jd_base = f"JD - {co} - {t}"
+    checklist_base = f"Review Checklist - {co} - {t}"
     return {
-        'resume_md':    f'{resume_base}.md',
-        'resume_docx':  f'{resume_base}.docx',
-        'cover_md':     f'{cover_base}.md',
-        'cover_docx':   f'{cover_base}.docx',
-        'briefing_md':  f'{briefing_base}.md',
-        'briefing_docx': f'{briefing_base}.docx',
-        'changes_md':   f'{changes_base}.md',
-        'jd_txt':       f'{jd_base}.txt',
-        'checklist_md': f'{checklist_base}.md',
+        "resume_md": f"{resume_base}.md",
+        "resume_docx": f"{resume_base}.docx",
+        "cover_md": f"{cover_base}.md",
+        "cover_docx": f"{cover_base}.docx",
+        "briefing_md": f"{briefing_base}.md",
+        "briefing_docx": f"{briefing_base}.docx",
+        "changes_md": f"{changes_base}.md",
+        "jd_txt": f"{jd_base}.txt",
+        "checklist_md": f"{checklist_base}.md",
     }
 
 
@@ -221,17 +226,17 @@ def build_prep_filenames(company, title, timestamp_fn, file_prefix):
 # cannot research culture, target specific contacts, or tailor outreach.
 # Filtered at both ingest time (triage.py) and prep-trigger time (poll_flags.py).
 AGGREGATOR_PREFIXES = (
-    'jobs via ',
-    'job via ',
-    'posted via ',
-    'staffmark',
-    'adecco',
-    'manpower',
-    'randstad',
-    'insight global',
-    'robert half',
-    'kforce',
-    'dice',
+    "jobs via ",
+    "job via ",
+    "posted via ",
+    "staffmark",
+    "adecco",
+    "manpower",
+    "randstad",
+    "insight global",
+    "robert half",
+    "kforce",
+    "dice",
 )
 
 
@@ -261,9 +266,9 @@ def is_ingest_noise_title(title):
     if not title:
         return False
     t = title.strip().lower()
-    if t.startswith('jobs similar'):
+    if t.startswith("jobs similar"):
         return True
-    if t == 'job similar to':
+    if t == "job similar to":
         return True
     return False
 
@@ -275,7 +280,7 @@ def build_outreach_filename(contact_name, company, timestamp_fn, file_prefix):
     """
     co = safe_filename_part(company, 40)
     ct = safe_filename_part(contact_name, 40)
-    return f'{file_prefix} Outreach to {ct} - {co} - {timestamp_fn}.txt'
+    return f"{file_prefix} Outreach to {ct} - {co} - {timestamp_fn}.txt"
 
 
 # ── JD boilerplate stripping ───────────────────────────────────────────────
@@ -284,39 +289,39 @@ JD_MAX_CHARS = 16000
 
 _BOILERPLATE_PATTERNS = [
     # EEO
-    r'equal\s+opportunity\s+employer',
-    r'equal\s+employment\s+opportunity',
-    r'we\s+do\s+not\s+discriminate',
-    r'without\s+regard\s+to\s+race',
-    r'affirmative\s+action',
-    r'all\s+qualified\s+applicants\s+will\s+receive\s+consideration',
+    r"equal\s+opportunity\s+employer",
+    r"equal\s+employment\s+opportunity",
+    r"we\s+do\s+not\s+discriminate",
+    r"without\s+regard\s+to\s+race",
+    r"affirmative\s+action",
+    r"all\s+qualified\s+applicants\s+will\s+receive\s+consideration",
     # Legal / compliance
-    r'reasonable\s+accommodation',
-    r'e-verify',
-    r'employment\s+eligibility\s+verification',
-    r'right\s+to\s+work',
-    r'protected\s+veteran',
-    r'drug[- ]free\s+workplace',
+    r"reasonable\s+accommodation",
+    r"e-verify",
+    r"employment\s+eligibility\s+verification",
+    r"right\s+to\s+work",
+    r"protected\s+veteran",
+    r"drug[- ]free\s+workplace",
     # Disclaimers
-    r'this\s+(?:job\s+)?posting\s+is\s+not',
-    r'salary\s+ranges?\s+may\s+vary',
-    r'the\s+above\s+is\s+intended\s+to\s+describe',
-    r'nothing\s+in\s+this\s+job\s+(?:posting|description)',
-    r'this\s+(?:job\s+)?description\s+(?:is\s+not|does\s+not)',
+    r"this\s+(?:job\s+)?posting\s+is\s+not",
+    r"salary\s+ranges?\s+may\s+vary",
+    r"the\s+above\s+is\s+intended\s+to\s+describe",
+    r"nothing\s+in\s+this\s+job\s+(?:posting|description)",
+    r"this\s+(?:job\s+)?description\s+(?:is\s+not|does\s+not)",
     # Application boilerplate
-    r'how\s+to\s+apply',
-    r'to\s+apply,?\s+please',
-    r'apply\s+now\s+at',
+    r"how\s+to\s+apply",
+    r"to\s+apply,?\s+please",
+    r"apply\s+now\s+at",
     # Benefits headers (start-of-paragraph)
-    r'^benefits\s*:',
-    r'^what\s+we\s+offer\s*:',
-    r'^our\s+benefits\s+include',
-    r'^perks\s+(?:&|and)\s+benefits',
-    r'^total\s+rewards',
-    r'^compensation\s+(?:&|and)\s+benefits',
+    r"^benefits\s*:",
+    r"^what\s+we\s+offer\s*:",
+    r"^our\s+benefits\s+include",
+    r"^perks\s+(?:&|and)\s+benefits",
+    r"^total\s+rewards",
+    r"^compensation\s+(?:&|and)\s+benefits",
 ]
 
-_BOILERPLATE_RE = re.compile('|'.join(_BOILERPLATE_PATTERNS), re.IGNORECASE | re.MULTILINE)
+_BOILERPLATE_RE = re.compile("|".join(_BOILERPLATE_PATTERNS), re.IGNORECASE | re.MULTILINE)
 
 
 def strip_jd_boilerplate(text):
@@ -327,10 +332,10 @@ def strip_jd_boilerplate(text):
     more than 40% of the text or drops below 200 chars retained.
     """
     if not text or len(text) < 200:
-        return text or ''
+        return text or ""
 
     # Split into paragraphs on double-newline or blank lines
-    paragraphs = re.split(r'\n\s*\n', text)
+    paragraphs = re.split(r"\n\s*\n", text)
     if len(paragraphs) <= 1:
         return text  # single block — don't risk stripping it
 
@@ -351,14 +356,18 @@ def strip_jd_boilerplate(text):
     if trim_from >= len(paragraphs):
         return text  # nothing to trim
 
-    kept = '\n\n'.join(paragraphs[:trim_from]).rstrip()
+    kept = "\n\n".join(paragraphs[:trim_from]).rstrip()
 
     if len(kept) < min_retain:
         return text  # safety: would remove too much
 
     chars_removed = original_len - len(kept)
     if chars_removed > 0 and chars_removed / original_len > 0.30:
-        log_event('jd_boilerplate_warning', removed_pct=round(chars_removed / original_len * 100, 1),
-                  original_len=original_len, kept_len=len(kept))
+        log_event(
+            "jd_boilerplate_warning",
+            removed_pct=round(chars_removed / original_len * 100, 1),
+            original_len=original_len,
+            kept_len=len(kept),
+        )
 
     return kept

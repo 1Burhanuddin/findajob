@@ -24,6 +24,7 @@ data/pipeline.db-wal
 logs/
 __pycache__/
 *.pyc
+*.egg-info/
 .DS_Store
 rags/
 companies/

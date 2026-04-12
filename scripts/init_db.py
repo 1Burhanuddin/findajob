@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 # scripts/init_db.py
-import sqlite3, os, sys
+import os
+import sqlite3
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE
 
-DB_PATH = f'{BASE}/data/pipeline.db'
+DB_PATH = f"{BASE}/data/pipeline.db"
 
 conn = sqlite3.connect(DB_PATH)
-conn.executescript('''
+conn.executescript("""
 CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
     fingerprint TEXT UNIQUE NOT NULL,
@@ -98,6 +100,6 @@ CREATE TABLE IF NOT EXISTS duplicate_groups (
     detected_at TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (canonical_fingerprint, duplicate_job_id)
 );
-''')
+""")
 conn.close()
-print('Database initialized:', DB_PATH)
+print("Database initialized:", DB_PATH)

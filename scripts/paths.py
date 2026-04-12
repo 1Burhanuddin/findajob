@@ -19,6 +19,7 @@ Usage in scripts/diag/*.py:
 
 Use sys.executable (not a PYTHON constant) for subprocess calls to other pipeline scripts.
 """
+
 import os
 import pathlib
 
@@ -26,21 +27,21 @@ import pathlib
 BASE: str = str(pathlib.Path(__file__).parent.parent.resolve())
 
 # Allow env-var override for non-standard install locations or testing
-if 'JSP_BASE' in os.environ:
-    BASE = str(pathlib.Path(os.environ['JSP_BASE']).resolve())
+if "JSP_BASE" in os.environ:
+    BASE = str(pathlib.Path(os.environ["JSP_BASE"]).resolve())
 
 # Load binary paths from config/paths.env
 _cfg: dict = {}
-_penv = pathlib.Path(BASE) / 'config' / 'paths.env'
+_penv = pathlib.Path(BASE) / "config" / "paths.env"
 if _penv.exists():
     for _line in _penv.read_text().splitlines():
         _line = _line.strip()
-        if _line and not _line.startswith('#') and '=' in _line:
-            _k, _, _v = _line.partition('=')
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _, _v = _line.partition("=")
             _cfg[_k.strip()] = os.path.expanduser(_v.strip().strip('"').strip("'"))
 
 # Binary paths — defaults are Linux-appropriate.
 # macOS and other users: set these in config/paths.env (see config/paths.env.example).
-AICHAT: str = _cfg.get('AICHAT_NG', '/usr/local/bin/aichat-ng')
-PANDOC: str  = _cfg.get('PANDOC',    '/usr/bin/pandoc')
-RCLONE: str  = _cfg.get('RCLONE',    '/usr/bin/rclone')
+AICHAT: str = _cfg.get("AICHAT_NG", "/usr/local/bin/aichat-ng")
+PANDOC: str = _cfg.get("PANDOC", "/usr/bin/pandoc")
+RCLONE: str = _cfg.get("RCLONE", "/usr/bin/rclone")

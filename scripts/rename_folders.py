@@ -9,21 +9,26 @@ Matches folders to DB jobs via prep_folder_path. Folders without a DB match are 
 Updates prep_folder_path in DB after each rename.
 Safe to re-run — skips folders already in the new format.
 """
-import os, re, sys, sqlite3
+
+import os
+import re
+import sqlite3
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE
-DB_PATH   = f'{BASE}/data/pipeline.db'
-COMPANIES = f'{BASE}/companies'
 
-DATETIME_PAT = re.compile(r'^(.+)_(\d{4}-\d{2}-\d{2})_(\d{6})$')
+DB_PATH = f"{BASE}/data/pipeline.db"
+COMPANIES = f"{BASE}/companies"
+
+DATETIME_PAT = re.compile(r"^(.+)_(\d{4}-\d{2}-\d{2})_(\d{6})$")
 
 
 def abbrev_title(title, max_words=3):
-    title = re.sub(r'\s*\(.*?\)', '', title)
-    title = re.sub(r'[^\w\s-]', '', title)
+    title = re.sub(r"\s*\(.*?\)", "", title)
+    title = re.sub(r"[^\w\s-]", "", title)
     words = [w for w in title.split() if w][:max_words]
-    return '_'.join(words) if words else 'Job'
+    return "_".join(words) if words else "Job"
 
 
 def main():
@@ -36,14 +41,14 @@ def main():
         SELECT id, title, prep_folder_path FROM jobs
         WHERE prep_folder_path IS NOT NULL AND prep_folder_path != ''
     """).fetchall()
-    path_to_job      = {r['prep_folder_path']: r for r in jobs}
-    basename_to_job  = {os.path.basename(r['prep_folder_path']): r for r in jobs}
+    path_to_job = {r["prep_folder_path"]: r for r in jobs}
+    basename_to_job = {os.path.basename(r["prep_folder_path"]): r for r in jobs}
 
     renamed = 0
     skipped = 0
 
     # Walk both companies/ and companies/_done/
-    search_dirs = [COMPANIES, os.path.join(COMPANIES, '_done')]
+    search_dirs = [COMPANIES, os.path.join(COMPANIES, "_done")]
 
     for search_dir in search_dirs:
         if not os.path.isdir(search_dir):
@@ -52,12 +57,12 @@ def main():
             old_path = os.path.join(search_dir, name)
             if not os.path.isdir(old_path):
                 continue
-            if name.startswith('_'):
+            if name.startswith("_"):
                 continue
 
             m = DATETIME_PAT.match(name)
             if not m:
-                print(f'SKIP (no timestamp pattern): {name}')
+                print(f"SKIP (no timestamp pattern): {name}")
                 skipped += 1
                 continue
 
@@ -66,35 +71,34 @@ def main():
             # Look up job by exact path, then fall back to basename (handles _done moves)
             job = path_to_job.get(old_path) or basename_to_job.get(name)
             if not job:
-                print(f'SKIP (no DB match): {name}')
+                print(f"SKIP (no DB match): {name}")
                 skipped += 1
                 continue
 
-            title_abbrev = abbrev_title(job['title'])
-            new_name = f'{company_part}_{title_abbrev}_{date_part}_{time_part}'
+            title_abbrev = abbrev_title(job["title"])
+            new_name = f"{company_part}_{title_abbrev}_{date_part}_{time_part}"
             new_path = os.path.join(search_dir, new_name)
 
             # Skip if the abbrev is already embedded in the company_part (already renamed)
-            if f'_{title_abbrev}' in company_part or new_name == name:
-                print(f'OK   (already renamed): {name}')
+            if f"_{title_abbrev}" in company_part or new_name == name:
+                print(f"OK   (already renamed): {name}")
                 continue
 
             if os.path.exists(new_path):
-                print(f'SKIP (target exists): {name} → {new_name}')
+                print(f"SKIP (target exists): {name} → {new_name}")
                 skipped += 1
                 continue
 
             os.rename(old_path, new_path)
-            conn.execute('UPDATE jobs SET prep_folder_path=? WHERE id=?',
-                         (new_path, job['id']))
+            conn.execute("UPDATE jobs SET prep_folder_path=? WHERE id=?", (new_path, job["id"]))
             conn.commit()
-            print(f'RENAMED: {name}')
-            print(f'      → {new_name}')
+            print(f"RENAMED: {name}")
+            print(f"      → {new_name}")
             renamed += 1
 
     conn.close()
-    print(f'\nDone. {renamed} renamed, {skipped} skipped.')
+    print(f"\nDone. {renamed} renamed, {skipped} skipped.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

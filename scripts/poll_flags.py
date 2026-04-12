@@ -1,88 +1,93 @@
 #!/usr/bin/env python3
 # ~/JobSearchPipeline/scripts/poll_flags.py
 """Poll Google Sheet for APPLY_FLAG + REJECT_REASON changes. Mirror to SQLite. Trigger prep."""
-import os, sys, subprocess, sqlite3, json, shutil, re
-from datetime import datetime, timezone
+
+import os
+import re
+import shutil
+import sqlite3
+import subprocess
+import sys
+from datetime import UTC, datetime
+
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from google.oauth2 import service_account
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paths import BASE
-from utils import log_event, write_audit, is_valid_company
-DB_PATH = f'{BASE}/data/pipeline.db'
-SA_FILE = f'{BASE}/config/gsheets_creds.json'
-with open(f'{BASE}/config/sheet_id.txt') as f:
+from utils import is_valid_company, log_event, write_audit
+
+DB_PATH = f"{BASE}/data/pipeline.db"
+SA_FILE = f"{BASE}/config/gsheets_creds.json"
+with open(f"{BASE}/config/sheet_id.txt") as f:
     SHEET_ID = f.read().strip()
 
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+
 
 def handle_rejection(conn, job, reason):
     """Store rejection in DB, write to feedback_log, and move company folder to _rejected.
     Drops a marker file named {reason}_{date}.txt inside the moved folder.
     Returns True if a folder was moved (caller should trigger rclone)."""
-    now = datetime.now(timezone.utc).isoformat()
-    old_stage = job['stage']
+    now = datetime.now(UTC).isoformat()
+    old_stage = job["stage"]
     conn.execute(
-        'UPDATE jobs SET stage=?, reject_reason=?, updated_at=? WHERE id=?',
-        ('rejected', reason, now, job['id'])
+        "UPDATE jobs SET stage=?, reject_reason=?, updated_at=? WHERE id=?", ("rejected", reason, now, job["id"])
     )
     # jd_excerpt: first 500 chars of raw_jd_text for post-hoc analysis
-    jd = conn.execute('SELECT raw_jd_text, prep_folder_path FROM jobs WHERE id=?', (job['id'],)).fetchone()
-    jd_excerpt = (jd['raw_jd_text'] or '')[:500] if jd and jd['raw_jd_text'] else ''
+    jd = conn.execute("SELECT raw_jd_text, prep_folder_path FROM jobs WHERE id=?", (job["id"],)).fetchone()
+    jd_excerpt = (jd["raw_jd_text"] or "")[:500] if jd and jd["raw_jd_text"] else ""
     conn.execute(
-        '''INSERT INTO feedback_log (job_id, title, company, relevance_score, reject_reason, jd_excerpt)
-           VALUES (?, ?, ?, ?, ?, ?)''',
-        (job['id'], job['title'], job['company'], job['relevance_score'], reason, jd_excerpt)
+        """INSERT INTO feedback_log (job_id, title, company, relevance_score, reject_reason, jd_excerpt)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (job["id"], job["title"], job["company"], job["relevance_score"], reason, jd_excerpt),
     )
 
     # Move company folder to _rejected if it exists
     folder_moved = False
-    folder = jd['prep_folder_path'] if jd else None
+    folder = jd["prep_folder_path"] if jd else None
     if folder and os.path.isdir(folder):
-        rejected_dir = os.path.join(BASE, 'companies', '_rejected')
+        rejected_dir = os.path.join(BASE, "companies", "_rejected")
         os.makedirs(rejected_dir, exist_ok=True)
         dest = os.path.join(rejected_dir, os.path.basename(folder))
         shutil.move(folder, dest)
         # Drop a marker file: filesystem-safe reason + date
-        safe_reason = re.sub(r'[^\w\s-]', '', reason).strip().replace(' ', '_')[:60]
-        date_str = datetime.now().strftime('%Y-%m-%d')
-        open(os.path.join(dest, f'REJECTED_{safe_reason}_{date_str}.txt'), 'w').close()
-        conn.execute('UPDATE jobs SET prep_folder_path=? WHERE id=?', (dest, job['id']))
-        log_event('folder_moved_to_rejected', job_id=job['id'], folder=os.path.basename(folder),
-                  reason=reason)
+        safe_reason = re.sub(r"[^\w\s-]", "", reason).strip().replace(" ", "_")[:60]
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        open(os.path.join(dest, f"REJECTED_{safe_reason}_{date_str}.txt"), "w").close()
+        conn.execute("UPDATE jobs SET prep_folder_path=? WHERE id=?", (dest, job["id"]))
+        log_event("folder_moved_to_rejected", job_id=job["id"], folder=os.path.basename(folder), reason=reason)
         folder_moved = True
 
     conn.commit()
-    write_audit(conn, job['id'], 'stage', old_stage, 'rejected')
-    write_audit(conn, job['id'], 'reject_reason', '', reason)
-    log_event('job_rejected', job_id=job['id'], company=job['company'],
-              title=job['title'], reason=reason)
+    write_audit(conn, job["id"], "stage", old_stage, "rejected")
+    write_audit(conn, job["id"], "reject_reason", "", reason)
+    log_event("job_rejected", job_id=job["id"], company=job["company"], title=job["title"], reason=reason)
     return folder_moved
+
 
 def main():
     creds = service_account.Credentials.from_service_account_file(SA_FILE, scopes=SCOPES)
-    svc = build('sheets', 'v4', credentials=creds)
+    svc = build("sheets", "v4", credentials=creds)
 
     # Read APPLY_FLAG (col A), REJECT_REASON (col B), fingerprint (col C) from Dashboard
     try:
-        result = svc.spreadsheets().values().get(
-            spreadsheetId=SHEET_ID, range='Dashboard!A2:C10000'
-        ).execute()
-        rows = result.get('values', [])
+        result = svc.spreadsheets().values().get(spreadsheetId=SHEET_ID, range="Dashboard!A2:C10000").execute()
+        rows = result.get("values", [])
     except HttpError as e:
         if e.resp.status == 400:
-            log_event('poll_flags', found=0, note='sheet_empty_or_range_exceeded')
+            log_event("poll_flags", found=0, note="sheet_empty_or_range_exceeded")
             return
         raise
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
 
-    flagged_jobs   = []
+    flagged_jobs = []
     rejected_count = 0
-    applied_count  = 0
-    folders_moved  = 0
+    applied_count = 0
+    folders_moved = 0
 
     for row in rows:
         if len(row) < 3:
@@ -90,40 +95,43 @@ def main():
             # But check if len==1 or 2 for APPLY_FLAG with missing reject/fp
             if len(row) < 1:
                 continue
-            flag_val   = row[0] if len(row) >= 1 else ''
-            reject_val = row[1] if len(row) >= 2 else ''
-            fp         = row[2] if len(row) >= 3 else ''
+            flag_val = row[0] if len(row) >= 1 else ""
+            reject_val = row[1] if len(row) >= 2 else ""
+            fp = row[2] if len(row) >= 3 else ""
             if not fp:
                 continue
         else:
-            flag_val   = row[0]
+            flag_val = row[0]
             reject_val = row[1]
-            fp         = row[2]
+            fp = row[2]
 
         if not fp:
             continue
 
         # STATUS dropdown: "Flag for Prep" triggers prep; others update DB stage
-        is_flagged  = (flag_val == 'Flag for Prep')
+        is_flagged = flag_val == "Flag for Prep"
         is_rejected = bool(reject_val and reject_val.strip())
 
         STATUS_STAGE_MAP = {
-            'Applied':      'applied',
-            'Interviewing': 'interview',
-            'Offer':        'offer',
-            'Withdrew':     'withdrawn',
+            "Applied": "applied",
+            "Interviewing": "interview",
+            "Offer": "offer",
+            "Withdrew": "withdrawn",
         }
 
-        job = conn.execute('''
+        job = conn.execute(
+            """
             SELECT id, title, company, url, stage, apply_flag, reject_reason, relevance_score
             FROM jobs WHERE fingerprint = ?
-        ''', (fp,)).fetchone()
+        """,
+            (fp,),
+        ).fetchone()
 
         if not job:
             continue
 
         # ── Rejection takes priority ─────────────────────────────────────
-        if is_rejected and job['stage'] != 'rejected':
+        if is_rejected and job["stage"] != "rejected":
             if handle_rejection(conn, job, reject_val.strip()):
                 folders_moved += 1
             rejected_count += 1
@@ -132,67 +140,67 @@ def main():
         # ── Post-application status updates (Applied / Interviewing / Offer / Withdrew) ──
         if flag_val in STATUS_STAGE_MAP:
             new_stage = STATUS_STAGE_MAP[flag_val]
-            if job['stage'] != new_stage:
-                now = datetime.now(timezone.utc).isoformat()
-                conn.execute('UPDATE jobs SET stage=?, updated_at=? WHERE id=?',
-                             (new_stage, now, job['id']))
+            if job["stage"] != new_stage:
+                now = datetime.now(UTC).isoformat()
+                conn.execute("UPDATE jobs SET stage=?, updated_at=? WHERE id=?", (new_stage, now, job["id"]))
                 conn.commit()
-                write_audit(conn, job['id'], 'stage', job['stage'], new_stage)
-                log_event('job_stage_updated', job_id=job['id'], company=job['company'],
-                          title=job['title'], stage=new_stage)
+                write_audit(conn, job["id"], "stage", job["stage"], new_stage)
+                log_event(
+                    "job_stage_updated", job_id=job["id"], company=job["company"], title=job["title"], stage=new_stage
+                )
 
                 # Move prep folder to _applied when marked Applied
-                if new_stage == 'applied':
-                    jd = conn.execute('SELECT prep_folder_path FROM jobs WHERE id=?',
-                                      (job['id'],)).fetchone()
-                    folder = jd['prep_folder_path'] if jd else None
+                if new_stage == "applied":
+                    jd = conn.execute("SELECT prep_folder_path FROM jobs WHERE id=?", (job["id"],)).fetchone()
+                    folder = jd["prep_folder_path"] if jd else None
                     if folder and os.path.isdir(folder):
-                        applied_dir = os.path.join(BASE, 'companies', '_applied')
+                        applied_dir = os.path.join(BASE, "companies", "_applied")
                         os.makedirs(applied_dir, exist_ok=True)
                         dest = os.path.join(applied_dir, os.path.basename(folder))
                         shutil.move(folder, dest)
-                        conn.execute('UPDATE jobs SET prep_folder_path=? WHERE id=?',
-                                     (dest, job['id']))
+                        conn.execute("UPDATE jobs SET prep_folder_path=? WHERE id=?", (dest, job["id"]))
                         conn.commit()
-                        log_event('folder_moved_to_applied', job_id=job['id'],
-                                  folder=os.path.basename(folder))
+                        log_event("folder_moved_to_applied", job_id=job["id"], folder=os.path.basename(folder))
                         folders_moved += 1
                     applied_count += 1
 
             continue  # don't trigger prep for these statuses
 
         # ── Flag for Prep handling ───────────────────────────────────────
-        if is_flagged and not job['apply_flag']:
-            conn.execute('UPDATE jobs SET apply_flag=1, updated_at=? WHERE id=?',
-                        (datetime.now(timezone.utc).isoformat(), job['id']))
+        if is_flagged and not job["apply_flag"]:
+            conn.execute(
+                "UPDATE jobs SET apply_flag=1, updated_at=? WHERE id=?", (datetime.now(UTC).isoformat(), job["id"])
+            )
             conn.commit()
-            write_audit(conn, job['id'], 'apply_flag', '0', '1')
+            write_audit(conn, job["id"], "apply_flag", "0", "1")
 
-        if is_flagged and job['stage'] in ('scored', 'manual_review', 'enriched'):
-            if not is_valid_company(job['company']):
-                log_event('poll_flags_skipped', reason='invalid_company',
-                          company=job['company'], title=job['title'], job_id=job['id'])
+        if is_flagged and job["stage"] in ("scored", "manual_review", "enriched"):
+            if not is_valid_company(job["company"]):
+                log_event(
+                    "poll_flags_skipped",
+                    reason="invalid_company",
+                    company=job["company"],
+                    title=job["title"],
+                    job_id=job["id"],
+                )
                 continue
             # Guard: set stage immediately so next poll cycle won't re-trigger
-            now = datetime.now(timezone.utc).isoformat()
-            conn.execute('UPDATE jobs SET stage=?, stage_updated=?, updated_at=? WHERE id=?',
-                        ('prep_in_progress', now, now, job['id']))
+            now = datetime.now(UTC).isoformat()
+            conn.execute(
+                "UPDATE jobs SET stage=?, stage_updated=?, updated_at=? WHERE id=?",
+                ("prep_in_progress", now, now, job["id"]),
+            )
             conn.commit()
-            write_audit(conn, job['id'], 'stage', job['stage'], 'prep_in_progress')
-            flagged_jobs.append({
-                'id': job['id'], 'title': job['title'],
-                'company': job['company'], 'url': job['url']
-            })
+            write_audit(conn, job["id"], "stage", job["stage"], "prep_in_progress")
+            flagged_jobs.append({"id": job["id"], "title": job["title"], "company": job["company"], "url": job["url"]})
 
     # ── Review tab: manual_review triage ────────────────────────────────────
     # Col A = STATUS (Promote / blank), Col B = REJECT_REASON, Col C = fingerprint
     review_promoted = 0
     review_rejected = 0
     try:
-        review_result = svc.spreadsheets().values().get(
-            spreadsheetId=SHEET_ID, range='Review!A2:C10000'
-        ).execute()
-        review_rows = review_result.get('values', [])
+        review_result = svc.spreadsheets().values().get(spreadsheetId=SHEET_ID, range="Review!A2:C10000").execute()
+        review_rows = review_result.get("values", [])
     except HttpError:
         review_rows = []
 
@@ -201,18 +209,21 @@ def main():
             continue
         status_val = row[0].strip()
         reject_val = row[1].strip()
-        fp         = row[2].strip()
+        fp = row[2].strip()
         if not fp:
             continue
 
-        job = conn.execute('''
+        job = conn.execute(
+            """
             SELECT id, title, company, url, stage, apply_flag, reject_reason, relevance_score
             FROM jobs WHERE fingerprint = ?
-        ''', (fp,)).fetchone()
-        if not job or job['stage'] != 'manual_review':
+        """,
+            (fp,),
+        ).fetchone()
+        if not job or job["stage"] != "manual_review":
             continue
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         # Rejection takes priority
         if reject_val:
@@ -223,64 +234,76 @@ def main():
             continue
 
         # Promote: set score=7, stage=scored → lands on Dashboard for Flag for Prep
-        if status_val == 'Promote':
-            conn.execute('''
+        if status_val == "Promote":
+            conn.execute(
+                """
                 UPDATE jobs SET relevance_score=7, stage='scored',
                        score_status='promoted', score_flag_reason='Promoted from Review tab',
                        stage_updated=?, updated_at=?
                 WHERE id=?
-            ''', (now, now, job['id']))
+            """,
+                (now, now, job["id"]),
+            )
             conn.commit()
-            write_audit(conn, job['id'], 'stage', 'manual_review', 'scored')
-            log_event('review_promoted', job_id=job['id'], company=job['company'],
-                      title=job['title'])
+            write_audit(conn, job["id"], "stage", "manual_review", "scored")
+            log_event("review_promoted", job_id=job["id"], company=job["company"], title=job["title"])
             review_promoted += 1
 
     if review_promoted or review_rejected:
-        log_event('poll_review', promoted=review_promoted, rejected=review_rejected)
+        log_event("poll_review", promoted=review_promoted, rejected=review_rejected)
 
     conn.close()
 
     need_sync = False
 
     if rejected_count:
-        log_event('poll_flags_rejections', count=rejected_count, folders_moved=folders_moved)
+        log_event("poll_flags_rejections", count=rejected_count, folders_moved=folders_moved)
         need_sync = True
 
     if applied_count:
-        log_event('poll_flags_applied', count=applied_count, folders_moved=folders_moved)
+        log_event("poll_flags_applied", count=applied_count, folders_moved=folders_moved)
         need_sync = True
 
     if review_promoted:
         need_sync = True
 
     if need_sync:
-        subprocess.Popen([sys.executable, f'{BASE}/scripts/sync_sheet.py'])
+        subprocess.Popen([sys.executable, f"{BASE}/scripts/sync_sheet.py"])
 
     # Folder moves (reject → _rejected/, apply → _applied/) propagate to Drive
     # via the jobsync.timer 'rclone bisync' running every 15 minutes. No
     # event-driven rclone call here — doing one would race with the timer and
     # risk trashing user edits in Drive.
     if folders_moved:
-        log_event('folder_moves_queued_for_bisync', count=folders_moved)
+        log_event("folder_moves_queued_for_bisync", count=folders_moved)
 
     if not flagged_jobs:
-        log_event('poll_flags', found=0, rejections=rejected_count,
-                  review_promoted=review_promoted, review_rejected=review_rejected)
+        log_event(
+            "poll_flags",
+            found=0,
+            rejections=rejected_count,
+            review_promoted=review_promoted,
+            review_rejected=review_rejected,
+        )
         return
 
-    log_event('poll_flags', found=len(flagged_jobs), rejections=rejected_count,
-              review_promoted=review_promoted, review_rejected=review_rejected,
-              jobs=[f"{j['company']} - {j['title']}" for j in flagged_jobs])
+    log_event(
+        "poll_flags",
+        found=len(flagged_jobs),
+        rejections=rejected_count,
+        review_promoted=review_promoted,
+        review_rejected=review_rejected,
+        jobs=[f"{j['company']} - {j['title']}" for j in flagged_jobs],
+    )
 
     # Trigger prep for each flagged job — fire-and-forget so the poller
     # doesn't block for the duration of prep (resume + cover letter + briefing
     # can take several minutes; blocking here hangs the entire poll cycle).
     for job in flagged_jobs:
-        subprocess.Popen([
-            sys.executable, f'{BASE}/scripts/prep_application.py',
-            job['company'], job['title'], job['url'], job['id']
-        ])
+        subprocess.Popen(
+            [sys.executable, f"{BASE}/scripts/prep_application.py", job["company"], job["title"], job["url"], job["id"]]
+        )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

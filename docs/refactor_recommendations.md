@@ -59,7 +59,7 @@ The function it patched is already live in `triage.py`. Delete it.
 
 ## Lower Priority (Leave Alone or Defer)
 
-- **No unit tests** — adding tests for a single-user automation pipeline isn't high ROI. The LLM calls aren't testable in any meaningful way.
+- ~~**No unit tests**~~ *(superseded 2026-04-12)* — 302 unit tests now cover all pure functions in scorer_prefilter.py, utils.py, and triage.py. CI runs pytest on every push.
 - **Hardcoded tool paths** — the CLAUDE.md governance prevents misuse; the paths are stable on this machine. Not worth abstracting.
 - **RAG corpus quality** — acknowledged low priority in ISSUES.md; RAG is only used in REPL mode.
 - **No pagination on Greenhouse API** — Greenhouse returns full job lists by default; pagination isn't needed unless a single company has >250 openings.

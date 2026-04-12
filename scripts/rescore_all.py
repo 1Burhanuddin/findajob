@@ -11,87 +11,95 @@ Usage:
     rescore_all.py --min-score 7 --limit 40
     rescore_all.py --dry-run          # report what would be rescored, no LLM calls
 """
-import os, sys, json, sqlite3, subprocess, time, argparse
-from datetime import datetime, timezone
+
+import argparse
+import os
+import sqlite3
+import subprocess
+import sys
+import time
+from datetime import UTC, datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from paths import BASE, AICHAT
+from paths import AICHAT, BASE
 from scorer_prefilter import prefilter_score
-from utils import log_event, write_audit, load_env, validate_llm_json, jd_is_usable
+from utils import jd_is_usable, load_env, log_event, validate_llm_json, write_audit
 
-DB_PATH = f'{BASE}/data/pipeline.db'
-SCHEMA_PATH = f'{BASE}/config/scoring_schema.json'
-PROFILE_PATH = f'{BASE}/config/profile.md'
+DB_PATH = f"{BASE}/data/pipeline.db"
+SCHEMA_PATH = f"{BASE}/config/scoring_schema.json"
+PROFILE_PATH = f"{BASE}/config/profile.md"
+
 
 def _role_model(role_name):
     """Read the model: field from a role's YAML frontmatter."""
-    role_path = f'{BASE}/config/roles/{role_name}.md'
+    role_path = f"{BASE}/config/roles/{role_name}.md"
     try:
         with open(role_path) as f:
             in_front = False
             for line in f:
-                if line.strip() == '---':
+                if line.strip() == "---":
                     in_front = not in_front
                     continue
-                if in_front and line.startswith('model:'):
-                    return line.split(':', 1)[1].strip()
+                if in_front and line.startswith("model:"):
+                    return line.split(":", 1)[1].strip()
     except OSError:
         pass
-    return 'unknown'
+    return "unknown"
 
-SCORER_MODEL = _role_model('job_scorer')
+
+SCORER_MODEL = _role_model("job_scorer")
 
 load_env()
 
-import sqlite3
 
 def _build_feedback_block():
     """Query feedback_log and return a compact rejection-history block for the scorer prompt."""
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
-        rows = conn.execute('''
+        rows = conn.execute("""
             SELECT reject_reason, title, relevance_score
             FROM feedback_log
             WHERE reject_reason NOT IN ('Stale/Closed', 'Already Applied', 'Other')
             ORDER BY reject_reason, title
-        ''').fetchall()
+        """).fetchall()
         conn.close()
     except Exception:
-        return ''
+        return ""
     if not rows:
-        return ''
+        return ""
     clusters = {}
     for r in rows:
-        reason = r['reject_reason']
-        clusters.setdefault(reason, []).append(r['title'])
-    lines = ['', '---', '',
-             'USER REJECTION HISTORY (from manual feedback — consider when scoring similar jobs):']
+        reason = r["reject_reason"]
+        clusters.setdefault(reason, []).append(r["title"])
+    lines = ["", "---", "", "USER REJECTION HISTORY (from manual feedback — consider when scoring similar jobs):"]
     for reason, titles in sorted(clusters.items(), key=lambda x: -len(x[1])):
         unique = list(dict.fromkeys(titles))
-        sample = ', '.join(t[:40] for t in unique[:6])
+        sample = ", ".join(t[:40] for t in unique[:6])
         if len(unique) > 6:
-            sample += f', ... (+{len(unique)-6} more)'
+            sample += f", ... (+{len(unique) - 6} more)"
         lines.append(f'- {len(unique)}x "{reason}": {sample}')
-    lines.append('If this job closely matches rejected patterns above, reduce your score by 2-3 points. '
-                 'The user has explicitly rejected similar jobs. Minimum score is always 1.')
-    return '\n'.join(lines)
+    lines.append(
+        "If this job closely matches rejected patterns above, reduce your score by 2-3 points. "
+        "The user has explicitly rejected similar jobs. Minimum score is always 1."
+    )
+    return "\n".join(lines)
+
 
 _FEEDBACK_BLOCK = _build_feedback_block()
 
 
-def score_job(title, company, location, jd_text, candidate_profile=''):
+def score_job(title, company, location, jd_text, candidate_profile=""):
     usable = jd_is_usable(jd_text)
 
     # Stage 1 & 2: deterministic pre-filter — no LLM call
     pre, reason = prefilter_score(title, company, usable)
     if pre is not None:
-        log_event('rescore_prefilter', title=title, company=company, reason=reason,
-                  score=pre.get('relevance_score'))
+        log_event("rescore_prefilter", title=title, company=company, reason=reason, score=pre.get("relevance_score"))
         return pre, 0
 
     # Stage 3: LLM scoring
-    effective_jd = jd_text if usable else '[Job description unavailable — score from title and company only]'
+    effective_jd = jd_text if usable else "[Job description unavailable — score from title and company only]"
     prompt = f"""CANDIDATE PROFILE:
 {candidate_profile}
 {_FEEDBACK_BLOCK}
@@ -105,73 +113,71 @@ JD:
 {effective_jd[:6000]}"""
 
     start = time.time()
-    result = subprocess.run(
-        [AICHAT, '--role', 'job_scorer', '-S', prompt],
-        capture_output=True, text=True, timeout=60
-    )
+    result = subprocess.run([AICHAT, "--role", "job_scorer", "-S", prompt], capture_output=True, text=True, timeout=60)
     latency_ms = int((time.time() - start) * 1000)
 
     parsed, error = validate_llm_json(result.stdout, SCHEMA_PATH)
     if error:
-        log_event('rescore_validation_failed', error=error, title=title, company=company)
+        log_event("rescore_validation_failed", error=error, title=title, company=company)
         # Stage 1.5: if LLM failed AND title matches a hard reject pattern, auto-reject
         from scorer_prefilter import _hard_reject_match
+
         if _hard_reject_match(title):
             return {
-                'score_status': 'scored',
-                'score_flag_reason': f'Validation: {error}',
-                'relevance_score': 1,
-                'interview_likelihood': 1,
-                'strengths_alignment': 'LLM failed + title is outside candidate domain.',
-                'industry_sector': '',
-                'comp_estimate': '',
-                'ai_notes': f'LLM validation failed; hard-reject title pattern matched',
-                'remote_status': 'Unknown',
+                "score_status": "scored",
+                "score_flag_reason": f"Validation: {error}",
+                "relevance_score": 1,
+                "interview_likelihood": 1,
+                "strengths_alignment": "LLM failed + title is outside candidate domain.",
+                "industry_sector": "",
+                "comp_estimate": "",
+                "ai_notes": "LLM validation failed; hard-reject title pattern matched",
+                "remote_status": "Unknown",
             }, latency_ms
         return {
-            'score_status': 'manual_review',
-            'score_flag_reason': f'Validation: {error}',
-            'relevance_score': None,
-            'interview_likelihood': None,
-            'strengths_alignment': None,
-            'industry_sector': '',
-            'comp_estimate': '',
-            'ai_notes': 'Scorer output failed validation',
-            'remote_status': 'Unknown',
+            "score_status": "manual_review",
+            "score_flag_reason": f"Validation: {error}",
+            "relevance_score": None,
+            "interview_likelihood": None,
+            "strengths_alignment": None,
+            "industry_sector": "",
+            "comp_estimate": "",
+            "ai_notes": "Scorer output failed validation",
+            "remote_status": "Unknown",
         }, latency_ms
 
     return parsed, latency_ms
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Rescore jobs in the pipeline DB.')
-    parser.add_argument('--min-score', type=int, default=None,
-                        help='Only rescore jobs with current relevance_score >= this value')
-    parser.add_argument('--limit', type=int, default=None,
-                        help='Stop after rescoring this many jobs')
-    parser.add_argument('--dry-run', action='store_true',
-                        help='Report what would be rescored without making LLM calls')
+    parser = argparse.ArgumentParser(description="Rescore jobs in the pipeline DB.")
+    parser.add_argument(
+        "--min-score", type=int, default=None, help="Only rescore jobs with current relevance_score >= this value"
+    )
+    parser.add_argument("--limit", type=int, default=None, help="Stop after rescoring this many jobs")
+    parser.add_argument("--dry-run", action="store_true", help="Report what would be rescored without making LLM calls")
     args = parser.parse_args()
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute("PRAGMA journal_mode=WAL")
 
     # Fetch jobs that have JD text and are in a re-scoreable stage.
     # Exclude jobs that have progressed past scoring (applied, interviewing, etc.) —
     # overwriting their stage would corrupt the pipeline state.
-    query = '''
+    query = """
         SELECT id, title, company, location, raw_jd_text, stage, score_status, relevance_score
         FROM jobs
         WHERE raw_jd_text IS NOT NULL AND raw_jd_text != ''
           AND stage IN ('scored', 'manual_review', 'enriched')
-    '''
+    """
     params = []
     if args.min_score is not None:
-        query += ' AND relevance_score >= ?'
+        query += " AND relevance_score >= ?"
         params.append(args.min_score)
-    query += ' ORDER BY relevance_score DESC, created_at DESC'
+    query += " ORDER BY relevance_score DESC, created_at DESC"
     if args.limit is not None:
-        query += ' LIMIT ?'
+        query += " LIMIT ?"
         params.append(args.limit)
 
     rows = conn.execute(query, params).fetchall()
@@ -183,17 +189,17 @@ def main():
     total = len(rows)
     filter_desc = []
     if args.min_score is not None:
-        filter_desc.append(f'min_score={args.min_score}')
+        filter_desc.append(f"min_score={args.min_score}")
     if args.limit is not None:
-        filter_desc.append(f'limit={args.limit}')
+        filter_desc.append(f"limit={args.limit}")
     if args.dry_run:
-        filter_desc.append('DRY RUN')
-    filter_str = f" ({', '.join(filter_desc)})" if filter_desc else ''
+        filter_desc.append("DRY RUN")
+    filter_str = f" ({', '.join(filter_desc)})" if filter_desc else ""
     print(f"Jobs to rescore: {total}{filter_str}")
 
     if args.dry_run:
         print()
-        print('Would rescore:')
+        print("Would rescore:")
         for r in rows[:20]:
             print(f"  [{r['relevance_score']}] {r['title'][:50]} @ {r['company']}")
         if total > 20:
@@ -201,7 +207,7 @@ def main():
         conn.close()
         return
 
-    log_event('rescore_started', total=total, min_score=args.min_score, limit=args.limit)
+    log_event("rescore_started", total=total, min_score=args.min_score, limit=args.limit)
 
     scored_count = 0
     manual_count = 0
@@ -209,12 +215,12 @@ def main():
     prefilter_count = 0
 
     for i, row in enumerate(rows, 1):
-        job_id = row['id']
-        title = row['title']
-        company = row['company'] or ''
-        location = row['location'] or ''
-        jd_text = row['raw_jd_text']
-        old_stage = row['stage']
+        job_id = row["id"]
+        title = row["title"]
+        company = row["company"] or ""
+        location = row["location"] or ""
+        jd_text = row["raw_jd_text"]
+        old_stage = row["stage"]
 
         print(f"[{i}/{total}] {title} @ {company}", flush=True)
 
@@ -222,48 +228,61 @@ def main():
             scored, latency_ms = score_job(title, company, location, jd_text, candidate_profile)
         except Exception as e:
             print(f"  ERROR: {e}")
-            log_event('rescore_error', job_id=job_id, error=str(e))
+            log_event("rescore_error", job_id=job_id, error=str(e))
             error_count += 1
             continue
 
-        now = datetime.now(timezone.utc).isoformat()
-        new_stage = 'manual_review' if scored.get('score_status') == 'manual_review' else 'scored'
-        new_status = 'manual_review' if new_stage == 'manual_review' else 'active'
+        now = datetime.now(UTC).isoformat()
+        new_stage = "manual_review" if scored.get("score_status") == "manual_review" else "scored"
+        new_status = "manual_review" if new_stage == "manual_review" else "active"
 
-        conn.execute('''
+        conn.execute(
+            """
             UPDATE jobs SET
                 relevance_score=?, interview_likelihood=?, strengths_alignment=?,
                 industry_sector=?, comp_estimate=?, ai_notes=?,
                 score_status=?, score_flag_reason=?, remote_status=?,
                 stage=?, stage_updated=?, status=?, updated_at=?
             WHERE id=?
-        ''', (
-            scored.get('relevance_score'), scored.get('interview_likelihood'),
-            scored.get('strengths_alignment'), scored.get('industry_sector', ''),
-            scored.get('comp_estimate', ''), scored.get('ai_notes', ''),
-            scored.get('score_status', 'manual_review'),
-            scored.get('score_flag_reason', ''),
-            scored.get('remote_status', 'Unknown'),
-            new_stage, now, new_status, now, job_id
-        ))
+        """,
+            (
+                scored.get("relevance_score"),
+                scored.get("interview_likelihood"),
+                scored.get("strengths_alignment"),
+                scored.get("industry_sector", ""),
+                scored.get("comp_estimate", ""),
+                scored.get("ai_notes", ""),
+                scored.get("score_status", "manual_review"),
+                scored.get("score_flag_reason", ""),
+                scored.get("remote_status", "Unknown"),
+                new_stage,
+                now,
+                new_status,
+                now,
+                job_id,
+            ),
+        )
         conn.commit()
 
         if old_stage != new_stage:
-            write_audit(conn, job_id, 'stage', old_stage, new_stage)
+            write_audit(conn, job_id, "stage", old_stage, new_stage)
 
-        conn.execute('''
+        conn.execute(
+            """
             INSERT INTO cost_log (job_id, operation, model, latency_ms, success)
             VALUES (?, 'rescore', ?, ?, 1)
-        ''', (job_id, SCORER_MODEL, latency_ms))
+        """,
+            (job_id, SCORER_MODEL, latency_ms),
+        )
         conn.commit()
 
-        score = scored.get('relevance_score')
+        score = scored.get("relevance_score")
         prefiltered = latency_ms == 0
         if prefiltered:
             prefilter_count += 1
         print(f"  score={score} stage={new_stage} [{latency_ms}ms]{'  [prefilter]' if prefiltered else ''}", flush=True)
 
-        if new_stage == 'manual_review':
+        if new_stage == "manual_review":
             manual_count += 1
         else:
             scored_count += 1
@@ -273,14 +292,23 @@ def main():
 
     conn.close()
 
-    print(f"\nDone. scored={scored_count} manual_review={manual_count} errors={error_count} prefiltered={prefilter_count}")
-    log_event('rescore_complete', total=total, scored=scored_count,
-              manual_review=manual_count, errors=error_count, prefiltered=prefilter_count)
+    print(
+        f"\nDone. scored={scored_count} manual_review={manual_count} errors={error_count} prefiltered={prefilter_count}"
+    )
+    log_event(
+        "rescore_complete",
+        total=total,
+        scored=scored_count,
+        manual_review=manual_count,
+        errors=error_count,
+        prefiltered=prefilter_count,
+    )
 
     # Sync sheet
     print("Syncing to Sheet...")
-    subprocess.run([sys.executable, f'{BASE}/scripts/sync_sheet.py'], check=False)
+    subprocess.run([sys.executable, f"{BASE}/scripts/sync_sheet.py"], check=False)
     print("Done.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
