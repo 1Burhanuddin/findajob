@@ -421,6 +421,14 @@ def cmd_feedback_review():
     send("JSP Feedback Analysis", body, priority="default", tags="magnifying")
 
 
+def cmd_send_raw():
+    """Send a raw notification. Usage: notify.py send-raw <title> <body>"""
+    if len(sys.argv) < 4:
+        print("Usage: notify.py send-raw <title> <body>")
+        sys.exit(1)
+    send(sys.argv[2], sys.argv[3], priority="default", tags="hourglass_flowing_sand")
+
+
 # ── Dispatch ───────────────────────────────────────────────────────────────────
 COMMANDS = {
     "daily-stats": cmd_daily_stats,
@@ -428,6 +436,7 @@ COMMANDS = {
     "issues-ping": cmd_issues_ping,
     "apply-reminder": cmd_apply_reminder,
     "feedback-review": cmd_feedback_review,
+    "send-raw": cmd_send_raw,
 }
 
 if __name__ == "__main__":

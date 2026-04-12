@@ -66,6 +66,72 @@ def handle_rejection(conn, job, reason):
     return folder_moved
 
 
+def handle_waitlist(conn, job):
+    """Move job to waitlisted stage and folder to _waitlisted/.
+    Returns True if a folder was moved, False otherwise.
+    Does NOT write to feedback_log — waitlisting is not rejection."""
+    now = datetime.now(UTC).isoformat()
+    old_stage = job["stage"]
+    conn.execute("UPDATE jobs SET stage=?, updated_at=? WHERE id=?", ("waitlisted", now, job["id"]))
+
+    folder_moved = False
+    jd = conn.execute("SELECT prep_folder_path FROM jobs WHERE id=?", (job["id"],)).fetchone()
+    folder = jd["prep_folder_path"] if jd else None
+    if folder and os.path.isdir(folder):
+        waitlisted_dir = os.path.join(BASE, "companies", "_waitlisted")
+        os.makedirs(waitlisted_dir, exist_ok=True)
+        dest = os.path.join(waitlisted_dir, os.path.basename(folder))
+        shutil.move(folder, dest)
+        conn.execute("UPDATE jobs SET prep_folder_path=? WHERE id=?", (dest, job["id"]))
+        log_event("folder_moved_to_waitlisted", job_id=job["id"], folder=os.path.basename(folder))
+        folder_moved = True
+
+    conn.commit()
+    write_audit(conn, job["id"], "stage", old_stage, "waitlisted")
+    log_event("job_waitlisted", job_id=job["id"], company=job["company"], title=job["title"])
+    return folder_moved
+
+
+def handle_reactivate(conn, job):
+    """Restore a waitlisted job to scored or materials_drafted.
+    Returns True if a folder was moved back."""
+    now = datetime.now(UTC).isoformat()
+    jd = conn.execute("SELECT prep_folder_path FROM jobs WHERE id=?", (job["id"],)).fetchone()
+    folder = jd["prep_folder_path"] if jd else None
+    folder_moved = False
+
+    if folder and os.path.isdir(folder):
+        # Move folder back from _waitlisted/ to companies/
+        dest = os.path.join(BASE, "companies", os.path.basename(folder))
+        shutil.move(folder, dest)
+        conn.execute(
+            "UPDATE jobs SET stage=?, prep_folder_path=?, updated_at=? WHERE id=?",
+            ("materials_drafted", dest, now, job["id"]),
+        )
+        new_stage = "materials_drafted"
+        folder_moved = True
+    else:
+        conn.execute("UPDATE jobs SET stage=?, updated_at=? WHERE id=?", ("scored", now, job["id"]))
+        new_stage = "scored"
+
+    conn.commit()
+    write_audit(conn, job["id"], "stage", "waitlisted", new_stage)
+    log_event("job_reactivated", job_id=job["id"], company=job["company"], title=job["title"], stage=new_stage)
+    return folder_moved
+
+
+def notify_waitlist_resurface(conn, company):
+    """If there are waitlisted jobs at this company, send a notification."""
+    rows = conn.execute("SELECT title FROM jobs WHERE company = ? AND stage = 'waitlisted'", (company,)).fetchall()
+    if not rows:
+        return
+    titles = [r["title"] for r in rows]
+    title = f"Waitlisted jobs at {company}"
+    body = "You just rejected/withdrew from this company. Waitlisted roles:\n" + "\n".join(f"• {t}" for t in titles)
+    subprocess.Popen([sys.executable, f"{BASE}/scripts/notify.py", "send-raw", title, body])
+    log_event("waitlist_resurface", company=company, count=len(titles))
+
+
 def main():
     creds = service_account.Credentials.from_service_account_file(SA_FILE, scopes=SCOPES)
     svc = build("sheets", "v4", credentials=creds)
@@ -86,6 +152,8 @@ def main():
     flagged_jobs = []
     rejected_count = 0
     applied_count = 0
+    waitlisted_count = 0
+    reactivated_count = 0
     folders_moved = 0
 
     for row in rows:
@@ -134,6 +202,7 @@ def main():
             if handle_rejection(conn, job, reject_val.strip()):
                 folders_moved += 1
             rejected_count += 1
+            notify_waitlist_resurface(conn, job["company"])
             continue  # don't also trigger prep for this job
 
         # ── Post-application status updates (Applied / Interviewing / Offer / Withdrew) ──
@@ -147,6 +216,9 @@ def main():
                 log_event(
                     "job_stage_updated", job_id=job["id"], company=job["company"], title=job["title"], stage=new_stage
                 )
+
+                if new_stage == "withdrawn":
+                    notify_waitlist_resurface(conn, job["company"])
 
                 # Move prep folder to _applied when marked Applied
                 if new_stage == "applied":
@@ -164,6 +236,13 @@ def main():
                     applied_count += 1
 
             continue  # don't trigger prep for these statuses
+
+        # ── Waitlist handling ────────────────────────────────────────────
+        if flag_val == "Waitlist" and job["stage"] != "waitlisted":
+            if handle_waitlist(conn, job):
+                folders_moved += 1
+            waitlisted_count += 1
+            continue
 
         # ── Flag for Prep handling ───────────────────────────────────────
         if is_flagged and not job["apply_flag"]:
@@ -251,6 +330,47 @@ def main():
     if review_promoted or review_rejected:
         log_event("poll_review", promoted=review_promoted, rejected=review_rejected)
 
+    # ── Waitlist tab: reactivate or reject waitlisted jobs ─────────────────
+    # Col A = STATUS (Reactivate / blank), Col B = REJECT_REASON, Col C = fingerprint
+    try:
+        waitlist_result = svc.spreadsheets().values().get(spreadsheetId=SHEET_ID, range="Waitlist!A2:C10000").execute()
+        waitlist_rows = waitlist_result.get("values", [])
+    except HttpError:
+        waitlist_rows = []
+
+    for row in waitlist_rows:
+        if len(row) < 3:
+            continue
+        status_val = row[0].strip()
+        reject_val = row[1].strip()
+        fp = row[2].strip()
+        if not fp:
+            continue
+
+        job = conn.execute(
+            """
+            SELECT id, title, company, url, stage, apply_flag, reject_reason,
+                   relevance_score, prep_folder_path
+            FROM jobs WHERE fingerprint = ?
+        """,
+            (fp,),
+        ).fetchone()
+        if not job or job["stage"] != "waitlisted":
+            continue
+
+        # Rejection takes priority
+        if reject_val:
+            if handle_rejection(conn, job, reject_val):
+                folders_moved += 1
+            rejected_count += 1
+            continue
+
+        # Reactivate: restore to scored or materials_drafted
+        if status_val == "Reactivate":
+            if handle_reactivate(conn, job):
+                folders_moved += 1
+            reactivated_count += 1
+
     conn.close()
 
     need_sync = False
@@ -264,6 +384,14 @@ def main():
         need_sync = True
 
     if review_promoted:
+        need_sync = True
+
+    if waitlisted_count:
+        log_event("poll_flags_waitlisted", count=waitlisted_count)
+        need_sync = True
+
+    if reactivated_count:
+        log_event("poll_flags_reactivated", count=reactivated_count)
         need_sync = True
 
     if need_sync:
@@ -281,6 +409,8 @@ def main():
             "poll_flags",
             found=0,
             rejections=rejected_count,
+            waitlisted=waitlisted_count,
+            reactivated=reactivated_count,
             review_promoted=review_promoted,
             review_rejected=review_rejected,
         )
@@ -290,6 +420,8 @@ def main():
         "poll_flags",
         found=len(flagged_jobs),
         rejections=rejected_count,
+        waitlisted=waitlisted_count,
+        reactivated=reactivated_count,
         review_promoted=review_promoted,
         review_rejected=review_rejected,
         jobs=[f"{j['company']} - {j['title']}" for j in flagged_jobs],
