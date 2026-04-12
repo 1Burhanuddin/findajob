@@ -361,27 +361,12 @@ Generated: {date}
     log_event("prep_complete", company=company, title=title, folder=outdir)
     notify(f"Drafts ready: {company} — {title}\n{outdir}")
 
-    # ── Step 8: Push the new prep folder to Google Drive ──
-    # Event-driven push using 'rclone copy' — non-destructive, scoped to JUST
-    # this new folder. Never touches other folders. The jobsync timer runs
-    # 'rclone bisync' every 15 minutes to handle bidirectional reconciliation
-    # (user edits in Drive, moves to _applied/_rejected, etc.).
+    # ── Step 8: Drive sync handled by jobsync.timer (rclone bisync every 15 min) ──
+    # Previously did an immediate 'rclone copy' here, but that raced with bisync:
+    # both sides had the files, bisync saw "changed in both paths" and created
+    # ..path1/..path2 conflict copies. Removing the copy eliminates the race.
+    # New folders appear in Drive within 15 minutes via the next bisync cycle.
     folder_name = os.path.basename(outdir)
-    rc = subprocess.run(
-        [
-            RCLONE,
-            "copy",
-            outdir,
-            f"gdrive:01 PROJECTS/Jobs To Apply For/{folder_name}",
-        ],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-    if rc.returncode != 0:
-        log_event(
-            "rclone_failed", reason="prep_copy", exit_code=rc.returncode, stderr=rc.stderr[:200] if rc.stderr else ""
-        )
 
     # ── Step 9: Fetch the Drive folder URL and store it ──
     # Used by sync_sheet.py to render the company name as a HYPERLINK to the Drive folder.
