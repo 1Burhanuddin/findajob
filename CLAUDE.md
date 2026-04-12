@@ -10,15 +10,15 @@ Personal identifiers (name, targets, API topic, form URLs) live in `CLAUDE.local
 Before writing any command, path, binary call, or file location:
 
 - [ ] Python: use `sys.executable` in scripts; check `config/paths.env` for the platform path
-- [ ] aichat-ng: get path from `AICHAT` in `scripts/paths.py` — never hardcode, never call bare `aichat`
-- [ ] pandoc: get path from `PANDOC` in `scripts/paths.py`
+- [ ] aichat-ng: get path from `AICHAT` in `findajob.paths` — never hardcode, never call bare `aichat`
+- [ ] pandoc: get path from `PANDOC` in `findajob.paths`
 - [ ] aichat-ng config dir: macOS = `~/Library/Application Support/aichat_ng/`; Linux = `~/.config/aichat_ng/`
 - [ ] Roles dir: `<repo>/config/roles/` — `.md` files only, never `.yaml`
 - [ ] Master resume: `rag_sources/master_resume.md` — never `config/master_resume.md`
 - [ ] Anthropic client in aichat-ng config: `type: claude` — never `type: anthropic`; prefix `claude:` not `anthropic:`
 - [ ] RAG never passed to scorer, cover letter writer, or outreach drafter
 - [ ] macOS sed: `sed -i '' ...`; Linux sed: `sed -i ...` (no empty string)
-- [ ] All binary paths come from `scripts/paths.py` — never hardcode platform paths in scripts
+- [ ] All binary paths come from `findajob.paths` (`src/findajob/paths.py`) — never hardcode platform paths in scripts
 
 **If uncertain about any value: say so. Do not guess.**
 
@@ -85,12 +85,12 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 | `resume_change_reviewer` / `network_analyst` | `gemini:gemini-3-flash-preview` |
 | Job ingestion | jobs-api14 (RapidAPI) — LinkedIn (`datePosted: 'day'`) + Indeed; Gmail OAuth2 |
 | pip | `pip3 install --break-system-packages` (no venv) |
-| Path resolution | `scripts/paths.py` — reads `config/paths.env`; BASE derived from `__file__` |
+| Path resolution | `src/findajob/paths.py` — reads `config/paths.env`; BASE derived from `__file__` |
 | Roles dir | `config/roles/` |
 | Master resume | `rag_sources/master_resume.md` |
 | Profile | `config/profile.md` |
 | DB | `data/pipeline.db` |
-| Pre-filter | `scripts/scorer_prefilter.py` — Stage 1 regex hard reject, Stage 2 no-JD default |
+| Pre-filter | `src/findajob/scorer_prefilter.py` — Stage 1 regex hard reject, Stage 2 no-JD default |
 | RAG index | `job_search_rag` — never passed to scorer/CL/outreach |
 | Scheduler | macOS: launchd agents; Linux: systemd user services (see docs/setup/install-linux.md) |
 | ntfy topic | in `data/.env` as `NTFY_TOPIC`; also in `CLAUDE.local.md` |
@@ -101,21 +101,15 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 ## Key File Locations
 
 ```
-<repo>/scripts/paths.py                     # central path resolver — import BASE, AICHAT, PANDOC, RCLONE
-<repo>/config/paths.env                     # binary path overrides (gitignored; see paths.env.example)
-<repo>/config/roles/                        # role .md files (8 roles)
-<repo>/data/pipeline.db                     # SQLite — source of truth
-<repo>/data/.env                            # API keys (chmod 600; gitignored)
-<repo>/config/profile.md                    # candidate profile (gitignored; see profile.md.example)
-<repo>/rag_sources/master_resume.md         # master resume (gitignored; see master_resume.md.example)
-<repo>/config/scoring_schema.json           # JSON schema for LLM scorer output validation
-<repo>/config/jsearch_queries.txt           # LinkedIn/Indeed search queries (gitignored)
-<repo>/config/feed_urls.txt                 # Greenhouse company slugs (gitignored)
-<repo>/config/gmail_oauth_client.json       # Gmail OAuth2 credentials (gitignored)
-<repo>/config/gmail_token.json              # Gmail token cache (gitignored)
-<repo>/data/connections.csv                 # LinkedIn connections export (gitignored)
-<repo>/scripts/utils.py                     # shared utilities: log_event(), write_audit(), load_env()
-<repo>/scripts/scorer_prefilter.py          # deterministic pre-filter (Stage 1 + 2)
+# ── Package (pip install -e .) ──────────────────────────────────────────────
+<repo>/src/findajob/paths.py                # central path resolver — from findajob.paths import BASE, AICHAT, PANDOC, RCLONE
+<repo>/src/findajob/utils.py                # shared utilities: log_event(), write_audit(), load_env()
+<repo>/src/findajob/cleaning.py             # normalize, fingerprint, clean_title, clean_company
+<repo>/src/findajob/fetchers.py             # Greenhouse, RapidAPI, Gmail job fetching
+<repo>/src/findajob/scoring.py              # score_job(), _build_feedback_block()
+<repo>/src/findajob/scorer_prefilter.py     # deterministic pre-filter (Stage 1 + 2)
+
+# ── Entry point scripts (called by systemd / CLI) ──────────────────────────
 <repo>/scripts/triage.py                    # daily ingest → score → DB
 <repo>/scripts/poll_flags.py                # reads Dashboard + Review tabs (STATUS, REJECT_REASON, fingerprint)
 <repo>/scripts/sync_sheet.py                # SQLite → Sheet1 + Dashboard + Review tabs
@@ -125,10 +119,31 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 <repo>/scripts/ingest_form.py               # Google Form → DB ingestion
 <repo>/scripts/notify.py                    # ntfy push notifications (5 subcommands)
 <repo>/scripts/rename_folders.py            # rename company folders to new format (idempotent)
+
+# ── Config (mostly gitignored) ──────────────────────────────────────────────
+<repo>/config/paths.env                     # binary path overrides (gitignored; see paths.env.example)
+<repo>/config/roles/                        # role .md files (8 roles)
+<repo>/config/profile.md                    # candidate profile (gitignored; see profile.md.example)
+<repo>/config/scoring_schema.json           # JSON schema for LLM scorer output validation
+<repo>/config/jsearch_queries.txt           # LinkedIn/Indeed search queries (gitignored)
+<repo>/config/feed_urls.txt                 # Greenhouse company slugs (gitignored)
+<repo>/config/gmail_oauth_client.json       # Gmail OAuth2 credentials (gitignored)
+<repo>/config/gmail_token.json              # Gmail token cache (gitignored)
+<repo>/data/.env                            # API keys (chmod 600; gitignored)
+<repo>/data/pipeline.db                     # SQLite — source of truth
+<repo>/data/connections.csv                 # LinkedIn connections export (gitignored)
+<repo>/rag_sources/master_resume.md         # master resume (gitignored; see master_resume.md.example)
+
+# ── Output & logs ───────────────────────────────────────────────────────────
 <repo>/companies/                           # prep output folders ({Company}_{AbbrevTitle}_{date}_{time})
 <repo>/companies/_applied/                   # applied job folders
 <repo>/companies/_rejected/                  # rejected job folders (with marker files)
 <repo>/logs/pipeline.jsonl                  # structured event log
+
+# ── Quality ─────────────────────────────────────────────────────────────────
+<repo>/pyproject.toml                       # deps, pytest, ruff, mypy config
+<repo>/tests/                               # 302 unit tests (pytest)
+<repo>/.github/workflows/ci.yml            # CI: ruff + mypy + pytest on every push
 ```
 
 ---
@@ -136,9 +151,10 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 ## Critical Architecture Rules
 
 ### Path Resolution
-All binary paths (AICHAT, PANDOC, RCLONE) come from `scripts/paths.py`, which reads `config/paths.env`.
+All binary paths (AICHAT, PANDOC, RCLONE) come from `findajob.paths` (`src/findajob/paths.py`), which reads `config/paths.env`.
 Never hardcode platform paths in scripts. `BASE` is derived from `__file__` — the repo can live anywhere.
 For subprocess calls to other pipeline scripts, always use `sys.executable`, not a hardcoded Python path.
+Library code lives in `src/findajob/` (installed via `pip install -e .`). Entry point scripts in `scripts/` import via `from findajob.* import ...`. No `sys.path.insert` hacks.
 
 ### RAG Policy
 RAG (`--rag job_search_rag`) is NEVER passed to `job_scorer`, `cover_letter_writer`,

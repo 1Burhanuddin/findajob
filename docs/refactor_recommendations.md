@@ -14,8 +14,8 @@ The core architecture is sound. Three-stage scoring (deterministic prefilter →
 **1. API keys in aichat-ng's config.yaml are plaintext**
 Every key you use (Anthropic, Gemini, OpenAI, xAI, Groq, Perplexity, OpenRouter) is in a single unencrypted file. If you ever sync that Mac, back it up to a new machine, or run anything that reads `~/Library/Application Support/`, those keys are exposed. The fix is to move them to `~/.zshenv` as environment variables and reference them via `env:VARIABLE_NAME` in the aichat-ng config, which it supports natively.
 
-**2. No retry logic anywhere**
-LinkedIn JD fetches, Greenhouse API calls, RapidAPI searches — all fire once and silently fail if the network hiccups. Given that triage runs once a day and you can't easily re-run just the failed jobs, a single API timeout means those jobs get scored with no JD and land in `manual_review` indefinitely. Exponential backoff with 2-3 attempts would fix this.
+**~~2. No retry logic anywhere~~** *(fixed 2026-04-12)*
+Fetch retry loop added to `triage.py main()`: 3 attempts with 120s gaps and connectivity probing. Covers the "DNS is down at 7 AM" failure mode that caused a total whiff on 2026-04-12.
 
 **3. `prep_application.py` subprocess failures are silent**
 `check=False` on the pandoc calls and the find_contacts subprocess means you can get a partial prep folder with no error surfaced. One aichat-ng timeout mid-run and you get a folder with a resume but no cover letter, with `materials_drafted` in the DB as if everything succeeded.
@@ -66,16 +66,29 @@ The function it patched is already live in `triage.py`. Delete it.
 
 ---
 
-## Recommended Refactor Order
+## What Shipped in the 2026-04-12 Quality Sprint
+
+| Item | Impact |
+|---|---|
+| **pyproject.toml** | Pinned deps, pytest/ruff/mypy config, `pip install -e .` |
+| **Ruff linting + formatting** | 22 files normalized, 5 real bugs caught (shadowed fn, unused vars) |
+| **302 unit tests** | All pure functions in scorer_prefilter, utils, cleaning covered. 0.22s. |
+| **triage.py decomposed** | 1,167→448 lines. New: cleaning.py, fetchers.py, scoring.py |
+| **GitHub Actions CI** | ruff check + format + mypy + pytest on every push |
+| **Package restructuring** | Library code → `src/findajob/`, all sys.path.insert hacks removed |
+| **Type annotations + mypy** | All 6 library modules fully annotated, mypy enforced in CI |
+| **Fetch retry** | 3-attempt retry loop in triage.py with connectivity probing |
+| **Timer fix** | OnCalendar replaces broken OnUnitActiveSec for poller/jobsync/form-ingest |
+
+## Remaining Refactor Order
 
 | Priority | Work | Impact |
 |---|---|---|
-| 1 | Move API keys out of aichat-ng config.yaml to `~/.zshenv` | Security |
-| 2 | Retry logic in triage.py (3 attempts, exponential backoff) | Fewer manual_review orphans |
-| 3 | Parallelize prep_application.py LLM calls with threads | ~4x faster prep |
-| 4 | Fix prep subprocess error handling (`check=True`, log failures) | No more silent failures |
-| 5 | DB transaction safety in triage.py (wrap per-job cycle) | No partial state on crash |
-| ~~6~~ | ~~Fix O(n²) COL_MAP lookup in sync_sheet.py~~ | **Done 2026-04-08** |
-| ~~7~~ | ~~Wire up `company_signal` column from Perplexity output~~ | **Deprecated 2026-04-10** |
-| 8 | Log rotation via newsyslog | Housekeeping |
-| 9 | Delete `scripts/clean_company.py` | Cleanup |
+| 1 | Move API keys out of aichat-ng config.yaml to env vars | Security |
+| 2 | Parallelize prep_application.py LLM calls with threads | ~4x faster prep |
+| 3 | Fix prep subprocess error handling (`check=True`, log failures) | No more silent failures |
+| 4 | DB transaction safety in triage.py (wrap per-job cycle) | No partial state on crash |
+| 5 | Integration tests (DB fixtures, mock API responses) | Catches "pieces don't fit" bugs |
+| 6 | DB migration system (Alembic) | Schema versioning for multi-machine deploys |
+| 7 | Log rotation via logrotate | Housekeeping |
+| ~~8~~ | ~~Delete `scripts/clean_company.py`~~ | **Gitignored — harmless** |

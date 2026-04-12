@@ -68,9 +68,9 @@ The dual goals of this project: (1) get Daniel a job, and (2) eventually make th
 useful for any job seeker. These are aligned — every hardening improvement also makes it
 more generalizable. The path from personal tool → general tool is roughly:
 
-- [ ] **PII audit + scrub** *(blocker for public repo)*
-  Line-by-line review of all tracked files before making repo public. Catch name, contact
-  info, company-specific details, API keys in comments, etc.
+- [x] **PII audit + scrub** *(done 2026-04-11)*
+  Full audit completed. All tracked files scrubbed. Pre-commit hook blocks future PII.
+  See ISSUES.md "Quality & Security" section for details.
 
 - [ ] **Comprehensive user-facing docs**
   Setup guide (prerequisites, Google Sheets setup, API keys, first run), usage guide (daily
@@ -93,6 +93,28 @@ more generalizable. The path from personal tool → general tool is roughly:
   Currently CLAUDE.local.md, profile.md, master_resume.md, jsearch_queries.txt, feed_urls.txt
   are all personal. Need a clean onboarding flow: `cp config/*.example config/` and guided
   setup. The pipeline logic is already generic — it's the config that's personal.
+
+---
+
+## Engineering Quality
+
+Most foundations shipped 2026-04-12 (pyproject.toml, ruff, 302 tests, CI, package layout,
+type hints, mypy). Remaining items for full maturity:
+
+- [ ] **Integration tests**
+  302 tests cover pure functions only. No tests for the pipeline flow: inserting a job,
+  running it through dedup/enrichment/scoring, verifying DB output. Requires test DB
+  fixtures and mock API responses. Catches "pieces don't fit together" bugs that unit
+  tests miss.
+
+- [ ] **DB migration system (Alembic)**
+  Schema changes are manual `ALTER TABLE` on the live DB with no versioning. Stable today,
+  but blocks multi-machine deploys and safe schema evolution. Worth adding once schema
+  changes become more than once-a-quarter.
+
+- [ ] **Log rotation**
+  `pipeline.jsonl` grows forever. No `logrotate` config. Add a weekly rotation rule or
+  a size-based rotation in the bootstrap.sh systemd setup.
 
 ---
 
