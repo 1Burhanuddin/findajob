@@ -28,6 +28,7 @@ pythonpath = ["scripts"]
 [tool.ruff]
 target-version = "py312"
 line-length = 120
+exclude = ["scripts/clean_company.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]

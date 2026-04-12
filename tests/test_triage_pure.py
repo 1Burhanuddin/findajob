@@ -1,6 +1,6 @@
-"""Tests for pure functions in triage.py."""
+"""Tests for pure functions in cleaning.py (extracted from triage.py)."""
 
-from triage import (
+from cleaning import (
     clean_company,
     clean_title,
     extract_linkedin_job_id,
