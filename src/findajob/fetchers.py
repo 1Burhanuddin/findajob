@@ -136,7 +136,7 @@ def fetch_greenhouse_jobs(feed_urls_path):
     """
     import requests as req
 
-    jobs = []
+    jobs: list[dict[str, str]] = []
     try:
         with open(feed_urls_path) as f:
             urls = [line.strip() for line in f if line.strip() and not line.startswith("#")]
@@ -144,7 +144,7 @@ def fetch_greenhouse_jobs(feed_urls_path):
         return jobs
 
     slug_re = re.compile(r"boards(?:\.eu)?\.greenhouse\.io/([^/]+)/")
-    seen_slugs = set()
+    seen_slugs: set[str] = set()
     slugs = []
     for url in urls:
         m = slug_re.search(url)
@@ -242,7 +242,7 @@ def fetch_jobsapi_jobs(queries_path):
                 response = req.get(
                     source["url"],
                     headers=headers,
-                    params=source["params"](query),
+                    params=source["params"](query),  # type: ignore[operator]
                     timeout=30,
                 )
                 response.raise_for_status()
@@ -438,7 +438,7 @@ def parse_jobs_from_email(msg):
         job_dict = {"title": title, "company": company, "url": href, "location": "", "source": source}
         # For LinkedIn URLs, extract job ID so fetch_jd can use the API path
         if source == "gmail_linkedin":
-            api_id = extract_linkedin_job_id(href)
+            api_id = extract_linkedin_job_id(str(href))
             if api_id:
                 job_dict["api_id"] = api_id
         jobs.append(job_dict)

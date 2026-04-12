@@ -4,7 +4,7 @@ import hashlib
 import re
 
 # ── Normalization & Dedup ──
-ABBREVIATIONS = {
+ABBREVIATIONS: dict[str, str] = {
     r"\bsr\.?\b": "senior",
     r"\bjr\.?\b": "junior",
     r"\bmgr\.?\b": "manager",
@@ -24,7 +24,7 @@ ABBREVIATIONS = {
 }
 
 
-def normalize(text):
+def normalize(text: str) -> str:
     text = text.lower().strip()
     for pattern, replacement in ABBREVIATIONS.items():
         text = re.sub(pattern, replacement, text)
@@ -32,7 +32,7 @@ def normalize(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
-def fingerprint(title, company, location=""):
+def fingerprint(title: str, company: str, location: str = "") -> str:
     key = normalize(title) + "|" + normalize(company) + "|" + normalize(location)
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
@@ -40,7 +40,7 @@ def fingerprint(title, company, location=""):
 # ── Title Cleaning ──
 # Job boards (especially Indeed via Jobs API) append metadata directly to the title field:
 # board name, location, salary, time-ago, badges. Strip everything after these markers.
-_TITLE_SPLIT_PATTERNS = re.compile(
+_TITLE_SPLIT_PATTERNS: re.Pattern[str] = re.compile(
     r"(?:"
     r"Jobs via \w[\w ]*·"  # "Jobs via Dice ·"
     r"|\bvia \w[\w ]*·"  # "via LinkedIn ·"
@@ -56,7 +56,7 @@ _TITLE_SPLIT_PATTERNS = re.compile(
 )
 
 
-def clean_title(raw_title):
+def clean_title(raw_title: str) -> str:
     """Strip job board metadata appended to title field by Indeed/Jobs API."""
     m = _TITLE_SPLIT_PATTERNS.search(raw_title)
     if m:
@@ -66,7 +66,7 @@ def clean_title(raw_title):
 
 # Company field from LinkedIn API often has location/metadata appended:
 # "Google – Multiple Sites4 days ago", "Google · Sunnyvale, CA, US 12 connections"
-_COMPANY_SPLIT_PATTERNS = re.compile(
+_COMPANY_SPLIT_PATTERNS: re.Pattern[str] = re.compile(
     r"(?:"
     r"\s[·–—-]\s"  # " · " or " – " separator before location
     r"|\d+\s+connections?"  # "12 connections"
@@ -79,7 +79,7 @@ _COMPANY_SPLIT_PATTERNS = re.compile(
 )
 
 
-def clean_company(raw_company):
+def clean_company(raw_company: str) -> str:
     """Strip location/metadata appended to company field by LinkedIn/Indeed API."""
     if not raw_company:
         return ""
@@ -91,10 +91,10 @@ def clean_company(raw_company):
 
 # Regex to extract numeric LinkedIn job ID from job URLs
 # Matches: linkedin.com/jobs/view/1234567890 and linkedin.com/comm/jobs/view/1234567890
-_LINKEDIN_JOB_ID_RE = re.compile(r"linkedin\.com/(?:comm/)?jobs/view/(\d+)", re.IGNORECASE)
+_LINKEDIN_JOB_ID_RE: re.Pattern[str] = re.compile(r"linkedin\.com/(?:comm/)?jobs/view/(\d+)", re.IGNORECASE)
 
 
-def extract_linkedin_job_id(url):
+def extract_linkedin_job_id(url: str | None) -> str | None:
     """Extract numeric job ID from a LinkedIn job URL. Returns str or None."""
     m = _LINKEDIN_JOB_ID_RE.search(url or "")
     return m.group(1) if m else None

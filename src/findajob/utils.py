@@ -4,16 +4,17 @@
 import json
 import os
 import re
+import sqlite3
 from datetime import UTC, datetime
 
 from findajob.paths import BASE
 
-LOG_PATH = f"{BASE}/logs/pipeline.jsonl"
+LOG_PATH: str = f"{BASE}/logs/pipeline.jsonl"
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 
 
-def log_event(event_type, **kwargs):
+def log_event(event_type: str, **kwargs: object) -> None:
     entry = {"ts": datetime.now(UTC).isoformat(), "event": event_type, **kwargs}
     with open(LOG_PATH, "a") as f:
         f.write(json.dumps(entry) + "\n")
@@ -22,7 +23,13 @@ def log_event(event_type, **kwargs):
 # ── Audit log ────────────────────────────────────────────────────────────────
 
 
-def write_audit(conn, job_id, field_changed, old_value, new_value):
+def write_audit(
+    conn: sqlite3.Connection,
+    job_id: str,
+    field_changed: str,
+    old_value: object,
+    new_value: object,
+) -> None:
     conn.execute(
         "INSERT INTO audit_log (job_id, field_changed, old_value, new_value) VALUES (?, ?, ?, ?)",
         (job_id, field_changed, str(old_value) if old_value is not None else None, str(new_value)),
@@ -33,7 +40,7 @@ def write_audit(conn, job_id, field_changed, old_value, new_value):
 # ── Environment loading ──────────────────────────────────────────────────────
 
 
-def load_env(path=None):
+def load_env(path: str | None = None) -> dict[str, str]:
     """Load key=value pairs from a .env file into os.environ. Returns dict."""
     if path is None:
         path = f"{BASE}/data/.env"
@@ -56,7 +63,7 @@ def load_env(path=None):
 # ── LLM JSON validation ─────────────────────────────────────────────────────
 
 
-def validate_llm_json(raw_output, schema_path):
+def validate_llm_json(raw_output: str, schema_path: str) -> tuple[dict | None, str | None]:
     import jsonschema
 
     text = raw_output.strip()
@@ -80,7 +87,7 @@ def validate_llm_json(raw_output, schema_path):
 
 # ── JD quality check ─────────────────────────────────────────────────────────
 
-_JD_WALL_SIGNALS = [
+_JD_WALL_SIGNALS: list[str] = [
     "you need to enable javascript",
     "enable javascript to run this app",
     "403 forbidden",
@@ -94,7 +101,7 @@ _JD_WALL_SIGNALS = [
 ]
 
 
-def jd_is_usable(jd_text):
+def jd_is_usable(jd_text: str | None) -> bool:
     if not jd_text or len(jd_text.strip()) < 30:
         return False
     lower = jd_text.lower()
@@ -103,22 +110,22 @@ def jd_is_usable(jd_text):
 
 # ── Candidate name / file prefix helpers ─────────────────────────────────────
 
-_PROFILE_NAME_RE = re.compile(
+_PROFILE_NAME_RE: re.Pattern[str] = re.compile(
     r"^\s*\*{0,2}\s*Name:\s*\*{0,2}\s*(.+?)\s*\*{0,2}\s*$",
     re.IGNORECASE,
 )
-_PROFILE_FILE_PREFIX_RE = re.compile(
+_PROFILE_FILE_PREFIX_RE: re.Pattern[str] = re.compile(
     r"^\s*\*{0,2}\s*File\s*Prefix:\s*\*{0,2}\s*(.+?)\s*\*{0,2}\s*$",
     re.IGNORECASE,
 )
 
 
-def _clean_profile_field(raw):
+def _clean_profile_field(raw: str | None) -> str:
     """Strip surrounding whitespace, asterisks, and backticks from a profile field value."""
     return (raw or "").strip().strip("*").strip("`").strip()
 
 
-def read_candidate_name(profile_path=None):
+def read_candidate_name(profile_path: str | None = None) -> str:
     """Read the candidate's full name from profile.md.
 
     Prefers an explicit `Name: Xxx Yyy` line (from the Identity section).
@@ -140,7 +147,7 @@ def read_candidate_name(profile_path=None):
     return "Candidate"
 
 
-def read_file_prefix(profile_path=None):
+def read_file_prefix(profile_path: str | None = None) -> str:
     """Read the prefix used in generated filenames.
 
     Prefers an explicit `File Prefix: Xxx` line (from profile.md). Falls back
@@ -165,10 +172,10 @@ def read_file_prefix(profile_path=None):
     return parts[-1] if parts else "Candidate"
 
 
-_UNSAFE_FNAME_CHARS = re.compile(r"[^\w\s\-&.,]")
+_UNSAFE_FNAME_CHARS: re.Pattern[str] = re.compile(r"[^\w\s\-&.,]")
 
 
-def safe_filename_part(s, max_len=80):
+def safe_filename_part(s: str | None, max_len: int = 80) -> str:
     """Sanitize a string for use as a filename component.
 
     Keeps word characters, spaces, hyphens, ampersands, periods, and commas.
@@ -182,7 +189,7 @@ def safe_filename_part(s, max_len=80):
     return s.rstrip(" .-,")
 
 
-def build_prep_filenames(company, title, timestamp_fn, file_prefix):
+def build_prep_filenames(company: str, title: str, timestamp_fn: str, file_prefix: str) -> dict[str, str]:
     """Return a dict of {logical_name: filename} for a prep folder.
 
     Naming convention:
@@ -225,7 +232,7 @@ def build_prep_filenames(company, title, timestamp_fn, file_prefix):
 # effectively useless without knowing the real hiring company — the candidate
 # cannot research culture, target specific contacts, or tailor outreach.
 # Filtered at both ingest time (triage.py) and prep-trigger time (poll_flags.py).
-AGGREGATOR_PREFIXES = (
+AGGREGATOR_PREFIXES: tuple[str, ...] = (
     "jobs via ",
     "job via ",
     "posted via ",
@@ -240,7 +247,7 @@ AGGREGATOR_PREFIXES = (
 )
 
 
-def is_aggregator_company(company):
+def is_aggregator_company(company: str | None) -> bool:
     """Return True if the company field looks like an aggregator / recruiter wrapper."""
     if not company:
         return False
@@ -248,14 +255,14 @@ def is_aggregator_company(company):
     return any(c.startswith(prefix) for prefix in AGGREGATOR_PREFIXES)
 
 
-def is_valid_company(company):
+def is_valid_company(company: str | None) -> bool:
     """Return False if company is blank OR a known aggregator / job-board wrapper."""
     if not company or not company.strip():
         return False
     return not is_aggregator_company(company)
 
 
-def is_ingest_noise_title(title):
+def is_ingest_noise_title(title: str | None) -> bool:
     """Return True if the title looks like a LinkedIn UI element, not an actual job posting.
 
     The LinkedIn API occasionally returns recommendations-carousel items
@@ -273,7 +280,7 @@ def is_ingest_noise_title(title):
     return False
 
 
-def build_outreach_filename(contact_name, company, timestamp_fn, file_prefix):
+def build_outreach_filename(contact_name: str, company: str, timestamp_fn: str, file_prefix: str) -> str:
     """Return filename for an outreach draft.
 
     Pattern: {Prefix} Outreach to {Contact Name} - {Company} - {YYYYMMDD-HHMMSS}.txt
@@ -285,9 +292,9 @@ def build_outreach_filename(contact_name, company, timestamp_fn, file_prefix):
 
 # ── JD boilerplate stripping ───────────────────────────────────────────────
 
-JD_MAX_CHARS = 16000
+JD_MAX_CHARS: int = 16000
 
-_BOILERPLATE_PATTERNS = [
+_BOILERPLATE_PATTERNS: list[str] = [
     # EEO
     r"equal\s+opportunity\s+employer",
     r"equal\s+employment\s+opportunity",
@@ -321,10 +328,10 @@ _BOILERPLATE_PATTERNS = [
     r"^compensation\s+(?:&|and)\s+benefits",
 ]
 
-_BOILERPLATE_RE = re.compile("|".join(_BOILERPLATE_PATTERNS), re.IGNORECASE | re.MULTILINE)
+_BOILERPLATE_RE: re.Pattern[str] = re.compile("|".join(_BOILERPLATE_PATTERNS), re.IGNORECASE | re.MULTILINE)
 
 
-def strip_jd_boilerplate(text):
+def strip_jd_boilerplate(text: str | None) -> str:
     """Remove trailing EEO/legal/benefits boilerplate from JD text.
 
     Works backwards from the end, paragraph by paragraph. Stops trimming

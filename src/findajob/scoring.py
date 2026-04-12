@@ -1,5 +1,7 @@
 """Job scoring: deterministic prefilter + LLM scoring via aichat-ng."""
 
+from __future__ import annotations
+
 import sqlite3
 import subprocess
 import time
@@ -8,11 +10,11 @@ from findajob.paths import AICHAT, BASE
 from findajob.scorer_prefilter import _hard_reject_match, prefilter_score
 from findajob.utils import jd_is_usable, log_event, validate_llm_json
 
-DB_PATH = f"{BASE}/data/pipeline.db"
-SCHEMA_PATH = f"{BASE}/config/scoring_schema.json"
+DB_PATH: str = f"{BASE}/data/pipeline.db"
+SCHEMA_PATH: str = f"{BASE}/config/scoring_schema.json"
 
 
-def _build_feedback_block():
+def _build_feedback_block() -> str:
     """Query feedback_log and return a compact rejection-history block for the scorer prompt.
     Returns empty string if no feedback exists."""
     try:
@@ -32,7 +34,7 @@ def _build_feedback_block():
         return ""
 
     # Cluster by reject_reason
-    clusters = {}
+    clusters: dict[str, list[str]] = {}
     for r in rows:
         reason = r["reject_reason"]
         clusters.setdefault(reason, []).append(r["title"])
@@ -53,7 +55,14 @@ def _build_feedback_block():
     return "\n".join(lines)
 
 
-def score_job(title, company, location, jd_text, candidate_profile="", feedback_block=""):
+def score_job(
+    title: str,
+    company: str,
+    location: str,
+    jd_text: str,
+    candidate_profile: str = "",
+    feedback_block: str = "",
+) -> tuple[dict[str, object], int]:
     """Score a job via deterministic prefilter, then LLM if needed.
 
     Args:
@@ -161,6 +170,7 @@ JD:
             "remote_status": "Unknown",
         }, latency_ms
 
+    assert parsed is not None  # guaranteed: error is None means parsed is valid
     if parsed.get("relevance_score") is None:
         log_event("score_error", reason="null_score", title=title, company=company)
 

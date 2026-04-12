@@ -16,6 +16,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "ruff>=0.11.0",
+    "mypy>=1.20.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -23,6 +24,11 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true
+disable_error_code = ["import-untyped"]
 
 [tool.ruff]
 target-version = "py312"

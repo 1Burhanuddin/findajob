@@ -17,10 +17,12 @@ Usage:
     # ... LLM path
 """
 
+from __future__ import annotations
+
 import re
 
 # ── Tier 1 companies ──────────────────────────────────────────────────────────
-TIER1 = frozenset(
+TIER1: frozenset[str] = frozenset(
     [
         "meta",
         "google",
@@ -55,7 +57,7 @@ def _is_tier1(company: str) -> bool:
 # ── Stage 1: Hard reject patterns ─────────────────────────────────────────────
 # Applied to title only. Any match → score 1 immediately, no JD needed.
 # Order: specific before general to aid readability; all case-insensitive.
-_HARD_REJECT_PATTERNS = [
+_HARD_REJECT_PATTERNS: list[str] = [
     # Software engineering
     r"\bsoftware\s+engineer(ing)?\b",
     r"\bsoftware\s+developer\b",
@@ -223,19 +225,19 @@ _HARD_REJECT_PATTERNS = [
     r"\bworkplace\s+manager\b",
 ]
 
-_HARD_REJECT_RE = re.compile(
+_HARD_REJECT_RE: re.Pattern[str] = re.compile(
     "|".join(f"(?:{p})" for p in _HARD_REJECT_PATTERNS),
     re.IGNORECASE,
 )
 
 # If title contains DC context, suppress the hard reject — the job may be in-domain
-_DC_CONTEXT_RE = re.compile(
+_DC_CONTEXT_RE: re.Pattern[str] = re.compile(
     r"\bdata\s*center\b|\bdatacenter\b|\bdc\s+(ops|operations|site)\b",
     re.IGNORECASE,
 )
 
 
-def _hard_reject_match(title: str):
+def _hard_reject_match(title: str) -> str | None:
     """Return the matched pattern string, or None."""
     m = _HARD_REJECT_RE.search(title)
     if not m:
@@ -248,7 +250,7 @@ def _hard_reject_match(title: str):
 
 # ── Stage 2: In-domain title patterns ─────────────────────────────────────────
 # If title matches and JD is unusable → score 5 (or 6 for Tier 1), no LLM.
-_IN_DOMAIN_PATTERNS = [
+_IN_DOMAIN_PATTERNS: list[str] = [
     r"\bdata\s*center\s+(operations|site|manager|lead|technician|engineer)\b",
     r"\bdatacenter\s+(operations|site|manager|lead)\b",
     r"\bdc\s+(ops|operations|site\s+manager)\b",
@@ -265,13 +267,13 @@ _IN_DOMAIN_PATTERNS = [
     r"\bfield\s+operations\s+(manager|lead)\b",
 ]
 
-_IN_DOMAIN_RE = re.compile(
+_IN_DOMAIN_RE: re.Pattern[str] = re.compile(
     "|".join(f"(?:{p})" for p in _IN_DOMAIN_PATTERNS),
     re.IGNORECASE,
 )
 
 # These terms in the same title poison an otherwise in-domain match
-_IN_DOMAIN_POISON = re.compile(
+_IN_DOMAIN_POISON: re.Pattern[str] = re.compile(
     r"\b(workplace\s+services|custodial|janitorial|facilities\s+only|office\s+services)\b",
     re.IGNORECASE,
 )
@@ -286,7 +288,7 @@ def _in_domain_match(title: str) -> bool:
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 
-def prefilter_score(title: str, company: str, jd_usable: bool):
+def prefilter_score(title: str, company: str, jd_usable: bool) -> tuple[dict[str, object] | None, str | None]:
     """
     Returns (result_dict, reason_str) if a deterministic decision can be made,
     or (None, None) if the LLM should be invoked.
