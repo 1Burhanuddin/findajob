@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # ~/JobSearchPipeline/scripts/setup_sheets.py
 """
-One-time setup: formats Sheet1, Dashboard, and Review tabs.
+One-time setup: formats Sheet1, Dashboard, Review, and Waitlist tabs.
 Run after any sheet restructure. Safe to re-run — idempotent.
 
 Sheet1 layout (A–N):
@@ -45,6 +45,19 @@ Review layout (A–H):
   F: score_flag_reason
   G: source
   H: date_found
+
+Waitlist layout (A–K):
+  A: STATUS          (dropdown: Reactivate)
+  B: REJECT_REASON   (dropdown: same as Dashboard)
+  C: fingerprint     (hidden — used by poll_flags.py)
+  D: title           (HYPERLINK formula — clickable)
+  E: company
+  F: score
+  G: location
+  H: remote_status
+  I: ai_notes
+  J: date_found
+  K: blocking_app
 """
 
 from google.oauth2 import service_account
@@ -61,6 +74,7 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 STATUS_OPTIONS = [
     "Flag for Prep",
     "Ready to Apply",
+    "Waitlist",
     "Applied",
     "Interviewing",
     "Offer",
@@ -90,6 +104,7 @@ def rgb(r, g, b):
 STATUS_COLORS = {
     "Flag for Prep": rgb(208, 228, 250),  # light blue
     "Ready to Apply": rgb(147, 220, 195),  # teal — distinct from Applied
+    "Waitlist": rgb(255, 230, 178),  # warm amber — "on hold" signal
     "Applied": rgb(198, 239, 206),  # light green
     "Interviewing": rgb(226, 208, 245),  # soft purple
     "Offer": rgb(255, 217, 102),  # gold
@@ -441,11 +456,13 @@ def main():
     sheet1_id = sheets.get("Sheet1")
     dash_id = sheets.get("Dashboard")
     review_id = sheets.get("Review")
+    waitlist_id = sheets.get("Waitlist")
 
     # ── Create missing tabs ────────────────────────────────────────────────
     init_requests = []
     create_dash = dash_id is None
     create_review = review_id is None
+    create_waitlist = waitlist_id is None
 
     if create_dash:
         init_requests.append(
@@ -471,6 +488,18 @@ def main():
                 }
             }
         )
+    if create_waitlist:
+        init_requests.append(
+            {
+                "addSheet": {
+                    "properties": {
+                        "title": "Waitlist",
+                        "index": 3,
+                        "gridProperties": {"rowCount": 3000, "columnCount": 11},
+                    }
+                }
+            }
+        )
 
     if init_requests:
         resp = svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": init_requests}).execute()
@@ -483,8 +512,12 @@ def main():
             review_id = resp["replies"][reply_idx]["addSheet"]["properties"]["sheetId"]
             print("Created Review tab.")
             reply_idx += 1
+        if create_waitlist:
+            waitlist_id = resp["replies"][reply_idx]["addSheet"]["properties"]["sheetId"]
+            print("Created Waitlist tab.")
+            reply_idx += 1
     else:
-        print("Dashboard and Review tabs already exist — re-applying formatting.")
+        print("Dashboard, Review, and Waitlist tabs already exist — re-applying formatting.")
 
     # ── Sheet1 formatting ──────────────────────────────────────────────────
     s1_requests = [
@@ -799,6 +832,138 @@ def main():
     )
     svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": rb_requests}).execute()
     print("Review row banding applied.")
+
+    # ── Waitlist tab formatting ───────────────────────────────────────────
+    WAITLIST_STATUS_OPTIONS = ["Reactivate"]
+
+    waitlist_requests = [
+        {
+            "updateSheetProperties": {
+                "properties": {"sheetId": waitlist_id, "gridProperties": {"frozenRowCount": 1}},
+                "fields": "gridProperties.frozenRowCount",
+            }
+        },
+        # Bold + dark header row
+        {
+            "repeatCell": {
+                "range": {
+                    "sheetId": waitlist_id,
+                    "startRowIndex": 0,
+                    "endRowIndex": 1,
+                    "startColumnIndex": 0,
+                    "endColumnIndex": 11,
+                },
+                "cell": {
+                    "userEnteredFormat": {
+                        "textFormat": {
+                            "bold": True,
+                            "foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
+                        },
+                        "backgroundColor": {"red": 0.18, "green": 0.18, "blue": 0.18},
+                    }
+                },
+                "fields": "userEnteredFormat(textFormat(bold,foregroundColor),backgroundColor)",
+            }
+        },
+        # STATUS dropdown on col A (Reactivate only)
+        {
+            "setDataValidation": {
+                "range": {"sheetId": waitlist_id, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 1},
+                "rule": {
+                    "condition": {
+                        "type": "ONE_OF_LIST",
+                        "values": [{"userEnteredValue": opt} for opt in WAITLIST_STATUS_OPTIONS],
+                    },
+                    "showCustomUi": True,
+                    "strict": False,
+                },
+            }
+        },
+        # REJECT_REASON dropdown on col B (same options as Dashboard)
+        {
+            "setDataValidation": {
+                "range": {"sheetId": waitlist_id, "startRowIndex": 1, "startColumnIndex": 1, "endColumnIndex": 2},
+                "rule": {
+                    "condition": {
+                        "type": "ONE_OF_LIST",
+                        "values": [{"userEnteredValue": opt} for opt in REJECT_OPTIONS],
+                    },
+                    "showCustomUi": True,
+                    "strict": False,
+                },
+            }
+        },
+        # Hide col C (fingerprint)
+        {
+            "updateDimensionProperties": {
+                "range": {"sheetId": waitlist_id, "dimension": "COLUMNS", "startIndex": 2, "endIndex": 3},
+                "properties": {"hiddenByUser": True},
+                "fields": "hiddenByUser",
+            }
+        },
+        # Column widths
+        col_width(waitlist_id, 0, 110),   # A: STATUS
+        col_width(waitlist_id, 1, 140),   # B: REJECT_REASON
+        col_width(waitlist_id, 3, 280),   # D: title (hyperlink)
+        col_width(waitlist_id, 4, 150),   # E: company
+        col_width(waitlist_id, 5, 55),    # F: score
+        col_width(waitlist_id, 6, 130),   # G: location
+        col_width(waitlist_id, 7, 80),    # H: remote
+        col_width(waitlist_id, 8, 300),   # I: ai_notes
+        col_width(waitlist_id, 9, 100),   # J: date
+        col_width(waitlist_id, 10, 250),  # K: blocking_app
+    ]
+
+    # Conditional formatting: "Reactivate" highlights entire row teal
+    waitlist_requests.append(
+        {
+            "addConditionalFormatRule": {
+                "index": 0,
+                "rule": {
+                    "ranges": [
+                        {"sheetId": waitlist_id, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 11}
+                    ],
+                    "booleanRule": {
+                        "condition": {
+                            "type": "CUSTOM_FORMULA",
+                            "values": [{"userEnteredValue": '=$A2="Reactivate"'}],
+                        },
+                        "format": {"backgroundColor": rgb(147, 220, 195)},  # teal
+                    },
+                },
+            }
+        }
+    )
+
+    # Reject reason colors on col B
+    waitlist_requests += reject_cf_rules(waitlist_id)
+
+    svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": waitlist_requests}).execute()
+    print("Waitlist tab formatted.")
+
+    # Waitlist tab row banding — re-fetch metadata if tab was newly created
+    if create_waitlist:
+        spreadsheet = svc.spreadsheets().get(spreadsheetId=SHEET_ID).execute()
+        sheets_meta = spreadsheet.get("sheets", [])
+
+    waitlist_sheet = next((s for s in sheets_meta if s["properties"]["sheetId"] == waitlist_id), None)
+    waitlist_banding = waitlist_sheet.get("bandedRanges", []) if waitlist_sheet else []
+    wb_requests = [{"deleteBanding": {"bandedRangeId": b["bandedRangeId"]}} for b in waitlist_banding]
+    wb_requests.append(
+        {
+            "addBanding": {
+                "bandedRange": {
+                    "range": {"sheetId": waitlist_id, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 11},
+                    "rowProperties": {
+                        "firstBandColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
+                        "secondBandColor": rgb(245, 245, 248),
+                    },
+                },
+            }
+        }
+    )
+    svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": wb_requests}).execute()
+    print("Waitlist row banding applied.")
 
     print()
     print("Done. Run sync_sheet.py to populate.")
