@@ -303,6 +303,53 @@ def cmd_health_check():
         for r in orphaned[:5]:
             issues.append(f"  • {r['company']}: {r['title']}")
 
+    # ── Drive sync integrity ──────────────────────────────────────────────
+    try:
+        from findajob.paths import RCLONE
+
+        drive_base = "gdrive:01 PROJECTS/Jobs To Apply For"
+
+        mismatches = []
+        for subdir in ["", "_applied", "_rejected", "_waitlisted"]:
+            # Local folders
+            local_path = os.path.join(companies_dir, subdir) if subdir else companies_dir
+            if not os.path.isdir(local_path):
+                continue
+            local_folders = {
+                d for d in os.listdir(local_path)
+                if not d.startswith("_") and os.path.isdir(os.path.join(local_path, d))
+            }
+
+            # Drive folders
+            drive_path = f"{drive_base}/{subdir}" if subdir else drive_base
+            rc = subprocess.run(
+                [RCLONE, "lsf", "--dirs-only", drive_path],
+                capture_output=True, text=True, timeout=60
+            )
+            if rc.returncode != 0:
+                mismatches.append(f"rclone lsf failed for {subdir or 'root'}: exit {rc.returncode}")
+                continue
+            drive_folders = {
+                d.rstrip("/") for d in rc.stdout.strip().split("\n")
+                if d.strip() and not d.startswith("_")
+            }
+
+            location = subdir or "root"
+            local_only = local_folders - drive_folders
+            drive_only = drive_folders - local_folders
+
+            for f in local_only:
+                mismatches.append(f"LOCAL ONLY ({location}): {f}")
+            for f in drive_only:
+                mismatches.append(f"DRIVE ONLY ({location}): {f}")
+
+        if mismatches:
+            issues.append(f"WARN: {len(mismatches)} local↔Drive sync mismatch(es):")
+            for m in mismatches[:8]:
+                issues.append(f"  • {m}")
+    except Exception as e:
+        issues.append(f"INFO: Drive sync check skipped: {e}")
+
     conn.close()
 
     if not issues:
