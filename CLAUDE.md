@@ -14,7 +14,7 @@ Before writing any command, path, binary call, or file location:
 - [ ] pandoc: get path from `PANDOC` in `findajob.paths`
 - [ ] aichat-ng config dir: macOS = `~/Library/Application Support/aichat_ng/`; Linux = `~/.config/aichat_ng/`
 - [ ] Roles dir: `<repo>/config/roles/` — `.md` files only, never `.yaml`
-- [ ] Master resume: `rag_sources/master_resume.md` — never `config/master_resume.md`
+- [ ] Master resume: `candidate_context/master_resume.md` — never `config/master_resume.md` or `rag_sources/master_resume.md`
 - [ ] Anthropic client in aichat-ng config: `type: claude` — never `type: anthropic`; prefix `claude:` not `anthropic:`
 - [ ] RAG never passed to scorer, cover letter writer, or outreach drafter
 - [ ] macOS sed: `sed -i '' ...`; Linux sed: `sed -i ...` (no empty string)
@@ -38,8 +38,8 @@ This repo is intended to eventually be public and useful for job seekers in any 
 - [ ] Git email addresses or usernames that contain the user's real name (handled by git config, not code)
 
 If personal content must exist in the pipeline (e.g., name enforcement in a role prompt),
-move it to a **gitignored** file such as `config/profile.md`, `CLAUDE.local.md`, or
-`rag_sources/*`, and have the tracked file reference it instead.
+move it to a **gitignored** file such as `candidate_context/profile.md`, `CLAUDE.local.md`, or
+`config/` (credentials), and have the tracked file reference it instead.
 
 ### Never hardcode field-specific content in tracked files
 - [ ] Company lists (Meta, Google, OpenAI, etc.) — belong in `config/target_companies.md` or `config/tier1.txt` (gitignored)
@@ -87,8 +87,8 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 | pip | `pip3 install --break-system-packages` (no venv) |
 | Path resolution | `src/findajob/paths.py` — reads `config/paths.env`; BASE derived from `__file__` |
 | Roles dir | `config/roles/` |
-| Master resume | `rag_sources/master_resume.md` |
-| Profile | `config/profile.md` |
+| Master resume | `candidate_context/master_resume.md` |
+| Profile | `candidate_context/profile.md` |
 | DB | `data/pipeline.db` |
 | Pre-filter | `src/findajob/scorer_prefilter.py` — Stage 1 regex hard reject, Stage 2 no-JD default |
 | RAG index | `job_search_rag` — never passed to scorer/CL/outreach |
@@ -120,10 +120,14 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 <repo>/scripts/notify.py                    # ntfy push notifications (6 subcommands incl. send-raw)
 <repo>/scripts/rename_folders.py            # rename company folders to new format (idempotent)
 
-# ── Config (mostly gitignored) ──────────────────────────────────────────────
+# ── Candidate content (all gitignored — fill these in after cloning) ────────
+<repo>/candidate_context/profile.md         # candidate profile — injected into scoring, resume, CL, outreach
+<repo>/candidate_context/master_resume.md   # master resume — injected into prep; also indexed for REPL RAG
+<repo>/candidate_context/voice_samples/     # writing samples for CL voice calibration (REPL RAG only)
+
+# ── Config (pipeline operation — mostly gitignored) ──────────────────────────
 <repo>/config/paths.env                     # binary path overrides (gitignored; see paths.env.example)
 <repo>/config/roles/                        # role .md files (8 roles)
-<repo>/config/profile.md                    # candidate profile (gitignored; see profile.md.example)
 <repo>/config/scoring_schema.json           # JSON schema for LLM scorer output validation
 <repo>/config/jsearch_queries.txt           # LinkedIn/Indeed search queries (gitignored)
 <repo>/config/feed_urls.txt                 # Greenhouse company slugs (gitignored)
@@ -132,7 +136,6 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 <repo>/data/.env                            # API keys (chmod 600; gitignored)
 <repo>/data/pipeline.db                     # SQLite — source of truth
 <repo>/data/connections.csv                 # LinkedIn connections export (gitignored)
-<repo>/rag_sources/master_resume.md         # master resume (gitignored; see master_resume.md.example)
 
 # ── Output & logs ───────────────────────────────────────────────────────────
 <repo>/companies/                           # prep output folders ({Company}_{AbbrevTitle}_{date}_{time})
@@ -161,7 +164,8 @@ Library code lives in `src/findajob/` (installed via `pip install -e .`). Entry 
 RAG (`--rag job_search_rag`) is NEVER passed to `job_scorer`, `cover_letter_writer`,
 `outreach_drafter`, or any role needing candidate-specific context. RAG chunking drops
 contact info, employer names, and dates. All candidate context injected directly via
-`profile.md` and `master_resume.md` string interpolation. RAG retained for REPL only.
+`candidate_context/profile.md` and `candidate_context/master_resume.md` string interpolation.
+RAG indexes `candidate_context/` but is used only in REPL mode.
 
 ### Hard Rejects are Code
 `scorer_prefilter.py` handles hard rejects deterministically before any LLM call.

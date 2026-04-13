@@ -22,14 +22,14 @@ Do NOT decommission the source until you have confirmed a full triage cycle comp
 | Gmail OAuth credentials | `config/gmail_oauth_client.json` | Copy file |
 | Gmail token cache | `config/gmail_token.json` | Copy file (or re-authorize) |
 | Form response sheet ID | `config/form_responses_sheet_id.txt` | Copy file |
-| Candidate profile | `config/profile.md` | Copy file |
-| Master resume | `rag_sources/master_resume.md` | Copy file |
+| Candidate profile | `candidate_context/profile.md` | Copy file |
+| Master resume | `candidate_context/master_resume.md` | Copy file |
 | Target companies | `config/target_companies.md` | Copy file |
 | Search queries | `config/jsearch_queries.txt` | Copy file |
 | Greenhouse feed slugs | `config/feed_urls.txt` | Copy file |
 | LinkedIn connections | `data/connections.csv` | Copy file |
 | Binary path config | `config/paths.env` | Create new for target platform |
-| Voice samples | `voice_samples/*.txt` | Copy directory |
+| Voice samples | `candidate_context/voice_samples/*.txt` | Copy directory |
 | RAG index | `rags/` or aichat-ng data dir | Rebuild on target (run `--rag rebuild`) |
 | Company prep folders | `companies/` | Optional — large, can sync via Google Drive |
 | aichat-ng config | Platform-specific (see below) | Create new for target platform |
@@ -68,17 +68,11 @@ rsync -av \
   config/gmail_oauth_client.json \
   config/gmail_token.json \
   config/form_responses_sheet_id.txt \
-  config/profile.md \
   config/jsearch_queries.txt \
   config/feed_urls.txt \
   config/target_companies.md \
-  voice_samples/ \
+  candidate_context/ \
   ${TARGET}:${DEST}/
-```
-
-Copy `rag_sources/master_resume.md`:
-```bash
-rsync -av rag_sources/master_resume.md ${TARGET}:${DEST}/rag_sources/
 ```
 
 Also copy your personal CLAUDE context:

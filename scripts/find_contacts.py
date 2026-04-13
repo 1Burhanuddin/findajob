@@ -35,7 +35,7 @@ def company_match(search, contact_company):
 
 
 CONNECTIONS = f"{BASE}/data/connections.csv"
-PROFILE_PATH = f"{BASE}/config/profile.md"
+PROFILE_PATH = f"{BASE}/candidate_context/profile.md"
 
 load_env()
 

@@ -12,8 +12,8 @@ import subprocess
 from findajob.paths import AICHAT, BASE, PANDOC
 
 COMPANIES_DIR = f"{BASE}/companies"
-MASTER_RESUME_PATH = f"{BASE}/rag_sources/master_resume.md"
-PROFILE_PATH = f"{BASE}/config/profile.md"
+MASTER_RESUME_PATH = f"{BASE}/candidate_context/master_resume.md"
+PROFILE_PATH = f"{BASE}/candidate_context/profile.md"
 
 
 def aichat(role, prompt, timeout=300):

@@ -223,7 +223,7 @@ def _expected_name_from_profile():
     """Read the candidate name from the profile.md Identity section. Returns None if not found."""
     # Resolve profile.md relative to this script's location
     here = os.path.dirname(os.path.abspath(__file__))
-    profile_path = os.path.join(here, "..", "..", "config", "profile.md")
+    profile_path = os.path.join(here, "..", "..", "candidate_context", "profile.md")
     try:
         with open(profile_path) as f:
             for line in f:

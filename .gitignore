@@ -12,11 +12,9 @@ config/profile.md
 config/target_companies.md
 config/jsearch_queries.txt
 config/feed_urls.txt
-rag_sources/master_resume.md
-rag_sources/profile.md
-rag_sources/target_companies.md
-rag_sources/voice_samples
-voice_samples/*.txt
+candidate_context/profile.md
+candidate_context/master_resume.md
+candidate_context/voice_samples/*.txt
 CLAUDE.local.md
 data/pipeline.db
 data/pipeline.db-journal

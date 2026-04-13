@@ -14,7 +14,7 @@ import subprocess
 from findajob.paths import AICHAT, BASE
 
 DB_PATH = f"{BASE}/data/pipeline.db"
-PROFILE_PATH = f"{BASE}/config/profile.md"
+PROFILE_PATH = f"{BASE}/candidate_context/profile.md"
 
 
 def load_env(path):

@@ -102,9 +102,9 @@ The `findajob` repo is designed to be public without exposing personal data.
 - `CLAUDE.md` (generic, no personal info)
 
 **What is gitignored:**
-- `config/profile.md` — your actual candidate profile
-- `rag_sources/master_resume.md` — your resume
-- `voice_samples/*.txt` — your writing samples
+- `candidate_context/profile.md` — your candidate profile
+- `candidate_context/master_resume.md` — your master resume
+- `candidate_context/voice_samples/*.txt` — your writing samples
 - `config/jsearch_queries.txt` — your search queries
 - `config/feed_urls.txt` — your Greenhouse company slugs
 - `config/target_companies.md` — your target list

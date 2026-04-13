@@ -25,7 +25,7 @@ from findajob.utils import jd_is_usable, load_env, log_event, validate_llm_json,
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 SCHEMA_PATH = f"{BASE}/config/scoring_schema.json"
-PROFILE_PATH = f"{BASE}/config/profile.md"
+PROFILE_PATH = f"{BASE}/candidate_context/profile.md"
 
 
 def _role_model(role_name):

@@ -4,7 +4,7 @@ How to configure the pipeline for your profile and job search.
 
 ---
 
-## config/profile.md
+## candidate_context/profile.md
 
 Your candidate profile. Injected directly into scoring, resume tailoring, cover letter, and outreach prompts. Not passed through RAG.
 
@@ -28,7 +28,7 @@ Note: "XYZ Labs" = [full name and what it is] — not a geographic reference.
 
 ---
 
-## rag_sources/master_resume.md
+## candidate_context/master_resume.md
 
 Your complete, unabridged resume in Markdown. This is the source of truth for the resume tailor — it will never invent experience not present here.
 
@@ -84,7 +84,7 @@ Companies that don't use Greenhouse won't have a slug — use LinkedIn/Indeed se
 
 ## config/target_companies.md
 
-A human-readable target company list. Also copy to `rag_sources/target_companies.md` (used in REPL context only, not for scoring).
+A human-readable target company list. If you want it available in REPL context, also copy it to `candidate_context/` — the RAG index covers that directory.
 
 ---
 
@@ -181,7 +181,7 @@ Claude Code loads `CLAUDE.md` and then appends `CLAUDE.local.md` (via the `@CLAU
 
 ## Voice Samples
 
-Place writing samples in `voice_samples/` as plain text `.txt` files. The cover letter writer role uses these for voice calibration (available via RAG in REPL mode).
+Place writing samples in `candidate_context/voice_samples/` as plain text `.txt` files. The cover letter writer role uses these for voice calibration (available via RAG in REPL mode).
 
 Good samples:
 - Cover letters you've written and sent

@@ -68,8 +68,7 @@ pip3 install --break-system-packages \
 
 ```bash
 cd ~/findajob
-cp config/profile.md.example config/profile.md
-cp rag_sources/master_resume.md.example rag_sources/master_resume.md
+cp candidate_context/profile.md.example candidate_context/profile.md
 cp config/jsearch_queries.txt.example config/jsearch_queries.txt
 cp config/feed_urls.txt.example config/feed_urls.txt
 cp config/target_companies.md.example config/target_companies.md

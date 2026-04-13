@@ -42,7 +42,7 @@ signal.signal(signal.SIGTERM, _on_sigterm)
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 CONNECTIONS = f"{BASE}/data/connections.csv"
-PROFILE_PATH = f"{BASE}/config/profile.md"
+PROFILE_PATH = f"{BASE}/candidate_context/profile.md"
 
 
 def _role_model(role_name):

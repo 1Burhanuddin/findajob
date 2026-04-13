@@ -22,8 +22,8 @@ from findajob.utils import (
 )
 
 DB_PATH = f"{BASE}/data/pipeline.db"
-PROFILE_PATH = f"{BASE}/config/profile.md"
-MASTER_RESUME_PATH = f"{BASE}/rag_sources/master_resume.md"
+PROFILE_PATH = f"{BASE}/candidate_context/profile.md"
+MASTER_RESUME_PATH = f"{BASE}/candidate_context/master_resume.md"
 
 load_env()
 

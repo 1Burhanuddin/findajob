@@ -50,8 +50,7 @@ git clone https://github.com/yourname/findajob ~/findajob
 cd ~/findajob
 
 # Create your personal config files from templates
-cp config/profile.md.example config/profile.md
-cp rag_sources/master_resume.md.example rag_sources/master_resume.md
+cp candidate_context/profile.md.example candidate_context/profile.md
 cp config/jsearch_queries.txt.example config/jsearch_queries.txt
 cp config/feed_urls.txt.example config/feed_urls.txt
 cp config/target_companies.md.example config/target_companies.md
@@ -101,22 +100,23 @@ python3 scripts/init_db.py
 
 ```
 findajob/
+├── candidate_context/          # YOUR personal content (all gitignored)
+│   ├── profile.md              # your candidate profile
+│   ├── master_resume.md        # your master resume
+│   ├── voice_samples/          # your writing samples for CL voice calibration
+│   └── profile.md.example      # template — copy and fill in
 ├── config/
 │   ├── roles/                  # aichat-ng role prompts (8 roles)
 │   ├── scoring_schema.json     # JSON schema for LLM scorer output
 │   ├── strip-bookmarks.lua     # pandoc Lua filter
 │   ├── reference.docx          # pandoc Word template
-│   ├── profile.md              # YOUR candidate profile (gitignored)
 │   ├── paths.env               # YOUR binary paths (gitignored)
 │   └── *.example               # templates for gitignored files
 ├── data/
 │   ├── pipeline.db             # SQLite (gitignored)
 │   └── .env                    # API keys (gitignored)
 ├── docs/                       # Documentation
-├── rag_sources/
-│   └── master_resume.md        # YOUR master resume (gitignored)
 ├── scripts/
-│   ├── paths.py                # central path resolver — import first
 │   ├── triage.py               # daily pipeline
 │   ├── prep_application.py     # on-demand prep
 │   ├── poll_flags.py           # sheet flag poller
@@ -126,7 +126,6 @@ findajob/
 │   ├── find_contacts.py        # LinkedIn contact matching
 │   ├── ingest_form.py          # Google Form ingestion
 │   └── diag/                   # diagnostic scripts (run manually)
-├── voice_samples/              # YOUR writing samples (gitignored)
 ├── companies/                  # Generated prep folders (gitignored)
 ├── logs/                       # Pipeline logs (gitignored)
 └── CLAUDE.md                   # Claude Code session context
