@@ -238,13 +238,37 @@ def main():
 
         job = conn.execute(
             """
-            SELECT id, title, company, url, stage, apply_flag, reject_reason, relevance_score
+            SELECT id, title, company, url, stage, apply_flag, reject_reason,
+                   relevance_score, prep_folder_path
             FROM jobs WHERE fingerprint = ?
         """,
             (fp,),
         ).fetchone()
 
         if not job:
+            continue
+
+        # ── Regenerate: delete existing prep folder and re-run prep ──────
+        if flag_val == "Regenerate":
+            folder = job["prep_folder_path"]
+            if folder and os.path.isdir(folder):
+                shutil.rmtree(folder)
+                delete_drive_folder(os.path.basename(folder))
+                folders_moved += 1
+            elif folder:
+                # Folder path in DB but not on disk — still purge Drive copy
+                delete_drive_folder(os.path.basename(folder))
+            now = datetime.now(UTC).isoformat()
+            conn.execute(
+                """UPDATE jobs SET stage='prep_in_progress', prep_folder_path=NULL,
+                   gdrive_folder_url=NULL, apply_flag=1, stage_updated=?, updated_at=?
+                   WHERE id=?""",
+                (now, now, job["id"]),
+            )
+            conn.commit()
+            write_audit(conn, job["id"], "stage", job["stage"], "prep_in_progress")
+            log_event("regen_requested", job_id=job["id"], company=job["company"], title=job["title"])
+            flagged_jobs.append({"id": job["id"], "title": job["title"], "company": job["company"], "url": job["url"]})
             continue
 
         # ── Rejection takes priority ─────────────────────────────────────
