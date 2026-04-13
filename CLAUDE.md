@@ -224,7 +224,7 @@ Low-score old jobs from non-target companies stay in DB only.
 - `Waitlist` = user action → `poll_flags.py` sets `stage=waitlisted`, moves folder to `_waitlisted/`
 - `Applied/Interviewing/Offer/Withdrew` = user action → `poll_flags.py` updates DB stage
 
-**REJECT_REASON dropdown** (col B): 11 options (includes "Low Fit Score") → `poll_flags.py` sets `stage=rejected`, writes `feedback_log`, moves folder to `companies/_rejected/`, triggers rclone sync immediately.
+**REJECT_REASON dropdown** (col B): 11 options (includes "Low Fit Score") → `poll_flags.py` sets `stage=rejected`, writes `feedback_log`, moves folder to `companies/_rejected/`, syncs move to Drive immediately (rclone copy + purge).
 
 **poll_flags.py** reads `Dashboard!A2:C10000`, `Review!A2:C10000`, and `Waitlist!A2:C10000`. Rejection takes priority over prep/promote/reactivate.
 

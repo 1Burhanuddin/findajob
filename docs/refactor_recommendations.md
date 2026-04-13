@@ -33,8 +33,8 @@ Jobs are committed one-by-one as they're processed. If triage crashes at job 400
 **6. ~~`sync_sheet.py` has an O(n²) bug in COL_MAP lookup~~** *(fixed 2026-04-08)*
 `S1_LOOKUP` and `DASH_LOOKUP` are now built once as reverse dicts. `build_row()` does a single dict lookup per cell.
 
-**7. `rclone bisync` path is fragile and inconsistently referenced**
-The launchd plist and `prep_application.py` use `gdrive:01 PROJECTS/Jobs To Apply For` (spaces, no underscores). The bisync cache files use underscores. This mismatch caused a sync failure on 2026-04-07. The path should be defined once — in `.env` or a config file — and referenced everywhere.
+**~~7. `rclone bisync` path is fragile and inconsistently referenced~~** *(resolved 2026-04-13)*
+bisync replaced entirely with event-driven sync. `poll_flags.py` now calls `rclone copy` + `rclone purge` inline after each folder move. The jobsync timer runs a two-phase `rclone copy --update` (push local→Drive, pull Drive→local) every 15 minutes for new content and user edits. No more bisync state, no more conflict copies, no more `--resync` recovery.
 
 ---
 
