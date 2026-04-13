@@ -19,7 +19,7 @@ domain. Each item is a future task to make the pipeline domain-neutral.
 1. **Logic is generic; lists are config.** Pipeline code should not embed any domain knowledge. Target companies, job titles, search queries, reject patterns — all config-driven.
 2. **Prompts reference the profile, not the domain.** Role prompts should instruct the LLM to read the candidate's profile for domain context, not bake in category language.
 3. **Examples are generic or plural.** When an example is needed, use a hypothetical candidate ("Jane Smith, senior social worker at a city health department") rather than a real one. Better: show 2-3 examples from different fields.
-4. **Profile is the source of truth.** The candidate's `config/profile.md` carries all domain-specific content — target role, target companies, hard-reject categories, in-domain signals.
+4. **Profile is the source of truth.** The candidate's `candidate_context/profile.md` carries all domain-specific content — target role, target companies, hard-reject categories, in-domain signals.
 
 ---
 
@@ -55,7 +55,7 @@ domain. Each item is a future task to make the pipeline domain-neutral.
 
 - [ ] **`ENGINEER TITLE CALIBRATION`** section — assumes candidate has mixed IC/ops/program background in hardware
   - This entire section is personal calibration based on past false positives
-  - Should move to `config/profile.md` as candidate-specific scoring guidance, or become optional
+  - Should move to `candidate_context/profile.md` as candidate-specific scoring guidance, or become optional
 
 ### Role prompts with tech vocabulary — `config/roles/*.md`
 
@@ -67,9 +67,9 @@ domain. Each item is a future task to make the pipeline domain-neutral.
 
 All of these need a pass with a non-tech candidate profile to see what breaks.
 
-### Example files — `config/*.example`, `rag_sources/*`
+### Example files — `config/*.example`, `candidate_context/*`
 
-- [ ] **`config/profile.md.example`** — target role is "hardware engineer / technical program manager at AI infrastructure companies"
+- [ ] **`candidate_context/profile.md.example`** — target role is "hardware engineer / technical program manager at AI infrastructure companies"
   - Should show 2-3 examples from different fields (healthcare, education, social services, tech)
   - Or a more abstract template that's field-neutral
 

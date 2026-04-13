@@ -239,7 +239,7 @@ def _expected_name_from_profile():
 def check_name(lines):
     """Flag incorrect name formatting on the resume H1.
 
-    Looks up the expected name from config/profile.md. Flags:
+    Looks up the expected name from candidate_context/profile.md. Flags:
       - First name or surname duplicated (e.g., "Smith Smith")
       - H1 does not match the profile name exactly
     If profile.md is missing, falls back to detecting any duplicated word in the H1.

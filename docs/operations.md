@@ -126,7 +126,7 @@ SELECT score_status, count(*) FROM jobs GROUP BY score_status;
 3. Keep it 3–4 words. Test before adding.
 
 ### Update your profile
-1. Edit `config/profile.md`
+1. Edit `candidate_context/profile.md`
 2. No restart needed — profile is read fresh on every triage + every prep
 
 ### Update a role prompt

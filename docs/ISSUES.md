@@ -176,7 +176,7 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
 ## Infrastructure / Ops
 
 - [ ] **RAG source documents — manual editing pass** *(Low)*
-  Content quality of `rag_sources/` docs hasn't been reviewed since initial setup.
+  Content quality of `candidate_context/` docs hasn't been reviewed since initial setup.
   Deferred until pipeline is stable. Low urgency — RAG only used in REPL context.
 
 - [ ] **`regen_resumes.py` title extraction is best-effort** *(Low)*
