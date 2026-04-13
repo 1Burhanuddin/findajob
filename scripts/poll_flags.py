@@ -14,8 +14,10 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from findajob.paths import BASE
+from findajob.paths import BASE, RCLONE
 from findajob.utils import is_valid_company, log_event, write_audit
+
+DRIVE_BASE = "gdrive:01 PROJECTS/Jobs To Apply For"
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 SA_FILE = f"{BASE}/config/gsheets_creds.json"
@@ -23,6 +25,36 @@ with open(f"{BASE}/config/sheet_id.txt") as f:
     SHEET_ID = f.read().strip()
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+
+
+def sync_folder_to_drive(folder_path, drive_subdir=""):
+    """Copy a local folder to its Drive location. Called after local folder moves."""
+    folder_name = os.path.basename(folder_path)
+    if drive_subdir:
+        drive_dest = f"{DRIVE_BASE}/{drive_subdir}/{folder_name}"
+    else:
+        drive_dest = f"{DRIVE_BASE}/{folder_name}"
+    rc = subprocess.run([RCLONE, "copy", folder_path, drive_dest], capture_output=True, text=True, timeout=300)
+    if rc.returncode != 0:
+        log_event("rclone_sync_failed", folder=folder_name, dest=drive_subdir or "top-level",
+                  exit_code=rc.returncode, stderr=(rc.stderr or "")[:200])
+        return False
+    log_event("folder_synced_to_drive", folder=folder_name, dest=drive_subdir or "top-level")
+    return True
+
+
+def delete_drive_folder(folder_name, drive_subdir=""):
+    """Delete a folder from Drive. Cleans up old location after a local move."""
+    if drive_subdir:
+        drive_path = f"{DRIVE_BASE}/{drive_subdir}/{folder_name}"
+    else:
+        drive_path = f"{DRIVE_BASE}/{folder_name}"
+    rc = subprocess.run([RCLONE, "purge", drive_path], capture_output=True, text=True, timeout=120)
+    if rc.returncode != 0:
+        log_event("rclone_delete_failed", folder=folder_name, location=drive_subdir or "top-level",
+                  exit_code=rc.returncode, stderr=(rc.stderr or "")[:200])
+        return False
+    return True
 
 
 def handle_rejection(conn, job, reason):
@@ -58,6 +90,8 @@ def handle_rejection(conn, job, reason):
         conn.execute("UPDATE jobs SET prep_folder_path=? WHERE id=?", (dest, job["id"]))
         log_event("folder_moved_to_rejected", job_id=job["id"], folder=os.path.basename(folder), reason=reason)
         folder_moved = True
+        sync_folder_to_drive(dest, "_rejected")
+        delete_drive_folder(os.path.basename(folder))
 
     conn.commit()
     write_audit(conn, job["id"], "stage", old_stage, "rejected")
@@ -85,6 +119,8 @@ def handle_waitlist(conn, job):
         conn.execute("UPDATE jobs SET prep_folder_path=? WHERE id=?", (dest, job["id"]))
         log_event("folder_moved_to_waitlisted", job_id=job["id"], folder=os.path.basename(folder))
         folder_moved = True
+        sync_folder_to_drive(dest, "_waitlisted")
+        delete_drive_folder(os.path.basename(folder))
 
     conn.commit()
     write_audit(conn, job["id"], "stage", old_stage, "waitlisted")
@@ -110,6 +146,8 @@ def handle_reactivate(conn, job):
         )
         new_stage = "materials_drafted"
         folder_moved = True
+        sync_folder_to_drive(dest)
+        delete_drive_folder(os.path.basename(folder), "_waitlisted")
     else:
         conn.execute("UPDATE jobs SET stage=?, updated_at=? WHERE id=?", ("scored", now, job["id"]))
         new_stage = "scored"
@@ -232,6 +270,8 @@ def main():
                         conn.execute("UPDATE jobs SET prep_folder_path=? WHERE id=?", (dest, job["id"]))
                         conn.commit()
                         log_event("folder_moved_to_applied", job_id=job["id"], folder=os.path.basename(folder))
+                        sync_folder_to_drive(dest, "_applied")
+                        delete_drive_folder(os.path.basename(folder))
                         folders_moved += 1
                     applied_count += 1
 
@@ -397,12 +437,11 @@ def main():
     if need_sync:
         subprocess.Popen([sys.executable, f"{BASE}/scripts/sync_sheet.py"])
 
-    # Folder moves (reject → _rejected/, apply → _applied/) propagate to Drive
-    # via the jobsync.timer 'rclone bisync' running every 15 minutes. No
-    # event-driven rclone call here — doing one would race with the timer and
-    # risk trashing user edits in Drive.
+    # Folder moves are synced to Drive inline (sync_folder_to_drive + delete_drive_folder)
+    # immediately after each local move. The jobsync timer handles pulling user edits
+    # from Drive back to local (rclone copy --update, one-way Drive→local).
     if folders_moved:
-        log_event("folder_moves_queued_for_bisync", count=folders_moved)
+        log_event("folder_moves_synced_to_drive", count=folders_moved)
 
     if not flagged_jobs:
         log_event(
