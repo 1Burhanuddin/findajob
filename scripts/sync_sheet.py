@@ -423,7 +423,7 @@ def sync_waitlist(svc, conn):
     active_rows = conn.execute("""
         SELECT title, company, stage FROM jobs
         WHERE (dupe_of = '' OR dupe_of IS NULL)
-          AND stage IN ('prep_in_progress', 'materials_drafted', 'applied', 'interview')
+          AND stage IN ('prep_in_progress', 'materials_drafted', 'applied', 'interview', 'offer')
         ORDER BY created_at DESC
     """).fetchall()
     active_by_company = {}

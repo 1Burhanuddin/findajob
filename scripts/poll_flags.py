@@ -36,8 +36,13 @@ def sync_folder_to_drive(folder_path, drive_subdir=""):
         drive_dest = f"{DRIVE_BASE}/{folder_name}"
     rc = subprocess.run([RCLONE, "copy", folder_path, drive_dest], capture_output=True, text=True, timeout=300)
     if rc.returncode != 0:
-        log_event("rclone_sync_failed", folder=folder_name, dest=drive_subdir or "top-level",
-                  exit_code=rc.returncode, stderr=(rc.stderr or "")[:200])
+        log_event(
+            "rclone_sync_failed",
+            folder=folder_name,
+            dest=drive_subdir or "top-level",
+            exit_code=rc.returncode,
+            stderr=(rc.stderr or "")[:200],
+        )
         return False
     log_event("folder_synced_to_drive", folder=folder_name, dest=drive_subdir or "top-level")
     return True
@@ -51,15 +56,22 @@ def delete_drive_folder(folder_name, drive_subdir=""):
         drive_path = f"{DRIVE_BASE}/{folder_name}"
     rc = subprocess.run([RCLONE, "purge", drive_path], capture_output=True, text=True, timeout=120)
     if rc.returncode != 0:
-        log_event("rclone_delete_failed", folder=folder_name, location=drive_subdir or "top-level",
-                  exit_code=rc.returncode, stderr=(rc.stderr or "")[:200])
+        log_event(
+            "rclone_delete_failed",
+            folder=folder_name,
+            location=drive_subdir or "top-level",
+            exit_code=rc.returncode,
+            stderr=(rc.stderr or "")[:200],
+        )
         return False
     return True
 
 
-def handle_rejection(conn, job, reason):
+def handle_rejection(conn, job, reason, source_subdir=""):
     """Store rejection in DB, write to feedback_log, and move company folder to _rejected.
     Drops a marker file named {reason}_{date}.txt inside the moved folder.
+    source_subdir: Drive subdirectory where the folder currently lives (e.g. "_waitlisted").
+    Pass "" when the folder is at top-level (Dashboard rejections).
     Returns True if a folder was moved (caller should trigger rclone)."""
     now = datetime.now(UTC).isoformat()
     old_stage = job["stage"]
@@ -91,7 +103,7 @@ def handle_rejection(conn, job, reason):
         log_event("folder_moved_to_rejected", job_id=job["id"], folder=os.path.basename(folder), reason=reason)
         folder_moved = True
         sync_folder_to_drive(dest, "_rejected")
-        delete_drive_folder(os.path.basename(folder))
+        delete_drive_folder(os.path.basename(folder), source_subdir)
 
     conn.commit()
     write_audit(conn, job["id"], "stage", old_stage, "rejected")
@@ -398,9 +410,9 @@ def main():
         if not job or job["stage"] != "waitlisted":
             continue
 
-        # Rejection takes priority
+        # Rejection takes priority; folder is currently in _waitlisted/ on Drive
         if reject_val:
-            if handle_rejection(conn, job, reject_val):
+            if handle_rejection(conn, job, reject_val, source_subdir="_waitlisted"):
                 folders_moved += 1
             rejected_count += 1
             continue

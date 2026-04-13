@@ -362,11 +362,11 @@ Generated: {date}
     log_event("prep_complete", company=company, title=title, folder=outdir)
     notify(f"Drafts ready: {company} — {title}\n{outdir}")
 
-    # ── Step 8: Drive sync handled by jobsync.timer (rclone bisync every 15 min) ──
+    # ── Step 8: Drive sync handled by jobsync.timer (two-phase rclone copy every 15 min) ──
     # Previously did an immediate 'rclone copy' here, but that raced with bisync:
     # both sides had the files, bisync saw "changed in both paths" and created
     # ..path1/..path2 conflict copies. Removing the copy eliminates the race.
-    # New folders appear in Drive within 15 minutes via the next bisync cycle.
+    # New folders appear in Drive within 15 minutes via the next jobsync timer cycle.
     folder_name = os.path.basename(outdir)
 
     # ── Step 9: Fetch the Drive folder URL and store it ──
