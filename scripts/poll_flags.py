@@ -368,7 +368,7 @@ def main():
             conn.execute(
                 """
                 UPDATE jobs SET relevance_score=7, stage='scored',
-                       score_status='promoted', score_flag_reason='Promoted from Review tab',
+                       score_status='scored', score_flag_reason='Promoted from Review tab',
                        stage_updated=?, updated_at=?
                 WHERE id=?
             """,

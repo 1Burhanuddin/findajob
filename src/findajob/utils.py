@@ -133,7 +133,7 @@ def read_candidate_name(profile_path: str | None = None) -> str:
     Returns 'Candidate' if nothing matches.
     """
     if profile_path is None:
-        profile_path = f"{BASE}/config/profile.md"
+        profile_path = f"{BASE}/candidate_context/profile.md"
     try:
         with open(profile_path) as f:
             for line in f:
@@ -155,7 +155,7 @@ def read_file_prefix(profile_path: str | None = None) -> str:
     if neither is available.
     """
     if profile_path is None:
-        profile_path = f"{BASE}/config/profile.md"
+        profile_path = f"{BASE}/candidate_context/profile.md"
     try:
         with open(profile_path) as f:
             for line in f:
