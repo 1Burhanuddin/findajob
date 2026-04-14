@@ -470,6 +470,9 @@ def main():
         log_event("poll_flags_reactivated", count=reactivated_count)
         need_sync = True
 
+    if flagged_jobs:
+        need_sync = True
+
     if need_sync:
         subprocess.Popen([sys.executable, f"{BASE}/scripts/sync_sheet.py"], start_new_session=True)
 
