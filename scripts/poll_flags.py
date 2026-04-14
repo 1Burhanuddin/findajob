@@ -178,7 +178,7 @@ def notify_waitlist_resurface(conn, company):
     titles = [r["title"] for r in rows]
     title = f"Waitlisted jobs at {company}"
     body = "You just rejected/withdrew from this company. Waitlisted roles:\n" + "\n".join(f"• {t}" for t in titles)
-    subprocess.Popen([sys.executable, f"{BASE}/scripts/notify.py", "send-raw", title, body])
+    subprocess.Popen([sys.executable, f"{BASE}/scripts/notify.py", "send-raw", title, body], start_new_session=True)
     log_event("waitlist_resurface", company=company, count=len(titles))
 
 
@@ -471,7 +471,7 @@ def main():
         need_sync = True
 
     if need_sync:
-        subprocess.Popen([sys.executable, f"{BASE}/scripts/sync_sheet.py"])
+        subprocess.Popen([sys.executable, f"{BASE}/scripts/sync_sheet.py"], start_new_session=True)
 
     # Folder moves are synced to Drive inline (sync_folder_to_drive + delete_drive_folder)
     # immediately after each local move. The jobsync timer handles pulling user edits
@@ -507,7 +507,8 @@ def main():
     # can take several minutes; blocking here hangs the entire poll cycle).
     for job in flagged_jobs:
         subprocess.Popen(
-            [sys.executable, f"{BASE}/scripts/prep_application.py", job["company"], job["title"], job["url"], job["id"]]
+            [sys.executable, f"{BASE}/scripts/prep_application.py", job["company"], job["title"], job["url"], job["id"]],
+            start_new_session=True,
         )
 
 

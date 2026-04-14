@@ -133,7 +133,7 @@ def build_row(row, headers, lookup, status_override=None, reject_override=None, 
                     sheet_row.append(status_override)
                 elif row["stage"] == "materials_drafted":
                     sheet_row.append("Ready to Apply")
-                elif bool(val):  # apply_flag=1, prep not yet run
+                elif bool(val) and row["stage"] in ("scored", "manual_review", "enriched"):
                     sheet_row.append("Flag for Prep")
                 else:
                     sheet_row.append("")
@@ -254,7 +254,7 @@ def sync_dashboard(svc, conn):
         # over stale "Flag for Prep" (prep has completed, user needs to review materials).
         # Pass None (not '') so build_row falls through to stage-derived logic.
         pending = pending_statuses.get(fp)
-        if pending and not (pending == "Flag for Prep" and row["stage"] == "materials_drafted"):
+        if pending and not (pending == "Flag for Prep" and row["stage"] in ("materials_drafted", "prep_in_progress")):
             status_override = pending
         else:
             status_override = None

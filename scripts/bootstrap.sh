@@ -236,6 +236,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+KillMode=process
 ExecStart=${PYTHON_BIN} ${SCRIPT_DIR}/${script}
 WorkingDirectory=${REPO}
 EnvironmentFile=${DATA_DIR}/.env
