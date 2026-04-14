@@ -73,6 +73,7 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 STATUS_OPTIONS = [
     "Flag for Prep",
+    "Prep in Progress",
     "Regenerate",
     "Ready to Apply",
     "Waitlist",
@@ -104,6 +105,7 @@ def rgb(r, g, b):
 # STATUS color map (col A, index 0 on Dashboard)
 STATUS_COLORS = {
     "Flag for Prep": rgb(208, 228, 250),  # light blue
+    "Prep in Progress": rgb(255, 235, 156),  # warm yellow — actively running
     "Regenerate": rgb(255, 200, 150),  # warm orange — active action
     "Ready to Apply": rgb(147, 220, 195),  # teal — distinct from Applied
     "Waitlist": rgb(255, 230, 178),  # warm amber — "on hold" signal
