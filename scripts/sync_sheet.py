@@ -220,7 +220,7 @@ def sync_dashboard(svc, conn):
         # Only preserve user-driven statuses not yet polled.
         # 'Ready to Apply' is system-derived (from stage=materials_drafted) — don't preserve.
         # 'Flag for Prep' is preserved so user actions survive the next sync before poll runs.
-        VALID_STATUSES = {"Flag for Prep", "Applied", "Interviewing", "Offer", "Withdrew", "Waitlist"}
+        VALID_STATUSES = {"Flag for Prep", "Regenerate", "Applied", "Interviewing", "Offer", "Withdrew", "Waitlist"}
         pending_statuses = {r[2]: r[0] for r in current if len(r) >= 3 and r[0] in VALID_STATUSES}
         pending_rejects = {r[2]: r[1] for r in current if len(r) >= 3 and r[1]}
     except Exception:
@@ -256,7 +256,10 @@ def sync_dashboard(svc, conn):
         # over stale "Flag for Prep" (prep has completed, user needs to review materials).
         # Pass None (not '') so build_row falls through to stage-derived logic.
         pending = pending_statuses.get(fp)
-        if pending and not (pending == "Flag for Prep" and row["stage"] in ("materials_drafted", "prep_in_progress")):
+        if pending and not (
+            (pending == "Flag for Prep" and row["stage"] in ("materials_drafted", "prep_in_progress"))
+            or (pending == "Regenerate" and row["stage"] == "prep_in_progress")
+        ):
             status_override = pending
         else:
             status_override = None

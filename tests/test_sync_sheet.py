@@ -265,26 +265,45 @@ def _resolve_pending(pending_status, stage):
 
     Returns the status_override to pass to build_row (None means let build_row derive).
     """
-    if pending_status and not (pending_status == "Flag for Prep" and stage == "materials_drafted"):
-        return pending_status
-    return None
+    if not pending_status:
+        return None
+    # Clear "Flag for Prep" once prep is complete or in-flight.
+    if pending_status == "Flag for Prep" and stage in ("materials_drafted", "prep_in_progress"):
+        return None
+    # Clear "Regenerate" only once the poller has launched prep (stage=prep_in_progress).
+    # Preserve it while stage=materials_drafted so the user sees it until poller runs.
+    if pending_status == "Regenerate" and stage == "prep_in_progress":
+        return None
+    return pending_status
 
 
 class TestPendingStatusPreservation:
     def test_flag_for_prep_scored_preserved(self):
-        override = _resolve_pending("Flag for Prep", "scored")
-        assert override == "Flag for Prep"
+        assert _resolve_pending("Flag for Prep", "scored") == "Flag for Prep"
 
     def test_flag_for_prep_materials_drafted_not_preserved(self):
-        override = _resolve_pending("Flag for Prep", "materials_drafted")
-        assert override is None
+        assert _resolve_pending("Flag for Prep", "materials_drafted") is None
+
+    def test_flag_for_prep_prep_in_progress_not_preserved(self):
+        assert _resolve_pending("Flag for Prep", "prep_in_progress") is None
+
+    def test_regenerate_scored_preserved(self):
+        """Regenerate on a scored job (edge case) — preserve it for poller."""
+        assert _resolve_pending("Regenerate", "scored") == "Regenerate"
+
+    def test_regenerate_materials_drafted_preserved(self):
+        """Regenerate on materials_drafted — preserve until poller processes it."""
+        assert _resolve_pending("Regenerate", "materials_drafted") == "Regenerate"
+
+    def test_regenerate_prep_in_progress_not_preserved(self):
+        """After poller processes Regenerate → stage=prep_in_progress, clear it."""
+        assert _resolve_pending("Regenerate", "prep_in_progress") is None
 
     def test_applied_preserved_regardless_of_stage(self):
         assert _resolve_pending("Applied", "scored") == "Applied"
         assert _resolve_pending("Applied", "materials_drafted") == "Applied"
 
     def test_empty_status_returns_none(self):
-        # Empty string is falsy, so returns None
         assert _resolve_pending("", "scored") is None
 
     def test_waitlist_status_preserved(self):
