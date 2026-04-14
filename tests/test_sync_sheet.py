@@ -184,6 +184,17 @@ class TestBuildRowDashboard:
         result = build_row(row, DASH_HEADERS, DASH_LOOKUP, use_status=True)
         assert result[1] == "Wrong Level"
 
+    def test_prep_in_progress_shows_prep_in_progress(self):
+        row = _make_row(stage="prep_in_progress")
+        result = build_row(row, DASH_HEADERS, DASH_LOOKUP, use_status=True)
+        assert result[0] == "Prep in Progress"
+
+    def test_prep_in_progress_apply_flag_1_still_shows_prep_in_progress(self):
+        """apply_flag=1 should NOT override stage-derived status."""
+        row = _make_row(stage="prep_in_progress", apply_flag=1)
+        result = build_row(row, DASH_HEADERS, DASH_LOOKUP, use_status=True)
+        assert result[0] == "Prep in Progress"
+
 
 # ---------------------------------------------------------------------------
 # build_row() — Sheet1 mode (use_status=False)

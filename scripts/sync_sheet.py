@@ -133,6 +133,8 @@ def build_row(row, headers, lookup, status_override=None, reject_override=None, 
                     sheet_row.append(status_override)
                 elif row["stage"] == "materials_drafted":
                     sheet_row.append("Ready to Apply")
+                elif row["stage"] == "prep_in_progress":
+                    sheet_row.append("Prep in Progress")
                 elif bool(val) and row["stage"] in ("scored", "manual_review", "enriched"):
                     sheet_row.append("Flag for Prep")
                 else:
