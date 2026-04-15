@@ -13,6 +13,7 @@ Usage:
 ntfy topic is read from NTFY_TOPIC in data/.env, or falls back to NTFY_TOPIC env var.
 """
 
+import glob
 import json
 import os
 import re
@@ -277,6 +278,17 @@ def cmd_health_check():
         for prefix, count in list(dupes.items())[:5]:
             issues.append(f"  • {prefix} ({count} copies)")
 
+    # ── rclone bisync conflict files ─────────────────────────────────────────
+    conflict_files = glob.glob(f"{BASE}/companies/**/*.path1", recursive=True)
+    conflict_files += glob.glob(f"{BASE}/companies/**/*.path2", recursive=True)
+    if conflict_files:
+        folders = sorted(set(os.path.dirname(f) for f in conflict_files))
+        issues.append(
+            f"WARN: {len(conflict_files)} rclone conflict file(s) (.path1/.path2) in {len(folders)} folder(s)"
+        )
+        for folder in folders[:5]:
+            issues.append(f"  • {os.path.basename(folder)}")
+
     # ── Stuck prep_in_progress jobs ──────────────────────────────────────────
     stuck_cutoff = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
     stuck = conn.execute(
@@ -296,6 +308,7 @@ def cmd_health_check():
         SELECT title, company, prep_folder_path FROM jobs
         WHERE prep_folder_path IS NOT NULL AND prep_folder_path != ''
           AND stage NOT IN ('rejected', 'withdrawn')
+          AND (dupe_of = '' OR dupe_of IS NULL)
     """).fetchall()
     orphaned = [r for r in prepped if not Path(r["prep_folder_path"]).is_dir()]
     if orphaned:
@@ -349,6 +362,25 @@ def cmd_health_check():
                 issues.append(f"  • {m}")
     except Exception as e:
         issues.append(f"INFO: Drive sync check skipped: {e}")
+
+    # ── Stage/folder location mismatches ─────────────────────────────────────
+    mismatches_rows = conn.execute("""
+        SELECT title, company, stage, prep_folder_path FROM jobs
+        WHERE prep_folder_path IS NOT NULL AND prep_folder_path != ''
+          AND (dupe_of = '' OR dupe_of IS NULL)
+    """).fetchall()
+    mismatch_count = 0
+    for r in mismatches_rows:
+        path = r["prep_folder_path"]
+        stage = r["stage"]
+        if stage == "applied" and "/_applied/" not in path:
+            mismatch_count += 1
+        elif stage == "waitlisted" and "/_waitlisted/" not in path:
+            mismatch_count += 1
+        elif stage == "rejected" and path and "/_rejected/" not in path:
+            mismatch_count += 1
+    if mismatch_count:
+        issues.append(f"WARN: {mismatch_count} job(s) with stage/folder location mismatch")
 
     conn.close()
 
