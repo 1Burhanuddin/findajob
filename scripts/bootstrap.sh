@@ -383,25 +383,24 @@ WantedBy=timers.target
 EOF
 
   # rclone jobsync — every 15 min
-  # Uses bidirectional sync (bisync) so edits made in Drive survive.
-  # First run requires a one-time 'rclone bisync --resync ...' to initialize
-  # the state file; see docs/setup/install-linux.md for details.
+  # Push-only: local → Drive. --update skips files where Drive is newer,
+  # preserving any edits made directly in Drive without bisync conflict copies.
   cat > "${SYSTEMD_DIR}/findajob-jobsync.service" << EOF
 [Unit]
-Description=findajob Google Drive bisync (bidirectional)
+Description=findajob Google Drive push-only sync
 After=network-online.target
 
 [Service]
 Type=oneshot
-# --max-delete 500: accommodate bulk operations (renames, folder moves).
-# Default is too low and causes bisync to abort during legitimate reorgs.
-ExecStart=/usr/bin/rclone bisync ${REPO}/companies/ "gdrive:01 PROJECTS/Jobs To Apply For" --max-delete 500
+# push-only: local → Drive. --update skips files where Drive is newer,
+# preserving any edits made directly in Drive.
+ExecStart=/usr/bin/rclone copy --update ${REPO}/companies/ "gdrive:01 PROJECTS/Jobs To Apply For"
 WorkingDirectory=${REPO}
 TimeoutStartSec=600
 StandardOutput=append:${LOG_DIR}/jobsync.log
 StandardError=append:${LOG_DIR}/jobsync.log
 EOF
-  write_interval_timer "jobsync" "findajob Google Drive bisync" "15min"
+  write_interval_timer "jobsync" "findajob Google Drive push-only sync" "15min"
 
   # RAG rebuild — Sunday 6:00 AM
   AICHAT_BIN="${aichat_bin}"
