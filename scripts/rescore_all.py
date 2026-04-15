@@ -177,7 +177,7 @@ def main():
         if args.stage not in valid_stages:
             print(f"Error: --stage must be one of {valid_stages}")
             sys.exit(1)
-        stage_filter = f"AND stage = ?"
+        stage_filter = "AND stage = ?"
         params = [args.stage]
     else:
         stage_filter = f"AND stage IN {valid_stages}"
