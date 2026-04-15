@@ -172,7 +172,7 @@ def main():
     # Fetch jobs that have JD text and are in a re-scoreable stage.
     # Exclude jobs that have progressed past scoring (applied, interviewing, etc.) —
     # overwriting their stage would corrupt the pipeline state.
-    valid_stages = ('scored', 'manual_review', 'enriched')
+    valid_stages = ("scored", "manual_review", "enriched")
     if args.stage:
         if args.stage not in valid_stages:
             print(f"Error: --stage must be one of {valid_stages}")
