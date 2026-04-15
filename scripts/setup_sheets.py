@@ -461,12 +461,14 @@ def main():
     dash_id = sheets.get("Dashboard")
     review_id = sheets.get("Review")
     waitlist_id = sheets.get("Waitlist")
+    rejected_apps_id = sheets.get("Rejected Applications")
 
     # ── Create missing tabs ────────────────────────────────────────────────
     init_requests = []
     create_dash = dash_id is None
     create_review = review_id is None
     create_waitlist = waitlist_id is None
+    create_rejected_apps = rejected_apps_id is None
 
     if create_dash:
         init_requests.append(
@@ -504,6 +506,18 @@ def main():
                 }
             }
         )
+    if create_rejected_apps:
+        init_requests.append(
+            {
+                "addSheet": {
+                    "properties": {
+                        "title": "Rejected Applications",
+                        "index": 4,
+                        "gridProperties": {"rowCount": 500, "columnCount": 8},
+                    }
+                }
+            }
+        )
 
     if init_requests:
         resp = svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": init_requests}).execute()
@@ -520,8 +534,12 @@ def main():
             waitlist_id = resp["replies"][reply_idx]["addSheet"]["properties"]["sheetId"]
             print("Created Waitlist tab.")
             reply_idx += 1
+        if create_rejected_apps:
+            rejected_apps_id = resp["replies"][reply_idx]["addSheet"]["properties"]["sheetId"]
+            print("Created Rejected Applications tab.")
+            reply_idx += 1
     else:
-        print("Dashboard, Review, and Waitlist tabs already exist — re-applying formatting.")
+        print("Dashboard, Review, Waitlist, and Rejected Applications tabs already exist — re-applying formatting.")
 
     # ── Sheet1 formatting ──────────────────────────────────────────────────
     s1_requests = [
@@ -968,6 +986,74 @@ def main():
     )
     svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": wb_requests}).execute()
     print("Waitlist row banding applied.")
+
+    # ── Rejected Applications tab formatting ──────────────────────────────
+    ra_requests = [
+        {
+            "updateSheetProperties": {
+                "properties": {"sheetId": rejected_apps_id, "gridProperties": {"frozenRowCount": 1}},
+                "fields": "gridProperties.frozenRowCount",
+            }
+        },
+        # Bold + dark header row
+        {
+            "repeatCell": {
+                "range": {
+                    "sheetId": rejected_apps_id,
+                    "startRowIndex": 0,
+                    "endRowIndex": 1,
+                    "startColumnIndex": 0,
+                    "endColumnIndex": 8,
+                },
+                "cell": {
+                    "userEnteredFormat": {
+                        "textFormat": {
+                            "bold": True,
+                            "foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
+                        },
+                        "backgroundColor": {"red": 0.18, "green": 0.18, "blue": 0.18},
+                    }
+                },
+                "fields": "userEnteredFormat(textFormat(bold,foregroundColor),backgroundColor)",
+            }
+        },
+        # Column widths
+        col_width(rejected_apps_id, 0, 280),  # A: title
+        col_width(rejected_apps_id, 1, 150),  # B: company
+        col_width(rejected_apps_id, 2, 130),  # C: reject_reason
+        col_width(rejected_apps_id, 3, 100),  # D: applied_date
+        col_width(rejected_apps_id, 4, 100),  # E: rejected_date
+        col_width(rejected_apps_id, 5, 55),   # F: fit_score
+        col_width(rejected_apps_id, 6, 55),   # G: prob_score
+        col_width(rejected_apps_id, 7, 300),  # H: ai_notes
+    ]
+
+    svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": ra_requests}).execute()
+    print("Rejected Applications tab formatted.")
+
+    # Rejected Applications row banding
+    if create_rejected_apps:
+        spreadsheet = svc.spreadsheets().get(spreadsheetId=SHEET_ID).execute()
+        sheets_meta = spreadsheet.get("sheets", [])
+
+    ra_sheet = next((s for s in sheets_meta if s["properties"]["sheetId"] == rejected_apps_id), None)
+    ra_banding = ra_sheet.get("bandedRanges", []) if ra_sheet else []
+    ra_band_requests = [{"deleteBanding": {"bandedRangeId": b["bandedRangeId"]}} for b in ra_banding]
+    ra_band_requests.append(
+        {
+            "addBanding": {
+                "bandedRange": {
+                    "range": {"sheetId": rejected_apps_id, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 8},
+                    "rowProperties": {
+                        "firstBandColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
+                        "secondBandColor": rgb(245, 245, 248),
+                    },
+                },
+            }
+        }
+    )
+    svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": ra_band_requests}).execute()
+    print("Rejected Applications row banding applied.")
 
     print()
     print("Done. Run sync_sheet.py to populate.")

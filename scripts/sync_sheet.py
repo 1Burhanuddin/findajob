@@ -466,6 +466,64 @@ def sync_waitlist(svc, conn):
     return n_waitlist
 
 
+# ── Rejected Applications: jobs rejected after applying ──────────────────────
+REJECTED_APPS_HEADERS = [
+    "title",
+    "company",
+    "reject_reason",
+    "applied_date",
+    "rejected_date",
+    "fit_score",
+    "probability_score",
+    "ai_notes",
+]
+
+
+def sync_rejected_apps(svc, conn):
+    """Sync jobs that were rejected after being in 'applied' stage."""
+    rows = conn.execute("""
+        SELECT j.*, a.changed_at AS rejected_date
+        FROM jobs j
+        JOIN audit_log a ON a.job_id = j.id
+        WHERE a.field_changed = 'stage'
+          AND a.old_value = 'applied'
+          AND a.new_value = 'rejected'
+        ORDER BY a.changed_at DESC
+    """).fetchall()
+
+    # Look up the date each job was marked applied
+    applied_dates = {}
+    for row in rows:
+        applied_entry = conn.execute(
+            "SELECT changed_at FROM audit_log WHERE job_id=? AND field_changed='stage' AND new_value='applied' ORDER BY changed_at DESC LIMIT 1",
+            (row["id"],),
+        ).fetchone()
+        if applied_entry:
+            applied_dates[row["id"]] = applied_entry["changed_at"][:10]
+
+    sheet_rows = [REJECTED_APPS_HEADERS]
+    for row in rows:
+        sheet_row = [
+            hyperlink(row["url"], row["title"]),
+            safe_str(row["company"]),
+            safe_str(row["reject_reason"] or ""),
+            safe_str(applied_dates.get(row["id"], "")),
+            safe_str(row["rejected_date"][:10] if row["rejected_date"] else ""),
+            safe_str(row["fit_score"] if row["fit_score"] else ""),
+            safe_str(row["probability_score"] if row["probability_score"] else ""),
+            safe_str(row["ai_notes"] or ""),
+        ]
+        sheet_rows.append(sheet_row)
+
+    svc.spreadsheets().values().clear(spreadsheetId=SHEET_ID, range="Rejected Applications!A2:H10000").execute()
+    svc.spreadsheets().values().update(
+        spreadsheetId=SHEET_ID, range="Rejected Applications!A1", valueInputOption="USER_ENTERED", body={"values": sheet_rows}
+    ).execute()
+    n = len(sheet_rows) - 1
+    print(f"Rejected Applications: {n} rejected-after-apply jobs synced")
+    return n
+
+
 def main():
     creds = service_account.Credentials.from_service_account_file(SA_FILE, scopes=SCOPES)
     svc = build("sheets", "v4", credentials=creds)
@@ -477,6 +535,7 @@ def main():
         n_dash = sync_dashboard(svc, conn)
         n_review = sync_review(svc, conn)
         n_waitlist = sync_waitlist(svc, conn)
+        n_rejected_apps = sync_rejected_apps(svc, conn)
         log_event("sync_complete", sheet1=n_sheet1, dashboard=n_dash, review=n_review, waitlist=n_waitlist)
     except Exception as e:
         log_event("sync_failed", error=str(e))
