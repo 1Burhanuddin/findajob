@@ -190,6 +190,11 @@ def main():
 
         existing = conn.execute("SELECT id FROM jobs WHERE fingerprint = ?", (fp,)).fetchone()
 
+        # Fallback: URL-based dedup catches jobs whose fingerprint changed
+        # due to cleaning rule updates (same URL, different fingerprint).
+        if not existing and job.get("url"):
+            existing = conn.execute("SELECT id FROM jobs WHERE url = ?", (job["url"],)).fetchone()
+
         if existing:
             conn.execute(
                 "INSERT OR IGNORE INTO duplicate_groups (canonical_fingerprint, duplicate_job_id) VALUES (?, ?)",

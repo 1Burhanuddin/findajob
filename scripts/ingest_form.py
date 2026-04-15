@@ -154,8 +154,10 @@ def main():
         fp = fingerprint(title, company, location)
         now = datetime.now(UTC).isoformat()
 
-        # Check for duplicate
+        # Check for duplicate (fingerprint match, then URL fallback)
         existing = conn.execute("SELECT id FROM jobs WHERE fingerprint=?", (fp,)).fetchone()
+        if not existing and url:
+            existing = conn.execute("SELECT id FROM jobs WHERE url=?", (url,)).fetchone()
         if existing:
             print(f"Row {i + 2}: duplicate — {company} / {title} already in DB")
             updates.append((i + 2, f"Duplicate: already in DB as {existing['id']}"))
