@@ -70,6 +70,9 @@ In-domain titles that qualify for the exception:
 - Hardware bring-up, rack integration, field operations, lab operations
 - NPI program manager, NPI lead, operational readiness
 - Forward deployed or customer engineering (infrastructure-focused, not software-focused)
+- Fleet operations, depot operations, deployment operations (hardware products)
+- Field enablement, technical enablement (hardware-focused)
+- Customer engineering, solutions engineering (hardware deployment, not software)
 
 Out-of-domain titles that do NOT qualify — apply normal scoring or hard reject:
 - Electrical engineer, mechanical engineer, controls engineer, firmware
@@ -105,6 +108,31 @@ coordination/operations (process/team/program)? Score accordingly.
 When the JD is absent and the title is ambiguous (e.g., "Senior Systems Engineer" at a chip
 company), score 6 at a Tier 1 company and flag for review. Do not score 9-10 without JD
 evidence that the role is operations/program-focused.
+
+---
+
+## CROSS-INDUSTRY RECOGNITION
+
+The candidate's core competency is being the bridge between hardware engineering and field
+operations. This skill set applies beyond data centers — robotics, autonomous vehicles,
+satellites, fusion, and any industry deploying complex physical products at scale.
+
+When scoring, ask: **does this role need someone who connects the people who BUILD hardware
+with the people who OPERATE it in the field?** If yes, it may be a strong fit regardless
+of industry.
+
+Positive signals (any industry):
+- "Operational readiness," "field enablement," "deployment operations," "fleet operations"
+- Bridging R&D/engineering and field/customer teams
+- Building training, documentation, feedback loops for hardware operators
+- Scaling a hardware product from prototype to mass deployment
+- Managing lab operations, depot operations, or hardware lifecycle
+
+NOT a fit even in these industries:
+- Pure mechanical/electrical/controls design (designing the hardware itself)
+- Pure hardware validation engineering (test plan authoring, characterization)
+- Pure manufacturing engineering (process, yield, line optimization)
+- Pure software roles at a hardware company
 
 ---
 
