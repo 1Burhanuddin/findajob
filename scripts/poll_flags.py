@@ -46,7 +46,9 @@ def sync_folder_to_drive(folder_path, drive_subdir=""):
         drive_dest = f"{DRIVE_BASE}/{drive_subdir}/{folder_name}"
     else:
         drive_dest = f"{DRIVE_BASE}/{folder_name}"
-    rc = subprocess.run([RCLONE, "copy", "--update", folder_path, drive_dest], capture_output=True, text=True, timeout=300)
+    rc = subprocess.run(
+        [RCLONE, "copy", "--update", folder_path, drive_dest], capture_output=True, text=True, timeout=300
+    )
     if rc.returncode != 0:
         log_event(
             "rclone_sync_failed",
@@ -546,7 +548,8 @@ def main():
     # can take several minutes; blocking here hangs the entire poll cycle).
     for job in flagged_jobs:
         subprocess.Popen(
-            [sys.executable, f"{BASE}/scripts/prep_application.py", job["company"], job["title"], job["url"], job["id"]],
+            [sys.executable, f"{BASE}/scripts/prep_application.py",
+             job["company"], job["title"], job["url"], job["id"]],
             start_new_session=True,
         )
 

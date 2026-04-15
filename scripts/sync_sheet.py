@@ -495,7 +495,9 @@ def sync_rejected_apps(svc, conn):
     applied_dates = {}
     for row in rows:
         applied_entry = conn.execute(
-            "SELECT changed_at FROM audit_log WHERE job_id=? AND field_changed='stage' AND new_value='applied' ORDER BY changed_at DESC LIMIT 1",
+            "SELECT changed_at FROM audit_log WHERE job_id=? "
+            "AND field_changed='stage' AND new_value='applied' "
+            "ORDER BY changed_at DESC LIMIT 1",
             (row["id"],),
         ).fetchone()
         if applied_entry:
@@ -521,7 +523,8 @@ def sync_rejected_apps(svc, conn):
 
     svc.spreadsheets().values().clear(spreadsheetId=SHEET_ID, range="Rejected Applications!A2:H10000").execute()
     svc.spreadsheets().values().update(
-        spreadsheetId=SHEET_ID, range="Rejected Applications!A1", valueInputOption="USER_ENTERED", body={"values": sheet_rows}
+        spreadsheetId=SHEET_ID, range="Rejected Applications!A1",
+        valueInputOption="USER_ENTERED", body={"values": sheet_rows}
     ).execute()
     n = len(sheet_rows) - 1
     print(f"Rejected Applications: {n} rejected-after-apply jobs synced")
@@ -539,7 +542,7 @@ def main():
         n_dash = sync_dashboard(svc, conn)
         n_review = sync_review(svc, conn)
         n_waitlist = sync_waitlist(svc, conn)
-        n_rejected_apps = sync_rejected_apps(svc, conn)
+        sync_rejected_apps(svc, conn)
         log_event("sync_complete", sheet1=n_sheet1, dashboard=n_dash, review=n_review, waitlist=n_waitlist)
     except Exception as e:
         log_event("sync_failed", error=str(e))

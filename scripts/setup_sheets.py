@@ -1043,7 +1043,10 @@ def main():
         {
             "addBanding": {
                 "bandedRange": {
-                    "range": {"sheetId": rejected_apps_id, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 8},
+                    "range": {
+                        "sheetId": rejected_apps_id, "startRowIndex": 1,
+                        "startColumnIndex": 0, "endColumnIndex": 8,
+                    },
                     "rowProperties": {
                         "firstBandColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
                         "secondBandColor": rgb(245, 245, 248),
