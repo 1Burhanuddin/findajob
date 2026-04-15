@@ -93,7 +93,9 @@ install_pip_deps() {
 setup_dirs() {
   info "Creating required directories..."
   mkdir -p "${LOG_DIR}"
-  mkdir -p "${REPO}/companies/_done"
+  mkdir -p "${REPO}/companies/_rejected"
+  mkdir -p "${REPO}/companies/_applied"
+  mkdir -p "${REPO}/companies/_waitlisted"
   mkdir -p "${REPO}/rag_sources"
   mkdir -p "${REPO}/voice_samples"
   ok "Directories ready"

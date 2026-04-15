@@ -11,7 +11,7 @@ Runs daily via a scheduler (launchd on macOS, systemd on Linux). No cloud infras
 1. **Daily triage** — fetches 100–500 job listings from multiple sources, deduplicates, enriches with JD text, scores with an LLM against your profile, writes results to SQLite and syncs to Google Sheets
 2. **Flag → Prep** — you flag a job in the Dashboard; the pipeline generates a tailored resume, cover letter, company briefing, and LinkedIn outreach drafts
 3. **Notifications** — push notifications via ntfy.sh: daily stats, health check, apply reminders
-4. **Rejection tracking** — reject with a reason in the sheet; the pipeline logs it for pattern analysis and moves the folder to `_done/`
+4. **Rejection tracking** — reject with a reason in the sheet; the pipeline logs it for pattern analysis and moves the folder to `_rejected/`
 5. **Manual injection** — Google Form lets you add any job (found outside the pipeline) and optionally trigger prep immediately
 
 ---

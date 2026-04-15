@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ~/JobSearchPipeline/scripts/rename_folders.py
+# scripts/rename_folders.py
 """
 Rename existing company folders to include abbreviated job title.
 Old format: {Company}_{YYYY-MM-DD}_{HHMMSS}
@@ -34,7 +34,7 @@ def main():
     conn.row_factory = sqlite3.Row
 
     # Build lookup: old_folder_path → (job_id, title)
-    # Also index by basename to handle folders moved into _done
+    # Also index by basename to handle folders moved into subdirs
     jobs = conn.execute("""
         SELECT id, title, prep_folder_path FROM jobs
         WHERE prep_folder_path IS NOT NULL AND prep_folder_path != ''
@@ -45,8 +45,13 @@ def main():
     renamed = 0
     skipped = 0
 
-    # Walk both companies/ and companies/_done/
-    search_dirs = [COMPANIES, os.path.join(COMPANIES, "_done")]
+    # Walk companies/ and all stage subdirs
+    search_dirs = [
+        COMPANIES,
+        os.path.join(COMPANIES, "_rejected"),
+        os.path.join(COMPANIES, "_applied"),
+        os.path.join(COMPANIES, "_waitlisted"),
+    ]
 
     for search_dir in search_dirs:
         if not os.path.isdir(search_dir):
@@ -66,7 +71,7 @@ def main():
 
             company_part, date_part, time_part = m.group(1), m.group(2), m.group(3)
 
-            # Look up job by exact path, then fall back to basename (handles _done moves)
+            # Look up job by exact path, then fall back to basename (handles subdir moves)
             job = path_to_job.get(old_path) or basename_to_job.get(name)
             if not job:
                 print(f"SKIP (no DB match): {name}")
