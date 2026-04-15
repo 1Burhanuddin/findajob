@@ -281,20 +281,21 @@ class TestHandleRejection:
         assert fb is not None
 
     def test_rejection_from_waitlisted_source_subdir(self, poll_flags_mod, db, tmp_path, monkeypatch):
-        """Rejecting from Waitlist tab passes source_subdir='_waitlisted' to delete_drive_folder."""
+        """Rejecting from Waitlist tab uses move_drive_folder from _waitlisted to _rejected."""
         folder = tmp_path / "companies" / "_waitlisted" / "Acme_Ops_2026-04-13_130000"
         folder.mkdir(parents=True, exist_ok=True)
 
-        delete_calls = []
+        move_calls = []
         monkeypatch.setattr(
-            poll_flags_mod, "delete_drive_folder", lambda name, subdir="": delete_calls.append((name, subdir))
+            poll_flags_mod, "move_drive_folder", lambda name, src, dst: move_calls.append((name, src, dst))
         )
 
         job = insert_job(db, stage="waitlisted", folder=str(folder))
         poll_flags_mod.handle_rejection(db, job, "No Longer Interested", source_subdir="_waitlisted")
 
-        assert len(delete_calls) == 1
-        assert delete_calls[0][1] == "_waitlisted"
+        assert len(move_calls) == 1
+        assert move_calls[0][1] == "_waitlisted"
+        assert move_calls[0][2] == "_rejected"
 
     def test_rejection_writes_jd_excerpt(self, poll_flags_mod, db):
         """If job has raw_jd_text, feedback_log gets first 500 chars."""
@@ -319,7 +320,7 @@ class TestHandleRejection:
 
 class TestHandleWaitlist:
     def test_waitlist_with_folder(self, poll_flags_mod, db, tmp_path, monkeypatch):
-        """Folder moves to _waitlisted/, stage updated, Drive synced."""
+        """Folder moves to _waitlisted/, stage updated, Drive moved server-side."""
         folder = tmp_path / "companies" / "Acme_Ops_2026-04-13_140000"
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "cover_letter.docx").touch()
@@ -328,9 +329,9 @@ class TestHandleWaitlist:
         monkeypatch.setattr(
             poll_flags_mod, "sync_folder_to_drive", lambda path, subdir="": sync_calls.append((path, subdir))
         )
-        delete_calls = []
+        move_calls = []
         monkeypatch.setattr(
-            poll_flags_mod, "delete_drive_folder", lambda name, subdir="": delete_calls.append((name, subdir))
+            poll_flags_mod, "move_drive_folder", lambda name, src, dst: move_calls.append((name, src, dst))
         )
 
         job = insert_job(db, stage="materials_drafted", folder=str(folder))
@@ -343,11 +344,13 @@ class TestHandleWaitlist:
         assert "_waitlisted" in row["prep_folder_path"]
         assert os.path.isdir(row["prep_folder_path"])
 
-        # Drive sync called
+        # Drive sync called to push any new local content
         assert len(sync_calls) == 1
         assert sync_calls[0][1] == "_waitlisted"
-        # Old location deleted from Drive
-        assert len(delete_calls) == 1
+        # Server-side move from top-level to _waitlisted
+        assert len(move_calls) == 1
+        assert move_calls[0][1] == ""
+        assert move_calls[0][2] == "_waitlisted"
 
     def test_waitlist_without_folder(self, poll_flags_mod, db):
         """No folder: stage updated, no folder operations, returns False."""
@@ -748,13 +751,13 @@ class TestWaitlistTab:
         assert row["stage"] == "scored"
 
     def test_reject_from_waitlist(self, poll_flags_mod, db, tmp_path, monkeypatch):
-        """Reject from Waitlist tab passes source_subdir='_waitlisted'."""
+        """Reject from Waitlist tab uses move_drive_folder from _waitlisted to _rejected."""
         folder = tmp_path / "companies" / "_waitlisted" / "Acme_Ops_2026-04-13_180000"
         folder.mkdir(parents=True, exist_ok=True)
 
-        delete_calls = []
+        move_calls = []
         monkeypatch.setattr(
-            poll_flags_mod, "delete_drive_folder", lambda name, subdir="": delete_calls.append((name, subdir))
+            poll_flags_mod, "move_drive_folder", lambda name, src, dst: move_calls.append((name, src, dst))
         )
 
         job = insert_job(db, stage="waitlisted", folder=str(folder))
@@ -762,8 +765,9 @@ class TestWaitlistTab:
 
         row = db.execute("SELECT stage FROM jobs WHERE id=?", (job["id"],)).fetchone()
         assert row["stage"] == "rejected"
-        assert len(delete_calls) == 1
-        assert delete_calls[0][1] == "_waitlisted"
+        assert len(move_calls) == 1
+        assert move_calls[0][1] == "_waitlisted"
+        assert move_calls[0][2] == "_rejected"
 
     def test_rejection_priority_over_reactivate(self, poll_flags_mod, db):
         """Both reject and reactivate set → rejection wins (main() logic)."""

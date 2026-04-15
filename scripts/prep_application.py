@@ -369,7 +369,7 @@ Generated: {date}
     folder_name = os.path.basename(outdir)
     try:
         subprocess.run(
-            [RCLONE, "copy", outdir, f"gdrive:01 PROJECTS/Jobs To Apply For/{folder_name}"],
+            [RCLONE, "copy", "--update", outdir, f"gdrive:01 PROJECTS/Jobs To Apply For/{folder_name}"],
             capture_output=True,
             text=True,
             timeout=300,

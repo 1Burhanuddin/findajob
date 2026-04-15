@@ -19,6 +19,18 @@ from findajob.utils import is_valid_company, log_event, write_audit
 
 DRIVE_BASE = "gdrive:01 PROJECTS/Jobs To Apply For"
 
+# Maps DB stage to the Drive subdirectory where its folder lives.
+# Used to determine where to find the folder on Drive for move operations.
+STAGE_SUBDIR = {
+    "applied": "_applied",
+    "waitlisted": "_waitlisted",
+    "materials_drafted": "",
+    "prep_in_progress": "",
+    "scored": "",
+    "interview": "",
+    "offer": "",
+}
+
 DB_PATH = f"{BASE}/data/pipeline.db"
 SA_FILE = f"{BASE}/config/gsheets_creds.json"
 with open(f"{BASE}/config/sheet_id.txt") as f:
@@ -34,7 +46,7 @@ def sync_folder_to_drive(folder_path, drive_subdir=""):
         drive_dest = f"{DRIVE_BASE}/{drive_subdir}/{folder_name}"
     else:
         drive_dest = f"{DRIVE_BASE}/{folder_name}"
-    rc = subprocess.run([RCLONE, "copy", folder_path, drive_dest], capture_output=True, text=True, timeout=300)
+    rc = subprocess.run([RCLONE, "copy", "--update", folder_path, drive_dest], capture_output=True, text=True, timeout=300)
     if rc.returncode != 0:
         log_event(
             "rclone_sync_failed",
@@ -64,6 +76,27 @@ def delete_drive_folder(folder_name, drive_subdir=""):
             stderr=(rc.stderr or "")[:200],
         )
         return False
+    return True
+
+
+def move_drive_folder(folder_name, from_subdir, to_subdir):
+    """Move a folder within Drive (server-side). Preserves user edits."""
+    src = f"{DRIVE_BASE}/{from_subdir}/{folder_name}" if from_subdir else f"{DRIVE_BASE}/{folder_name}"
+    dst = f"{DRIVE_BASE}/{to_subdir}/{folder_name}" if to_subdir else f"{DRIVE_BASE}/{folder_name}"
+    rc = subprocess.run([RCLONE, "move", src, dst], capture_output=True, text=True, timeout=300)
+    if rc.returncode != 0:
+        log_event(
+            "rclone_move_failed",
+            folder=folder_name,
+            src=from_subdir or "top-level",
+            dst=to_subdir or "top-level",
+            exit_code=rc.returncode,
+            stderr=(rc.stderr or "")[:200],
+        )
+        return False
+    # Clean up empty source directory
+    subprocess.run([RCLONE, "rmdir", src], capture_output=True, text=True, timeout=30)
+    log_event("folder_moved_on_drive", folder=folder_name, src=from_subdir or "top-level", dst=to_subdir or "top-level")
     return True
 
 
@@ -102,8 +135,11 @@ def handle_rejection(conn, job, reason, source_subdir=""):
         conn.execute("UPDATE jobs SET prep_folder_path=? WHERE id=?", (dest, job["id"]))
         log_event("folder_moved_to_rejected", job_id=job["id"], folder=os.path.basename(folder), reason=reason)
         folder_moved = True
+        # Determine where the folder currently lives on Drive
+        effective_source = source_subdir if source_subdir else STAGE_SUBDIR.get(old_stage, "")
+        move_drive_folder(os.path.basename(folder), effective_source, "_rejected")
+        # Push marker file and any new local content (--update won't overwrite user edits)
         sync_folder_to_drive(dest, "_rejected")
-        delete_drive_folder(os.path.basename(folder), source_subdir)
 
     conn.commit()
     write_audit(conn, job["id"], "stage", old_stage, "rejected")
@@ -131,8 +167,8 @@ def handle_waitlist(conn, job):
         conn.execute("UPDATE jobs SET prep_folder_path=? WHERE id=?", (dest, job["id"]))
         log_event("folder_moved_to_waitlisted", job_id=job["id"], folder=os.path.basename(folder))
         folder_moved = True
+        move_drive_folder(os.path.basename(folder), "", "_waitlisted")
         sync_folder_to_drive(dest, "_waitlisted")
-        delete_drive_folder(os.path.basename(folder))
 
     conn.commit()
     write_audit(conn, job["id"], "stage", old_stage, "waitlisted")
@@ -158,8 +194,8 @@ def handle_reactivate(conn, job):
         )
         new_stage = "materials_drafted"
         folder_moved = True
+        move_drive_folder(os.path.basename(folder), "_waitlisted", "")
         sync_folder_to_drive(dest)
-        delete_drive_folder(os.path.basename(folder), "_waitlisted")
     else:
         conn.execute("UPDATE jobs SET stage=?, updated_at=? WHERE id=?", ("scored", now, job["id"]))
         new_stage = "scored"
@@ -306,8 +342,8 @@ def main():
                         conn.execute("UPDATE jobs SET prep_folder_path=? WHERE id=?", (dest, job["id"]))
                         conn.commit()
                         log_event("folder_moved_to_applied", job_id=job["id"], folder=os.path.basename(folder))
+                        move_drive_folder(os.path.basename(folder), "", "_applied")
                         sync_folder_to_drive(dest, "_applied")
-                        delete_drive_folder(os.path.basename(folder))
                         folders_moved += 1
                     applied_count += 1
 
@@ -476,9 +512,9 @@ def main():
     if need_sync:
         subprocess.Popen([sys.executable, f"{BASE}/scripts/sync_sheet.py"], start_new_session=True)
 
-    # Folder moves are synced to Drive inline (sync_folder_to_drive + delete_drive_folder)
-    # immediately after each local move. The jobsync timer handles pulling user edits
-    # from Drive back to local (rclone copy --update, one-way Drive→local).
+    # Folder moves use rclone move (server-side on Drive) to preserve user edits,
+    # then rclone copy --update to push new local files (markers) without overwriting.
+    # The jobsync timer handles pulling user edits from Drive back to local.
     if folders_moved:
         log_event("folder_moves_synced_to_drive", count=folders_moved)
 
