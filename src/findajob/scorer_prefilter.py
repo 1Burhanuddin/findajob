@@ -43,6 +43,18 @@ TIER1: frozenset[str] = frozenset(
         "coreweave",
         "crusoe",
         "astera",
+        # Expansion (2026-04-15)
+        "spacex",
+        "together ai",
+        "runpod",
+        "fireworks",
+        "edgeconnex",
+        "hut 8",
+        "core scientific",
+        "fluidstack",
+        "aetherflux",
+        "cleanspark",
+        "t5 data",
     ]
 )
 
