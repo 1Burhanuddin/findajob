@@ -155,12 +155,19 @@ def fetch_greenhouse_jobs(feed_urls_path):
                 seen_slugs.add(slug)
                 slugs.append((slug, is_eu))
 
+    gh_headers = {"User-Agent": "findajob-pipeline/1.0 (personal job search tool)"}
+
     for slug, _is_eu in slugs:
         # Greenhouse API host is always boards-api.greenhouse.io regardless of
         # board subdomain (boards.eu.greenhouse.io is the web board only).
         api_url = f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
         try:
-            resp = req.get(api_url, timeout=15)
+            resp = req.get(api_url, headers=gh_headers, timeout=15)
+            if resp.status_code == 429:
+                wait = min(int(resp.headers.get("Retry-After", "10")), 60)
+                log_event("greenhouse_rate_limit", slug=slug, wait=wait)
+                time.sleep(wait)
+                resp = req.get(api_url, headers=gh_headers, timeout=15)
             if resp.status_code != 200:
                 log_event("greenhouse_fetch_skip", slug=slug, status=resp.status_code)
                 continue
@@ -245,6 +252,16 @@ def fetch_jobsapi_jobs(queries_path):
                     params=source["params"](query),  # type: ignore[operator]
                     timeout=30,
                 )
+                if response.status_code == 429:
+                    wait = min(int(response.headers.get("Retry-After", "10")), 60)
+                    log_event("rapidapi_rate_limit", source=source["name"], query=query, wait=wait)
+                    time.sleep(wait)
+                    response = req.get(
+                        source["url"],
+                        headers=headers,
+                        params=source["params"](query),  # type: ignore[operator]
+                        timeout=30,
+                    )
                 response.raise_for_status()
                 data = response.json()
 
