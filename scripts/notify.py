@@ -507,6 +507,45 @@ def cmd_send_raw():
     send(sys.argv[2], sys.argv[3], priority="default", tags="hourglass_flowing_sand")
 
 
+def cmd_ci_check():
+    """Check GitHub Actions CI status and notify on the most recent failure.
+
+    Only alerts if the latest completed main-branch run failed.
+    Stays quiet if the latest run is green (prior failures are stale).
+    """
+    result = subprocess.run(
+        ["gh", "run", "list", "--limit", "5", "--json", "conclusion,headBranch,displayTitle,url,status"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        send("JSP CI Check", f"gh run list failed: {result.stderr[:200]}", priority="default", tags="warning")
+        return
+
+    import json as _json
+
+    try:
+        runs = _json.loads(result.stdout)
+    except _json.JSONDecodeError:
+        return
+
+    # Find the most recent completed run on main
+    latest = next(
+        (r for r in runs if r.get("headBranch") == "main" and r.get("status") == "completed"),
+        None,
+    )
+    if not latest or latest.get("conclusion") != "failure":
+        return  # latest is green or in progress, stay quiet
+
+    lines = [
+        "Latest CI run failed:",
+        f"  {latest.get('displayTitle', '?')}",
+        f"  {latest.get('url', '')}",
+    ]
+    send("JSP CI Failure", "\n".join(lines), priority="high", tags="x")
+
+
 # ── Dispatch ───────────────────────────────────────────────────────────────────
 COMMANDS = {
     "daily-stats": cmd_daily_stats,
@@ -515,6 +554,7 @@ COMMANDS = {
     "apply-reminder": cmd_apply_reminder,
     "feedback-review": cmd_feedback_review,
     "send-raw": cmd_send_raw,
+    "ci-check": cmd_ci_check,
 }
 
 if __name__ == "__main__":
