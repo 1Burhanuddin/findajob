@@ -523,8 +523,10 @@ def sync_rejected_apps(svc, conn):
 
     svc.spreadsheets().values().clear(spreadsheetId=SHEET_ID, range="Rejected Applications!A2:H10000").execute()
     svc.spreadsheets().values().update(
-        spreadsheetId=SHEET_ID, range="Rejected Applications!A1",
-        valueInputOption="USER_ENTERED", body={"values": sheet_rows}
+        spreadsheetId=SHEET_ID,
+        range="Rejected Applications!A1",
+        valueInputOption="USER_ENTERED",
+        body={"values": sheet_rows},
     ).execute()
     n = len(sheet_rows) - 1
     print(f"Rejected Applications: {n} rejected-after-apply jobs synced")

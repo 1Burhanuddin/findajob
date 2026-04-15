@@ -72,8 +72,18 @@ def db():
     conn.close()
 
 
-def insert_job(conn, *, stage="scored", company="Acme Corp", title="Operations Manager",
-               score=7, folder=None, fit_score=None, prob_score=None, gdrive_url=None):
+def insert_job(
+    conn,
+    *,
+    stage="scored",
+    company="Acme Corp",
+    title="Operations Manager",
+    score=7,
+    folder=None,
+    fit_score=None,
+    prob_score=None,
+    gdrive_url=None,
+):
     """Insert a job with sane defaults; returns the job_id."""
     job_id = str(uuid.uuid4())[:8]
     fp = f"fp_{job_id}"
@@ -81,8 +91,19 @@ def insert_job(conn, *, stage="scored", company="Acme Corp", title="Operations M
         """INSERT INTO jobs (id, fingerprint, url, title, company, relevance_score,
                              stage, prep_folder_path, fit_score, probability_score, gdrive_folder_url)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (job_id, fp, f"https://example.com/{job_id}", title, company, score,
-         stage, folder, fit_score, prob_score, gdrive_url),
+        (
+            job_id,
+            fp,
+            f"https://example.com/{job_id}",
+            title,
+            company,
+            score,
+            stage,
+            folder,
+            fit_score,
+            prob_score,
+            gdrive_url,
+        ),
     )
     conn.commit()
     return job_id
@@ -262,8 +283,9 @@ class TestDBStateTransitions:
 
     def test_gdrive_url_stored_on_success(self, db):
         """Drive URL stored when rclone link succeeds."""
-        job_id = insert_job(db, stage="materials_drafted",
-                            folder="/home/user/companies/Acme_Ops_Manager_2026-04-13_140000")
+        job_id = insert_job(
+            db, stage="materials_drafted", folder="/home/user/companies/Acme_Ops_Manager_2026-04-13_140000"
+        )
         drive_url = "https://drive.google.com/drive/folders/abc123"
 
         db.execute("UPDATE jobs SET gdrive_folder_url=? WHERE id=?", (drive_url, job_id))
@@ -274,18 +296,23 @@ class TestDBStateTransitions:
 
     def test_gdrive_url_stays_null_on_failure(self, db):
         """Drive URL stays NULL when rclone link fails (no update executed)."""
-        job_id = insert_job(db, stage="materials_drafted",
-                            folder="/home/user/companies/Acme_Ops_Manager_2026-04-13_140000")
+        job_id = insert_job(
+            db, stage="materials_drafted", folder="/home/user/companies/Acme_Ops_Manager_2026-04-13_140000"
+        )
         # Simulate rclone failure — no UPDATE issued
         row = db.execute("SELECT gdrive_folder_url FROM jobs WHERE id=?", (job_id,)).fetchone()
         assert row["gdrive_folder_url"] is None
 
     def test_regenerate_clears_prep_state(self, db):
         """Regeneration clears folder path, Drive URL, and resets stage to prep_in_progress."""
-        job_id = insert_job(db, stage="materials_drafted",
-                            folder="/home/user/companies/Acme_Ops_Manager_2026-04-13_140000",
-                            fit_score=76.7, prob_score=60.0,
-                            gdrive_url="https://drive.google.com/drive/folders/abc123")
+        job_id = insert_job(
+            db,
+            stage="materials_drafted",
+            folder="/home/user/companies/Acme_Ops_Manager_2026-04-13_140000",
+            fit_score=76.7,
+            prob_score=60.0,
+            gdrive_url="https://drive.google.com/drive/folders/abc123",
+        )
 
         db.execute(
             """UPDATE jobs SET prep_folder_path=NULL, gdrive_folder_url=NULL,
@@ -328,15 +355,9 @@ class TestFileNaming:
         folder = "/home/user/companies/Acme_Ops_Manager_2026-04-13_140000"
         job_id = insert_job(db, stage="materials_drafted", folder=folder)
 
-        existing = db.execute(
-            "SELECT prep_folder_path, stage FROM jobs WHERE id=?", (job_id,)
-        ).fetchone()
+        existing = db.execute("SELECT prep_folder_path, stage FROM jobs WHERE id=?", (job_id,)).fetchone()
 
-        should_skip = (
-            existing
-            and existing["prep_folder_path"]
-            and existing["stage"] == "materials_drafted"
-        )
+        should_skip = existing and existing["prep_folder_path"] and existing["stage"] == "materials_drafted"
         assert should_skip is True
 
     def test_no_skip_when_stage_not_materials_drafted(self, db):
@@ -344,15 +365,9 @@ class TestFileNaming:
         folder = "/home/user/companies/Acme_Ops_Manager_2026-04-13_140000"
         job_id = insert_job(db, stage="prep_in_progress", folder=folder)
 
-        existing = db.execute(
-            "SELECT prep_folder_path, stage FROM jobs WHERE id=?", (job_id,)
-        ).fetchone()
+        existing = db.execute("SELECT prep_folder_path, stage FROM jobs WHERE id=?", (job_id,)).fetchone()
 
-        should_skip = (
-            existing
-            and existing["prep_folder_path"]
-            and existing["stage"] == "materials_drafted"
-        )
+        should_skip = existing and existing["prep_folder_path"] and existing["stage"] == "materials_drafted"
         assert not should_skip
 
 
@@ -366,8 +381,9 @@ class TestDriveURLFlow:
 
     def test_rclone_link_success_stores_url(self, db):
         """Simulate successful rclone link output: returncode=0, stdout starts with http."""
-        job_id = insert_job(db, stage="materials_drafted",
-                            folder="/home/user/companies/Acme_Ops_Manager_2026-04-13_140000")
+        job_id = insert_job(
+            db, stage="materials_drafted", folder="/home/user/companies/Acme_Ops_Manager_2026-04-13_140000"
+        )
         # Simulate: link_rc.returncode == 0, link_rc.stdout.strip().startswith("http")
         returncode = 0
         stdout = "https://drive.google.com/drive/folders/abc123\n"
@@ -382,8 +398,9 @@ class TestDriveURLFlow:
 
     def test_rclone_link_failure_leaves_null(self, db):
         """Simulate rclone link failure: returncode=4, no URL stored."""
-        job_id = insert_job(db, stage="materials_drafted",
-                            folder="/home/user/companies/Acme_Ops_Manager_2026-04-13_140000")
+        job_id = insert_job(
+            db, stage="materials_drafted", folder="/home/user/companies/Acme_Ops_Manager_2026-04-13_140000"
+        )
         # Simulate: link_rc.returncode == 4
         returncode = 4
         stdout = "ERROR: command not found\n"

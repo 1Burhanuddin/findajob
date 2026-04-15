@@ -259,9 +259,7 @@ class TestHandleRejection:
         assert fb["title"] == "Operations Manager"
 
         # audit_log entries
-        audits = db.execute(
-            "SELECT * FROM audit_log WHERE job_id=? ORDER BY id", (job["id"],)
-        ).fetchall()
+        audits = db.execute("SELECT * FROM audit_log WHERE job_id=? ORDER BY id", (job["id"],)).fetchall()
         fields = [a["field_changed"] for a in audits]
         assert "stage" in fields
         assert "reject_reason" in fields
@@ -367,9 +365,7 @@ class TestHandleWaitlist:
         job = insert_job(db, stage="scored")
         poll_flags_mod.handle_waitlist(db, job)
 
-        audit = db.execute(
-            "SELECT * FROM audit_log WHERE job_id=? AND field_changed='stage'", (job["id"],)
-        ).fetchone()
+        audit = db.execute("SELECT * FROM audit_log WHERE job_id=? AND field_changed='stage'", (job["id"],)).fetchone()
         assert audit is not None
         assert audit["old_value"] == "scored"
         assert audit["new_value"] == "waitlisted"
@@ -425,9 +421,7 @@ class TestHandleReactivate:
         row = db.execute("SELECT stage FROM jobs WHERE id=?", (job["id"],)).fetchone()
         assert row["stage"] == "scored"
 
-        audit = db.execute(
-            "SELECT * FROM audit_log WHERE job_id=? AND field_changed='stage'", (job["id"],)
-        ).fetchone()
+        audit = db.execute("SELECT * FROM audit_log WHERE job_id=? AND field_changed='stage'", (job["id"],)).fetchone()
         assert audit["new_value"] == "scored"
 
 
@@ -617,8 +611,10 @@ class TestDashboardStatusUpdates:
         from datetime import UTC, datetime
 
         STATUS_STAGE_MAP = {
-            "Applied": "applied", "Interviewing": "interview",
-            "Offer": "offer", "Withdrew": "withdrawn",
+            "Applied": "applied",
+            "Interviewing": "interview",
+            "Offer": "offer",
+            "Withdrew": "withdrawn",
         }
         job = insert_job(db, stage="applied")
 
@@ -660,9 +656,7 @@ class TestDashboardStatusUpdates:
         job = insert_job(db, stage="applied", company="Acme Corp", title="Ops Manager")
 
         # Simulate the resurface query
-        rows = db.execute(
-            "SELECT title FROM jobs WHERE company=? AND stage='waitlisted'", (job["company"],)
-        ).fetchall()
+        rows = db.execute("SELECT title FROM jobs WHERE company=? AND stage='waitlisted'", (job["company"],)).fetchall()
         assert len(rows) == 1
         assert rows[0]["title"] == "Site Lead"
 
@@ -718,9 +712,7 @@ class TestReviewTab:
         assert row["score_status"] == "scored"
         assert row["score_flag_reason"] == "Promoted from Review tab"
 
-        audit = db.execute(
-            "SELECT * FROM audit_log WHERE job_id=? AND field_changed='stage'", (job["id"],)
-        ).fetchone()
+        audit = db.execute("SELECT * FROM audit_log WHERE job_id=? AND field_changed='stage'", (job["id"],)).fetchone()
         assert audit["old_value"] == "manual_review"
         assert audit["new_value"] == "scored"
 

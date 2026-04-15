@@ -1023,8 +1023,8 @@ def main():
         col_width(rejected_apps_id, 2, 130),  # C: reject_reason
         col_width(rejected_apps_id, 3, 100),  # D: applied_date
         col_width(rejected_apps_id, 4, 100),  # E: rejected_date
-        col_width(rejected_apps_id, 5, 55),   # F: fit_score
-        col_width(rejected_apps_id, 6, 55),   # G: prob_score
+        col_width(rejected_apps_id, 5, 55),  # F: fit_score
+        col_width(rejected_apps_id, 6, 55),  # G: prob_score
         col_width(rejected_apps_id, 7, 300),  # H: ai_notes
     ]
 
@@ -1044,8 +1044,10 @@ def main():
             "addBanding": {
                 "bandedRange": {
                     "range": {
-                        "sheetId": rejected_apps_id, "startRowIndex": 1,
-                        "startColumnIndex": 0, "endColumnIndex": 8,
+                        "sheetId": rejected_apps_id,
+                        "startRowIndex": 1,
+                        "startColumnIndex": 0,
+                        "endColumnIndex": 8,
                     },
                     "rowProperties": {
                         "firstBandColor": {"red": 1.0, "green": 1.0, "blue": 1.0},

@@ -548,8 +548,14 @@ def main():
     # can take several minutes; blocking here hangs the entire poll cycle).
     for job in flagged_jobs:
         subprocess.Popen(
-            [sys.executable, f"{BASE}/scripts/prep_application.py",
-             job["company"], job["title"], job["url"], job["id"]],
+            [
+                sys.executable,
+                f"{BASE}/scripts/prep_application.py",
+                job["company"],
+                job["title"],
+                job["url"],
+                job["id"],
+            ],
             start_new_session=True,
         )
 

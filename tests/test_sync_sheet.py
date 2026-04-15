@@ -16,6 +16,7 @@ _real_open = open
 def _patched_open(path, *args, **kwargs):
     if "sheet_id.txt" in str(path):
         from io import StringIO
+
         return StringIO("fake-sheet-id\n")
     return _real_open(path, *args, **kwargs)
 
@@ -36,6 +37,7 @@ with patch("builtins.open", side_effect=_patched_open):
 # FakeRow — mimics sqlite3.Row for build_row tests
 # ---------------------------------------------------------------------------
 
+
 class FakeRow:
     """Dict-like object that supports .keys() like sqlite3.Row."""
 
@@ -52,6 +54,7 @@ class FakeRow:
 # ---------------------------------------------------------------------------
 # hyperlink()
 # ---------------------------------------------------------------------------
+
 
 class TestHyperlink:
     def test_normal_url_and_label(self):
@@ -87,6 +90,7 @@ class TestHyperlink:
 # safe_str()
 # ---------------------------------------------------------------------------
 
+
 class TestSafeStr:
     def test_normal_string_unchanged(self):
         assert safe_str("hello") == "hello"
@@ -116,6 +120,7 @@ class TestSafeStr:
 # ---------------------------------------------------------------------------
 # build_row() — Dashboard mode (use_status=True)
 # ---------------------------------------------------------------------------
+
 
 def _make_row(**overrides):
     """Create a FakeRow with sensible defaults for all columns used by build_row."""
@@ -165,16 +170,22 @@ class TestBuildRowDashboard:
     def test_status_override_used(self):
         row = _make_row(stage="scored", apply_flag=0)
         result = build_row(
-            row, DASH_HEADERS, DASH_LOOKUP,
-            status_override="Applied", use_status=True,
+            row,
+            DASH_HEADERS,
+            DASH_LOOKUP,
+            status_override="Applied",
+            use_status=True,
         )
         assert result[0] == "Applied"
 
     def test_reject_override_used(self):
         row = _make_row(reject_reason="")
         result = build_row(
-            row, DASH_HEADERS, DASH_LOOKUP,
-            reject_override="Low Fit Score", use_status=True,
+            row,
+            DASH_HEADERS,
+            DASH_LOOKUP,
+            reject_override="Low Fit Score",
+            use_status=True,
         )
         # REJECT_REASON is at index 1 in DASH_HEADERS
         assert result[1] == "Low Fit Score"
@@ -200,6 +211,7 @@ class TestBuildRowDashboard:
 # build_row() — Sheet1 mode (use_status=False)
 # ---------------------------------------------------------------------------
 
+
 class TestBuildRowSheet1:
     """build_row with use_status=False (Sheet1 mode)."""
 
@@ -218,6 +230,7 @@ class TestBuildRowSheet1:
 # ---------------------------------------------------------------------------
 # Dashboard company hyperlink logic (replicating sync_dashboard conditional)
 # ---------------------------------------------------------------------------
+
 
 def _company_cell(row):
     """Replicate the sync_dashboard conditional for company hyperlink."""
@@ -259,6 +272,7 @@ class TestDashboardCompanyHyperlink:
 # ---------------------------------------------------------------------------
 # Pending status preservation logic (replicating sync_dashboard)
 # ---------------------------------------------------------------------------
+
 
 def _resolve_pending(pending_status, stage):
     """Replicate the sync_dashboard pending-status override logic.

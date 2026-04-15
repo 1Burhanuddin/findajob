@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from findajob.scoring import _normalize_llm_output
 
 

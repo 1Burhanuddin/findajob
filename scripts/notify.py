@@ -329,22 +329,19 @@ def cmd_health_check():
             if not os.path.isdir(local_path):
                 continue
             local_folders = {
-                d for d in os.listdir(local_path)
+                d
+                for d in os.listdir(local_path)
                 if not d.startswith("_") and os.path.isdir(os.path.join(local_path, d))
             }
 
             # Drive folders
             drive_path = f"{drive_base}/{subdir}" if subdir else drive_base
-            rc = subprocess.run(
-                [RCLONE, "lsf", "--dirs-only", drive_path],
-                capture_output=True, text=True, timeout=60
-            )
+            rc = subprocess.run([RCLONE, "lsf", "--dirs-only", drive_path], capture_output=True, text=True, timeout=60)
             if rc.returncode != 0:
                 mismatches.append(f"rclone lsf failed for {subdir or 'root'}: exit {rc.returncode}")
                 continue
             drive_folders = {
-                d.rstrip("/") for d in rc.stdout.strip().split("\n")
-                if d.strip() and not d.startswith("_")
+                d.rstrip("/") for d in rc.stdout.strip().split("\n") if d.strip() and not d.startswith("_")
             }
 
             location = subdir or "root"
