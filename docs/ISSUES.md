@@ -139,6 +139,31 @@ Format: `- [ ]` open, `- [x]` closed. Add date and brief context when closing.
      and cover letter generation. Tips for writing an effective profile.md and master_resume.md.
   4. Troubleshooting: common failure modes, how to read pipeline.jsonl, health check alerts
 
+## Pipeline Gaps
+
+- [ ] **No distinction between user-rejection and company-rejection**
+  When a company passes on an application, the only mechanism is the same REJECT_REASON
+  dropdown used for "I decided this isn't a fit." Both set `stage=rejected`, write to
+  `feedback_log`, and move the folder to `_rejected/`. This loses signal in two ways:
+  1. **Application history is destroyed.** Applied folders should stay in `_applied/` as a
+     record of what the user pursued. Moving them to `_rejected/` mingles "jobs I passed on"
+     with "jobs where I was turned down" — different things entirely.
+  2. **Feedback loop is contaminated.** Company rejections should NOT feed the scorer tuning
+     loop (`analyze_feedback.py`). A company passing on you doesn't mean the job was a bad
+     match — the scorer was right to surface it. Writing it to `feedback_log` with a reason
+     like "Other" teaches the scorer the wrong lesson.
+
+  **Proposed fix:**
+  - Add a STATUS dropdown option: `"Not Selected"` (or `"Company Passed"`)
+  - New stage: `not_selected` — keeps folder in `_applied/`, does not write to `feedback_log`
+  - `poll_flags.py` handles it like `Applied`/`Interviewing` (stage update only, no folder move)
+  - `sync_sheet.py` shows these on a "Rejected Applications" or "Closed" view with the date
+  - `analyze_feedback.py` excludes `not_selected` from false-positive analysis
+  - Optionally track company rejection data separately for meta-analysis: which companies
+    respond, average time-to-rejection, rejection rate by company tier, etc.
+  - `notify_waitlist_resurface()` should still fire (user might want to try another role
+    at the same company)
+
 ## Future / Roadmap
 
 - [ ] **Containerize / Dockerize the application with web interface**

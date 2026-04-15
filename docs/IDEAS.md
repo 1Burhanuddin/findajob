@@ -100,6 +100,40 @@ more generalizable. The path from personal tool → general tool is roughly:
   are all personal. Need a clean onboarding flow: `cp config/*.example config/` and guided
   setup. The pipeline logic is already generic — it's the config that's personal.
 
+- [ ] **Guided onboarding interview — LLM-driven profile builder**
+  The current pipeline is highly effective because of deep, manually curated candidate context
+  (profile.md, master_resume.md, voice samples, scorer boost/reduce criteria, target company
+  lists). A general user can't replicate this depth on their own. Solution: a structured
+  LLM-conducted interview (~1-2 hours) that produces all candidate context files.
+
+  **Phase 1 — Document upload + analysis:**
+  User uploads everything they have: resume(s), LinkedIn export, cover letters, performance
+  reviews, project descriptions, portfolio links. An LLM with a dedicated interviewer role
+  analyzes the material, identifies strengths, gaps, career patterns, and industry vocabulary.
+  Produces a draft profile.md and initial scorer criteria.
+
+  **Phase 2 — Structured interview:**
+  The LLM asks targeted questions to fill gaps the documents don't cover: what roles excite
+  you and why, what's your actual day-to-day, what do peers say you're best at, what work do
+  you never want to do again, what are your comp expectations, geographic constraints, etc.
+  Questions adapt based on document analysis — skip what's already clear, dig into what's
+  ambiguous. Output: finalized profile.md, master_resume.md, target company list, search
+  queries, scorer boost/reduce criteria, voice/tone markers for cover letter generation.
+
+  **Phase 3 — Continuous calibration (implicit + explicit feedback):**
+  *Implicit:* Track rejection rate by reason, score band, source, and company. If user
+  rejects 90% of "hardware engineer" titles, auto-suggest adding it to hard-reject patterns.
+  Surface patterns weekly via the existing feedback-review notification. The analyzer already
+  does this (`analyze_feedback.py`) — extend it to propose config changes, not just report.
+  *Explicit — daily:* Single-question micro-survey via ntfy or dashboard prompt. "Was
+  today's Dashboard useful? (yes/no/didn't look)" or "Any job you wish had appeared today?"
+  Rotates through a question bank. Low friction, high signal over time.
+  *Explicit — weekly:* 5-minute survey (ntfy link or in-dashboard). "Review these 5
+  rejections — would you change any? Are the search categories still right? Anything
+  missing?" Surfaces drift before it compounds.
+  Both implicit and explicit signals feed back into profile.md and scorer criteria —
+  either as auto-suggestions the user approves or as direct config updates.
+
 ---
 
 ## Engineering Quality
