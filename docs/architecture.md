@@ -202,9 +202,9 @@ poll_flags.py reads this tab every 30 min.
 | M | ai_notes | |
 | N | date_found | |
 
-**STATUS dropdown options:** `Flag for Prep` → `Prep in Progress` *(system)* → `Ready to Apply` *(system)* → `Applied` *(user)* → `Interviewing` → `Offer` / `Withdrew`. Also: `Regenerate` (re-runs prep), `Waitlist` (defers the job).
+**STATUS dropdown options:** `Flag for Prep` → `Prep in Progress` *(system)* → `Ready to Apply` *(system)* → `Applied` *(user)* → `Interviewing` → `Offer` / `Not Selected` / `Withdrew`. Also: `Regenerate` (re-runs prep), `Waitlist` (defers the job). `Not Selected` = company rejected the application (folder stays in `_applied/`, no feedback_log write).
 
-**REJECT_REASON:** setting any value triggers: stage=rejected, feedback_log entry, folder move to `_rejected/`, immediate rclone sync to Drive.
+**REJECT_REASON:** behavior depends on STATUS. If STATUS = `Not Selected`: company rejection → `stage=not_selected`, no feedback_log, folder stays in `_applied/`. Otherwise: user rejection → `stage=rejected`, feedback_log entry, folder move to `_rejected/`, immediate rclone sync to Drive.
 
 ### Review — Manual Review Triage (A–H)
 Filter: `stage = manual_review` (scorer flagged for human review, e.g., null scores or schema failures).

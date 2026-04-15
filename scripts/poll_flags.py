@@ -23,6 +23,7 @@ DRIVE_BASE = "gdrive:01 PROJECTS/Jobs To Apply For"
 # Used to determine where to find the folder on Drive for move operations.
 STAGE_SUBDIR = {
     "applied": "_applied",
+    "not_selected": "_applied",
     "waitlisted": "_waitlisted",
     "materials_drafted": "",
     "prep_in_progress": "",
@@ -150,6 +151,33 @@ def handle_rejection(conn, job, reason, source_subdir=""):
     return folder_moved
 
 
+def handle_not_selected(conn, job, reason):
+    """Company rejected the application. Sets stage=not_selected, drops a marker file.
+    Does NOT write to feedback_log — company rejections should not feed the scorer.
+    Folder stays in _applied/ (no move). Returns False (no folder moved)."""
+    now = datetime.now(UTC).isoformat()
+    old_stage = job["stage"]
+    conn.execute(
+        "UPDATE jobs SET stage=?, reject_reason=?, updated_at=? WHERE id=?",
+        ("not_selected", reason, now, job["id"]),
+    )
+
+    # Drop marker file in existing folder (stays in _applied/)
+    jd = conn.execute("SELECT prep_folder_path FROM jobs WHERE id=?", (job["id"],)).fetchone()
+    folder = jd["prep_folder_path"] if jd else None
+    if folder and os.path.isdir(folder):
+        safe_reason = re.sub(r"[^\w\s-]", "", reason).strip().replace(" ", "_")[:60]
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        open(os.path.join(folder, f"NOT_SELECTED_{safe_reason}_{date_str}.txt"), "w").close()
+        log_event("marker_added_not_selected", job_id=job["id"], folder=os.path.basename(folder), reason=reason)
+
+    conn.commit()
+    write_audit(conn, job["id"], "stage", old_stage, "not_selected")
+    write_audit(conn, job["id"], "reject_reason", "", reason)
+    log_event("job_not_selected", job_id=job["id"], company=job["company"], title=job["title"], reason=reason)
+    return False
+
+
 def handle_waitlist(conn, job):
     """Move job to waitlisted stage and folder to _waitlisted/.
     Returns True if a folder was moved, False otherwise.
@@ -239,6 +267,7 @@ def main():
 
     flagged_jobs = []
     rejected_count = 0
+    not_selected_count = 0
     applied_count = 0
     waitlisted_count = 0
     reactivated_count = 0
@@ -307,6 +336,22 @@ def main():
             write_audit(conn, job["id"], "stage", job["stage"], "prep_in_progress")
             log_event("regen_requested", job_id=job["id"], company=job["company"], title=job["title"])
             flagged_jobs.append({"id": job["id"], "title": job["title"], "company": job["company"], "url": job["url"]})
+            continue
+
+        # ── Not Selected (company rejection) — BEFORE generic rejection ──
+        if flag_val == "Not Selected" and job["stage"] not in ("not_selected", "rejected"):
+            if job["stage"] in ("applied", "interview", "offer"):
+                reason = reject_val.strip() if reject_val and reject_val.strip() else "Company passed"
+                handle_not_selected(conn, job, reason)
+                not_selected_count += 1
+                notify_waitlist_resurface(conn, job["company"])
+            else:
+                log_event(
+                    "not_selected_skipped",
+                    job_id=job["id"],
+                    stage=job["stage"],
+                    reason="Not Selected only valid for applied/interview/offer",
+                )
             continue
 
         # ── Rejection takes priority ─────────────────────────────────────
@@ -493,6 +538,10 @@ def main():
         log_event("poll_flags_rejections", count=rejected_count, folders_moved=folders_moved)
         need_sync = True
 
+    if not_selected_count:
+        log_event("poll_flags_not_selected", count=not_selected_count)
+        need_sync = True
+
     if applied_count:
         log_event("poll_flags_applied", count=applied_count, folders_moved=folders_moved)
         need_sync = True
@@ -525,6 +574,7 @@ def main():
             "poll_flags",
             found=0,
             rejections=rejected_count,
+            not_selected=not_selected_count,
             waitlisted=waitlisted_count,
             reactivated=reactivated_count,
             review_promoted=review_promoted,
@@ -536,6 +586,7 @@ def main():
         "poll_flags",
         found=len(flagged_jobs),
         rejections=rejected_count,
+        not_selected=not_selected_count,
         waitlisted=waitlisted_count,
         reactivated=reactivated_count,
         review_promoted=review_promoted,

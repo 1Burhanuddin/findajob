@@ -162,7 +162,7 @@ def sync_sheet1(svc, conn):
           AND (
             relevance_score >= 5
             OR stage IN ('manual_review', 'prep_in_progress', 'materials_drafted',
-                         'waitlisted', 'applied', 'interview', 'offer', 'withdrawn')
+                         'waitlisted', 'applied', 'interview', 'offer', 'not_selected', 'withdrawn')
             OR julianday('now') - julianday(created_at) <= ?
           )
         ORDER BY
@@ -181,7 +181,7 @@ def sync_sheet1(svc, conn):
           AND relevance_score IS NOT NULL
           AND relevance_score < 5
           AND stage NOT IN ('manual_review', 'prep_in_progress', 'materials_drafted',
-                            'waitlisted', 'applied', 'interview', 'offer', 'withdrawn')
+                            'waitlisted', 'applied', 'interview', 'offer', 'not_selected', 'withdrawn')
           AND julianday('now') - julianday(created_at) > ?
     """,
         (SHEET1_ARCHIVE_DAYS,),
@@ -480,14 +480,14 @@ REJECTED_APPS_HEADERS = [
 
 
 def sync_rejected_apps(svc, conn):
-    """Sync jobs that were rejected after being in 'applied' stage."""
+    """Sync jobs that were rejected or not selected after being in 'applied' stage."""
     rows = conn.execute("""
         SELECT j.*, a.changed_at AS rejected_date
         FROM jobs j
         JOIN audit_log a ON a.job_id = j.id
         WHERE a.field_changed = 'stage'
-          AND a.old_value = 'applied'
-          AND a.new_value = 'rejected'
+          AND a.old_value IN ('applied', 'interview', 'offer')
+          AND a.new_value IN ('rejected', 'not_selected')
         ORDER BY a.changed_at DESC
     """).fetchall()
 

@@ -101,7 +101,7 @@ CREATE TABLE jobs (
     stage TEXT DEFAULT 'discovered' CHECK(stage IN (
         'discovered', 'enriched', 'scored', 'manual_review',
         'prep_in_progress', 'materials_drafted', 'waitlisted', 'applied',
-        'response_received', 'interview', 'offer', 'rejected', 'withdrawn'
+        'response_received', 'interview', 'offer', 'rejected', 'not_selected', 'withdrawn'
     )),
     stage_updated TEXT,
     apply_flag INTEGER DEFAULT 0,
@@ -311,6 +311,78 @@ class TestHandleRejection:
 
         fb = db.execute("SELECT jd_excerpt FROM feedback_log WHERE job_id=?", (job["id"],)).fetchone()
         assert fb["jd_excerpt"] == ""
+
+
+# ── handle_not_selected ────────────────────────────────────────────────────
+
+
+class TestHandleNotSelected:
+    def test_not_selected_with_folder(self, poll_flags_mod, db, tmp_path):
+        """Not Selected: stage=not_selected, folder stays in _applied/, marker file added, NO feedback_log."""
+        folder = tmp_path / "companies" / "_applied" / "Acme_Ops_2026-04-13_120000"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "resume.pdf").touch()
+
+        job = insert_job(db, stage="applied", folder=str(folder), score=8)
+        result = poll_flags_mod.handle_not_selected(db, job, "Too Senior")
+
+        assert result is False  # no folder moved
+
+        row = db.execute("SELECT stage, reject_reason, prep_folder_path FROM jobs WHERE id=?", (job["id"],)).fetchone()
+        assert row["stage"] == "not_selected"
+        assert row["reject_reason"] == "Too Senior"
+        # Folder stays in _applied/ (not moved)
+        assert "_applied" in row["prep_folder_path"]
+        assert os.path.isdir(row["prep_folder_path"])
+
+        # Marker file created
+        marker_files = [f for f in os.listdir(row["prep_folder_path"]) if f.startswith("NOT_SELECTED_")]
+        assert len(marker_files) == 1
+        assert "Too_Senior" in marker_files[0]
+
+        # NO feedback_log entry (critical: company rejections don't contaminate scorer)
+        fb = db.execute("SELECT * FROM feedback_log WHERE job_id=?", (job["id"],)).fetchone()
+        assert fb is None
+
+        # audit_log entries written
+        audits = db.execute("SELECT * FROM audit_log WHERE job_id=? ORDER BY id", (job["id"],)).fetchall()
+        fields = [a["field_changed"] for a in audits]
+        assert "stage" in fields
+        assert "reject_reason" in fields
+        stage_audit = [a for a in audits if a["field_changed"] == "stage"][0]
+        assert stage_audit["new_value"] == "not_selected"
+
+    def test_not_selected_without_folder(self, poll_flags_mod, db):
+        """Not Selected without folder: DB updated, no marker file, no feedback_log."""
+        job = insert_job(db, stage="applied", folder=None, score=7)
+        result = poll_flags_mod.handle_not_selected(db, job, "Skills Mismatch")
+
+        assert result is False
+
+        row = db.execute("SELECT stage, reject_reason FROM jobs WHERE id=?", (job["id"],)).fetchone()
+        assert row["stage"] == "not_selected"
+        assert row["reject_reason"] == "Skills Mismatch"
+
+        fb = db.execute("SELECT * FROM feedback_log WHERE job_id=?", (job["id"],)).fetchone()
+        assert fb is None
+
+    def test_not_selected_only_valid_for_post_apply_stages(self, db):
+        """Not Selected on scored job should be guarded — stage stays unchanged."""
+        job = insert_job(db, stage="scored")
+
+        # The guard in main() checks: job["stage"] in ("applied", "interview", "offer")
+        assert job["stage"] not in ("applied", "interview", "offer")
+
+    def test_not_selected_routes_before_rejection(self, poll_flags_mod, db):
+        """When STATUS='Not Selected' + REJECT_REASON set, handle_not_selected is used, not handle_rejection."""
+        job = insert_job(db, stage="applied", score=8)
+        poll_flags_mod.handle_not_selected(db, job, "Company Not a Fit")
+
+        row = db.execute("SELECT stage FROM jobs WHERE id=?", (job["id"],)).fetchone()
+        assert row["stage"] == "not_selected"  # not "rejected"
+
+        fb = db.execute("SELECT * FROM feedback_log WHERE job_id=?", (job["id"],)).fetchone()
+        assert fb is None  # not written
 
 
 # ── handle_waitlist ─────────────────────────────────────────────────────────

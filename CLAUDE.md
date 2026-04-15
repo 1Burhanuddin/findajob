@@ -222,17 +222,22 @@ Low-score old jobs from non-target companies stay in DB only.
 - `REJECT_REASON` = same as Dashboard → `poll_flags.py` rejects the job from waitlist
 - `blocking_app` = computed at sync time: title + stage of active application at same company
 
-**STATUS dropdown options** (Dashboard col A): `Flag for Prep` → `Ready to Apply` → `Waitlist` → `Applied` → `Interviewing` → `Offer` → `Withdrew`
+**STATUS dropdown options** (Dashboard col A): `Flag for Prep` → `Ready to Apply` → `Waitlist` → `Applied` → `Interviewing` → `Offer` → `Not Selected` → `Withdrew`
 - `Flag for Prep` = user action → triggers `prep_application.py` via `poll_flags.py`
 - `Ready to Apply` = system-set when `stage=materials_drafted` (prep done, folder exists)
 - `Waitlist` = user action → `poll_flags.py` sets `stage=waitlisted`, moves folder to `_waitlisted/`
 - `Applied/Interviewing/Offer/Withdrew` = user action → `poll_flags.py` updates DB stage
+- `Not Selected` = user action (company rejected) → `poll_flags.py` sets `stage=not_selected`, folder stays in `_applied/`, no `feedback_log` write
 
-**REJECT_REASON dropdown** (col B): 11 options (includes "Low Fit Score") → `poll_flags.py` sets `stage=rejected`, writes `feedback_log`, moves folder to `companies/_rejected/`, syncs move to Drive immediately (rclone copy + purge).
+**REJECT_REASON dropdown** (col B): 11 options (includes "Low Fit Score"). Behavior depends on STATUS:
+- If STATUS = `Not Selected`: company rejection → `stage=not_selected`, NO `feedback_log`, folder stays in `_applied/` with `NOT_SELECTED_` marker file
+- Otherwise: user rejection → `stage=rejected`, writes `feedback_log`, moves folder to `_rejected/`, syncs to Drive
 
-**poll_flags.py** reads `Dashboard!A2:C10000`, `Review!A2:C10000`, and `Waitlist!A2:C10000`. Rejection takes priority over prep/promote/reactivate.
+**poll_flags.py** reads `Dashboard!A2:C10000`, `Review!A2:C10000`, and `Waitlist!A2:C10000`. "Not Selected" is checked before generic rejection to prevent routing errors.
 
 **Stage `waitlisted`:** Set by `poll_flags.py` when user selects "Waitlist" on Dashboard. Folder moves to `companies/_waitlisted/`. Job disappears from Dashboard, appears on Waitlist tab. Not a rejection — does not write to feedback_log or contaminate scorer feedback loop. When active application at same company is rejected/withdrawn, ntfy notification surfaces waitlisted jobs.
+
+**Stage `not_selected`:** Set by `poll_flags.py` when user selects "Not Selected" on Dashboard. Only valid for post-application stages (`applied`, `interview`, `offer`). Folder stays in `companies/_applied/` with a `NOT_SELECTED_{reason}_{date}.txt` marker file. Does NOT write to `feedback_log` — company rejections must not contaminate the scorer's feedback loop. `notify_waitlist_resurface()` still fires (company rejection is a trigger to surface waitlisted jobs at that company). Appears on the Rejected Applications tab alongside user rejections.
 
 **Stage `prep_in_progress`:** Set by `poll_flags.py` immediately before launching `prep_application.py` as a subprocess. Prevents duplicate prep runs across poll cycles. Cleared to `materials_drafted` on success. Health check warns if any job is stuck in this stage >1h.
 

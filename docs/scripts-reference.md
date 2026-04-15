@@ -50,11 +50,12 @@ Generates a full application package for one job. LLM calls run sequentially.
 Reads STATUS, REJECT_REASON, and fingerprint from three tabs: `Dashboard!A2:C10000`, `Review!A2:C10000`, and `Waitlist!A2:C10000`.
 
 **Dashboard logic (in priority order):**
-1. If `REJECT_REASON` is set and job not already rejected → calls `handle_rejection()`: updates DB, writes `feedback_log`, moves prep folder to `_rejected/`, fires rclone sync (non-blocking)
-2. If `STATUS` is `Regenerate` → deletes existing prep folder, re-runs prep
-3. If `STATUS` is `Applied/Interviewing/Offer/Withdrew` → updates DB stage; `Applied` moves folder to `_applied/`
-4. If `STATUS` is `Waitlist` → sets stage=waitlisted, moves folder to `_waitlisted/`
-5. If `STATUS` is `Flag for Prep` and job is in `scored/manual_review/enriched` stage → sets stage=prep_in_progress, validates company (not an aggregator) → calls `prep_application.py`
+1. If `STATUS` is `Not Selected` and job is in `applied/interview/offer` → calls `handle_not_selected()`: sets `stage=not_selected`, drops marker file in `_applied/`, NO `feedback_log` write
+2. If `REJECT_REASON` is set and job not already rejected → calls `handle_rejection()`: updates DB, writes `feedback_log`, moves prep folder to `_rejected/`, fires rclone sync (non-blocking)
+3. If `STATUS` is `Regenerate` → deletes existing prep folder, re-runs prep
+4. If `STATUS` is `Applied/Interviewing/Offer/Withdrew` → updates DB stage; `Applied` moves folder to `_applied/`
+5. If `STATUS` is `Waitlist` → sets stage=waitlisted, moves folder to `_waitlisted/`
+6. If `STATUS` is `Flag for Prep` and job is in `scored/manual_review/enriched` stage → sets stage=prep_in_progress, validates company (not an aggregator) → calls `prep_application.py`
 
 **Review logic:** `Promote` sets score=7 + stage=scored. REJECT_REASON rejects.
 **Waitlist logic:** `Reactivate` restores to scored/materials_drafted. REJECT_REASON rejects from waitlist.

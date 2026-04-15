@@ -76,6 +76,7 @@ The STATUS dropdown drives the entire application workflow.
 | `Applied` | You | `poll_flags.py` updates DB `stage=applied`, moves folder to `_applied/` |
 | `Interviewing` | You | `poll_flags.py` updates DB `stage=interview` |
 | `Offer` | You | `poll_flags.py` updates DB `stage=offer` |
+| `Not Selected` | You | Company rejected — `stage=not_selected`, folder stays in `_applied/`, no feedback_log |
 | `Withdrew` | You | `poll_flags.py` updates DB `stage=withdrawn` |
 
 **Important:** `Ready to Apply` and `Prep in Progress` are system-set. Setting them manually has no effect on the DB — the poller ignores them.
@@ -84,17 +85,24 @@ The STATUS dropdown drives the entire application workflow.
 
 ## REJECT_REASON Dropdown (col B)
 
-Setting any value in REJECT_REASON triggers the rejection workflow.
+Behavior depends on the STATUS column:
 
-**What happens when you set REJECT_REASON:**
+**If STATUS = `Not Selected` (company rejection):**
+1. `poll_flags.py` (within 30 min) detects the value
+2. DB updated: `stage=not_selected`, `reject_reason=<value>`
+3. No `feedback_log` write (company rejections don't contaminate the scorer)
+4. Folder stays in `companies/_applied/` with a `NOT_SELECTED_{reason}_{date}.txt` marker file
+5. Waitlisted jobs at the same company are surfaced via ntfy notification
+
+**Otherwise (user rejection):**
 1. `poll_flags.py` (within 30 min) detects the value
 2. DB updated: `stage=rejected`, `reject_reason=<value>`
 3. Row written to `feedback_log` table (for pattern analysis)
 4. If a prep folder exists for this job: it is moved to `companies/_rejected/`
 5. rclone sync fires immediately (non-blocking) to push the move to Google Drive
-6. Job disappears from Dashboard on next sync (stage=rejected no longer matches the filter)
+6. Job disappears from Dashboard on next sync
 
-Rejection takes priority over `Flag for Prep` in the same poll cycle.
+"Not Selected" is checked before generic rejection in the poll cycle to prevent routing errors.
 
 **Tip:** You can reject and prep at the same time by setting both — rejection wins. If you change your mind after rejecting, you'd need to manually update the DB.
 

@@ -119,8 +119,9 @@ def cmd_daily_stats():
     # Jobs applied
     applied = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'applied'").fetchone()[0]
 
-    # Jobs rejected via dashboard
+    # Jobs rejected via dashboard (user) vs not selected (company)
     rejected = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'rejected'").fetchone()[0]
+    not_selected = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'not_selected'").fetchone()[0]
 
     # New jobs scored in last 24h
     cutoff_24h = (datetime.now(UTC) - timedelta(hours=24)).isoformat()
@@ -144,7 +145,8 @@ def cmd_daily_stats():
         f"Flagged, awaiting prep:     {flagged_unprepped}",
         f"Materials drafted:          {prepped}",
         f"Applied:                    {applied}",
-        f"Rejected via dashboard:     {rejected}",
+        f"Rejected (user):            {rejected}",
+        f"Not selected (company):     {not_selected}",
         f"New jobs scored today:      {new_today}",
         f"Total in pipeline:          {total}",
     ]
@@ -226,7 +228,7 @@ def cmd_health_check():
           AND (
             relevance_score >= 5
             OR stage IN ('manual_review', 'materials_drafted', 'waitlisted',
-                         'applied', 'interview', 'offer', 'withdrawn')
+                         'applied', 'interview', 'offer', 'not_selected', 'withdrawn')
             OR julianday('now') - julianday(created_at) <= 14
           )
     """).fetchone()[0]
@@ -371,6 +373,8 @@ def cmd_health_check():
         path = r["prep_folder_path"]
         stage = r["stage"]
         if stage == "applied" and "/_applied/" not in path:
+            mismatch_count += 1
+        elif stage == "not_selected" and "/_applied/" not in path:
             mismatch_count += 1
         elif stage == "waitlisted" and "/_waitlisted/" not in path:
             mismatch_count += 1

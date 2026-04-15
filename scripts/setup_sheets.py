@@ -80,6 +80,7 @@ STATUS_OPTIONS = [
     "Applied",
     "Interviewing",
     "Offer",
+    "Not Selected",
     "Withdrew",
 ]
 
@@ -112,6 +113,7 @@ STATUS_COLORS = {
     "Applied": rgb(198, 239, 206),  # light green
     "Interviewing": rgb(226, 208, 245),  # soft purple
     "Offer": rgb(255, 217, 102),  # gold
+    "Not Selected": rgb(180, 180, 180),  # medium grey — company rejection
     "Withdrew": rgb(217, 217, 217),  # light grey
 }
 
@@ -425,7 +427,7 @@ def rejected_row_cf(sheet_id, total_cols):
                     "booleanRule": {
                         "condition": {
                             "type": "CUSTOM_FORMULA",
-                            "values": [{"userEnteredValue": '=$H2="rejected"'}],
+                            "values": [{"userEnteredValue": '=OR($H2="rejected",$H2="not_selected")'}],
                         },
                         "format": {
                             "backgroundColor": {"red": 0.9, "green": 0.9, "blue": 0.9},
