@@ -513,6 +513,10 @@ def sync_rejected_apps(svc, conn):
             safe_str(row["probability_score"] if row["probability_score"] else ""),
             safe_str(row["ai_notes"] or ""),
         ]
+        # Add Drive folder link on company cell if available
+        gdrive_url = row["gdrive_folder_url"] if "gdrive_folder_url" in row.keys() else None
+        if gdrive_url and str(gdrive_url).startswith("http"):
+            sheet_row[1] = hyperlink(gdrive_url, row["company"])
         sheet_rows.append(sheet_row)
 
     svc.spreadsheets().values().clear(spreadsheetId=SHEET_ID, range="Rejected Applications!A2:H10000").execute()
