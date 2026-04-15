@@ -51,6 +51,27 @@ def abbrev_title(title, max_words=3):
     return "_".join(words) if words else "Job"
 
 
+def _linkify_contact_info(md):
+    """Ensure bare email addresses and LinkedIn URLs are Markdown hyperlinks.
+
+    Runs on resume markdown before pandoc conversion so the .docx has clickable links.
+    Skips anything already inside []() link syntax.
+    """
+    # Email: bare user@domain.tld → [user@domain.tld](mailto:user@domain.tld)
+    md = re.sub(
+        r"(?<!\[)(?<!\(mailto:)\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})\b(?!\])",
+        r"[\1](mailto:\1)",
+        md,
+    )
+    # LinkedIn: bare linkedin.com/in/handle → [linkedin.com/in/handle](https://linkedin.com/in/handle)
+    md = re.sub(
+        r"(?<!\[)(?<!\(https://)(linkedin\.com/in/[A-Za-z0-9_-]+)(?!\])",
+        r"[\1](https://\1)",
+        md,
+    )
+    return md
+
+
 def notify(message):
     topic = None
     try:
@@ -233,6 +254,7 @@ def main():
     first_hdr = next((i for i, line in enumerate(rlines) if line.startswith("#")), 0)
     rlines = [line for i, line in enumerate(rlines) if not (i < first_hdr and line.startswith("[VERIFY:"))]
     resume_md = "\n".join(rlines).strip()
+    resume_md = _linkify_contact_info(resume_md)
     with open(out["resume_md"], "w") as f:
         f.write(resume_md)
 

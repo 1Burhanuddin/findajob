@@ -162,7 +162,7 @@ If any check fails, fix it before outputting.
 Return the full tailored resume in clean Markdown only.
 
 - `#` for candidate name
-- Contact info on lines immediately below name (phone, email, LinkedIn, location)
+- Contact info on lines immediately below name (phone, email, LinkedIn, location). Email and LinkedIn must be Markdown hyperlinks: `[user@example.com](mailto:user@example.com)` and `[linkedin.com/in/handle](https://linkedin.com/in/handle)`
 - `##` for section headers (use "Summary", not "Professional Summary")
 - `###` for role headers within Experience, using middle dot separator
 - `-` for bullets
