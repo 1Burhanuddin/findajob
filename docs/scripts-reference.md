@@ -13,7 +13,7 @@ Never hardcode binary paths in scripts — add overrides to `config/paths.env` i
 **Run by:** scheduler (daily 7:00 AM)
 **No arguments.**
 
-Fetches jobs from all sources, deduplicates, enriches with JD text, scores with LLM, writes to SQLite. Calls `sync_sheet.py` at the end.
+Fetches jobs from all sources, deduplicates, enriches with JD text, then scores with LLM in parallel (6 concurrent threads), writes to SQLite. Calls `sync_sheet.py` at the end.
 
 **Sources:**
 - LinkedIn and Indeed via RapidAPI jobs-api14

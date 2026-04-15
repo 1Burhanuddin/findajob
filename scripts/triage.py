@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 
 from findajob.cleaning import fingerprint
@@ -63,6 +64,7 @@ def _role_model(role_name):
 
 
 SCORER_MODEL = _role_model("job_scorer")
+SCORE_WORKERS = 6  # concurrent LLM scoring threads (each spawns aichat subprocess)
 
 load_env()
 
@@ -290,99 +292,59 @@ def main():
         conn.commit()
         write_audit(conn, job_id, "stage", "discovered", "enriched")
 
-        scored, latency_ms = score_job(
-            job["title"],
-            job.get("company", ""),
-            job.get("location", ""),
-            jd_text,
-            candidate_profile,
-            feedback_block=_FEEDBACK_BLOCK,
-        )
-
-        stage = "manual_review" if scored.get("score_status") == "manual_review" else "scored"
-        status = "manual_review" if stage == "manual_review" else "active"
-
-        conn.execute(
-            """
-            UPDATE jobs SET
-                relevance_score=?, interview_likelihood=?, strengths_alignment=?,
-                industry_sector=?, comp_estimate=?, ai_notes=?,
-                score_status=?, score_flag_reason=?, remote_status=?,
-                stage=?, stage_updated=?, status=?, updated_at=?
-            WHERE id=?
-        """,
-            (
-                scored.get("relevance_score"),
-                scored.get("interview_likelihood"),
-                scored.get("strengths_alignment"),
-                scored.get("industry_sector", ""),
-                scored.get("comp_estimate", ""),
-                scored.get("ai_notes", ""),
-                scored.get("score_status", "manual_review"),
-                scored.get("score_flag_reason", ""),
-                scored.get("remote_status", "Unknown"),
-                stage,
-                now,
-                status,
-                now,
-                job_id,
-            ),
-        )
-        conn.commit()
-        write_audit(conn, job_id, "stage", "enriched", stage)
-        scored_count += 1
-
-        conn.execute(
-            """
-            INSERT INTO cost_log (job_id, operation, model, latency_ms, success)
-            VALUES (?, 'score', ?, ?, 1)
-        """,
-            (job_id, SCORER_MODEL, latency_ms),
-        )
-        conn.commit()
-
-        log_event(
-            "job_processed",
-            job_id=job_id,
-            title=job["title"],
-            company=job.get("company", ""),
-            stage=stage,
-            score=scored.get("relevance_score"),
-        )
-
-        time.sleep(0.5)
-
-    # ── Orphan recovery: rescue any rows stuck in 'enriched' stage ──
-    # If a prior run crashed mid-scoring (SIGTERM from systemd timeout, etc.),
-    # jobs that were enriched but not yet scored get stranded. Pick them up
-    # here on the next run so they don't sit in DB limbo forever.
-    orphan_scored = 0
-    orphans = conn.execute("""
+    # ── Phase 2: Parallel scoring ──────────────────────────────────────────
+    # Collect all enriched jobs (newly ingested + orphans from prior crashed runs)
+    # and score them concurrently. Each worker spawns an aichat subprocess;
+    # ThreadPoolExecutor is sufficient because the GIL is released during subprocess.run().
+    to_score = conn.execute("""
         SELECT id, title, company, location, raw_jd_text FROM jobs
         WHERE stage = 'enriched'
           AND (dupe_of = '' OR dupe_of IS NULL)
     """).fetchall()
-    if orphans:
-        log_event("orphan_recovery_started", count=len(orphans))
-        for row in orphans:
-            try:
-                scored, latency_ms = score_job(
+
+    if to_score:
+        score_total = len(to_score)
+        log_event("scoring_started", total=score_total, workers=SCORE_WORKERS)
+        score_errors = 0
+
+        def _score_worker(row):
+            """Score a single job. Returns (job_id, scored_dict, latency_ms)."""
+            return (
+                row["id"],
+                *score_job(
                     row["title"],
                     row["company"] or "",
                     row["location"] or "",
                     row["raw_jd_text"] or "",
                     candidate_profile,
                     feedback_block=_FEEDBACK_BLOCK,
-                )
+                ),
+            )
+
+        with ThreadPoolExecutor(max_workers=SCORE_WORKERS) as executor:
+            futures = {executor.submit(_score_worker, row): row for row in to_score}
+
+            for i, future in enumerate(as_completed(futures), 1):
+                row = futures[future]
+                try:
+                    job_id, scored, latency_ms = future.result()
+                except Exception as e:
+                    log_event("score_error", job_id=row["id"], error=str(e))
+                    score_errors += 1
+                    print(f"  [{i}/{score_total}] ERROR {row['title'][:40]} @ {row['company'] or '?'}: {e}", flush=True)
+                    continue
+
                 now = datetime.now(UTC).isoformat()
-                new_stage = "manual_review" if scored.get("score_status") == "manual_review" else "scored"
+                stage = "manual_review" if scored.get("score_status") == "manual_review" else "scored"
+                status = "manual_review" if stage == "manual_review" else "active"
+
                 conn.execute(
                     """
                     UPDATE jobs SET
                         relevance_score=?, interview_likelihood=?, strengths_alignment=?,
                         industry_sector=?, comp_estimate=?, ai_notes=?,
                         score_status=?, score_flag_reason=?, remote_status=?,
-                        stage=?, stage_updated=?, updated_at=?
+                        stage=?, stage_updated=?, status=?, updated_at=?
                     WHERE id=?
                 """,
                     (
@@ -395,17 +357,33 @@ def main():
                         scored.get("score_status", "manual_review"),
                         scored.get("score_flag_reason", ""),
                         scored.get("remote_status", "Unknown"),
-                        new_stage,
+                        stage,
                         now,
+                        status,
                         now,
-                        row["id"],
+                        job_id,
                     ),
                 )
                 conn.commit()
-                orphan_scored += 1
-            except Exception as e:
-                log_event("orphan_recovery_error", job_id=row["id"], error=str(e))
-        log_event("orphan_recovery_complete", total=len(orphans), scored=orphan_scored)
+                write_audit(conn, job_id, "stage", "enriched", stage)
+                scored_count += 1
+
+                conn.execute(
+                    """
+                    INSERT INTO cost_log (job_id, operation, model, latency_ms, success)
+                    VALUES (?, 'score', ?, ?, 1)
+                """,
+                    (job_id, SCORER_MODEL, latency_ms),
+                )
+                conn.commit()
+
+                print(
+                    f"  [{i}/{score_total}] score={scored.get('relevance_score')} "
+                    f"{row['title'][:40]} @ {row['company'] or '?'} [{latency_ms}ms]",
+                    flush=True,
+                )
+
+        log_event("scoring_complete", total=score_total, scored=scored_count, errors=score_errors)
 
     conn.close()
     log_event(
@@ -414,11 +392,10 @@ def main():
         dupes=dupe_count,
         scored=scored_count,
         noise_skipped=noise_count,
-        orphans_recovered=orphan_scored,
     )
 
     subprocess.run([sys.executable, f"{BASE}/scripts/sync_sheet.py"], check=False)
-    notify(f"Triage done: {new_count} new, {dupe_count} dupes, {scored_count} scored")
+    notify(f"Triage done: {new_count} new, {dupe_count} dupes, {scored_count} scored ({SCORE_WORKERS} workers)")
 
 
 def notify(message):
