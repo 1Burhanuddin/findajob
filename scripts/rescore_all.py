@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ~/JobSearchPipeline/scripts/rescore_all.py
+# scripts/rescore_all.py
 """
 Re-score jobs in the DB that have JD text.
 Useful after switching scorer model or updating the job_scorer role prompt.
@@ -7,6 +7,7 @@ Run manually — not a launchd agent.
 
 Usage:
     rescore_all.py                    # rescore every job in scored/manual_review/enriched
+    rescore_all.py --stage enriched   # only rescore jobs in a specific stage
     rescore_all.py --min-score 7      # only rescore jobs currently scored >=7
     rescore_all.py --min-score 7 --limit 40
     rescore_all.py --dry-run          # report what would be rescored, no LLM calls
@@ -155,6 +156,12 @@ def main():
         "--min-score", type=int, default=None, help="Only rescore jobs with current relevance_score >= this value"
     )
     parser.add_argument("--limit", type=int, default=None, help="Stop after rescoring this many jobs")
+    parser.add_argument(
+        "--stage",
+        type=str,
+        default=None,
+        help="Only rescore jobs in this stage (scored, manual_review, enriched)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Report what would be rescored without making LLM calls")
     args = parser.parse_args()
 
@@ -165,13 +172,23 @@ def main():
     # Fetch jobs that have JD text and are in a re-scoreable stage.
     # Exclude jobs that have progressed past scoring (applied, interviewing, etc.) —
     # overwriting their stage would corrupt the pipeline state.
-    query = """
+    valid_stages = ('scored', 'manual_review', 'enriched')
+    if args.stage:
+        if args.stage not in valid_stages:
+            print(f"Error: --stage must be one of {valid_stages}")
+            sys.exit(1)
+        stage_filter = f"AND stage = ?"
+        params = [args.stage]
+    else:
+        stage_filter = f"AND stage IN {valid_stages}"
+        params = []
+
+    query = f"""
         SELECT id, title, company, location, raw_jd_text, stage, score_status, relevance_score
         FROM jobs
         WHERE raw_jd_text IS NOT NULL AND raw_jd_text != ''
-          AND stage IN ('scored', 'manual_review', 'enriched')
+          {stage_filter}
     """
-    params = []
     if args.min_score is not None:
         query += " AND relevance_score >= ?"
         params.append(args.min_score)
