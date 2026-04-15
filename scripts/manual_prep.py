@@ -69,7 +69,7 @@ def main():
     now = datetime.now(UTC).isoformat()
 
     # Insert into DB
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.execute(
         """INSERT INTO jobs (id, fingerprint, source, title, company, url, raw_jd_text, stage, created_at, updated_at)
         VALUES (?, ?, 'manual', ?, ?, ?, ?, 'discovered', ?, ?)""",

@@ -534,7 +534,7 @@ def sync_rejected_apps(svc, conn):
 def main():
     creds = service_account.Credentials.from_service_account_file(SA_FILE, scopes=SCOPES)
     svc = build("sheets", "v4", credentials=creds)
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
 
     try:

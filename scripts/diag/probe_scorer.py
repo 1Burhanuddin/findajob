@@ -51,7 +51,7 @@ def jd_is_usable(jd):
 with open(PROFILE_PATH) as f:
     profile = f.read()
 
-conn = sqlite3.connect(DB_PATH)
+conn = sqlite3.connect(DB_PATH, timeout=30)
 conn.row_factory = sqlite3.Row
 
 # Pull manual_review rows — prioritise obvious rejects by title keyword

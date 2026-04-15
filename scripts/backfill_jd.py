@@ -120,7 +120,7 @@ def fetch_curl_jd(url):
 
 def backfill_truncated(dry_run=False):
     """Re-fetch JDs that were truncated at the old 8000-char cap."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
 
@@ -208,7 +208,7 @@ def main():
         return
 
     # Original behavior: backfill missing gmail_linkedin JDs
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import subprocess
 import time
@@ -13,12 +14,62 @@ from findajob.utils import jd_is_usable, log_event, validate_llm_json
 DB_PATH: str = f"{BASE}/data/pipeline.db"
 SCHEMA_PATH: str = f"{BASE}/config/scoring_schema.json"
 
+_REMOTE_NORM: dict[str, str] = {
+    "remote": "Remote",
+    "hybrid": "Hybrid",
+    "onsite": "Onsite",
+    "on-site": "Onsite",
+    "in-office": "Onsite",
+    "in office": "Onsite",
+}
+
+
+def _normalize_llm_output(raw: str) -> str:
+    """Normalize common LLM output issues before schema validation.
+
+    Fixes: remote_status variants ("Remote-Friendly" → "Remote"),
+           score values outside 1-10 range.
+    """
+    text = raw.strip()
+    if text.startswith("```"):
+        text = "\n".join(text.split("\n")[1:])
+    if text.endswith("```"):
+        text = text[: text.rfind("```")]
+    text = text.strip()
+    try:
+        d = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return raw  # let validate_llm_json surface the parse error
+
+    # Normalize remote_status
+    rs = d.get("remote_status")
+    if isinstance(rs, str):
+        rs_lower = rs.lower().strip()
+        matched = False
+        for key, val in _REMOTE_NORM.items():
+            if key in rs_lower:
+                d["remote_status"] = val
+                matched = True
+                break
+        if not matched:
+            d["remote_status"] = "Unknown"
+
+    # Clamp scores to 1-10
+    for field in ("relevance_score", "interview_likelihood"):
+        v = d.get(field)
+        if isinstance(v, int) and v < 1:
+            d[field] = 1
+        elif isinstance(v, int) and v > 10:
+            d[field] = 10
+
+    return json.dumps(d)
+
 
 def _build_feedback_block() -> str:
     """Query feedback_log and return a compact rejection-history block for the scorer prompt.
     Returns empty string if no feedback exists."""
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=30)
         conn.row_factory = sqlite3.Row
         rows = conn.execute("""
             SELECT reject_reason, title, relevance_score
@@ -140,7 +191,7 @@ JD:
             "remote_status": "Unknown",
         }, latency_ms
 
-    parsed, error = validate_llm_json(result.stdout, SCHEMA_PATH)
+    parsed, error = validate_llm_json(_normalize_llm_output(result.stdout), SCHEMA_PATH)
 
     if error:
         log_event("score_validation_failed", error=error, title=title, company=company)

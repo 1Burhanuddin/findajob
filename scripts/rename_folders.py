@@ -30,7 +30,7 @@ def abbrev_title(title, max_words=3):
 
 
 def main():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
 
     # Build lookup: old_folder_path → (job_id, title)

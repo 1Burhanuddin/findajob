@@ -81,7 +81,7 @@ def main():
     company, title, url, job_id = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
     # Guard: skip if prep already completed for this job
-    conn_check = sqlite3.connect(DB_PATH)
+    conn_check = sqlite3.connect(DB_PATH, timeout=30)
     conn_check.row_factory = sqlite3.Row
     existing = conn_check.execute("SELECT prep_folder_path, stage FROM jobs WHERE id=?", (job_id,)).fetchone()
     conn_check.close()
@@ -109,7 +109,7 @@ def main():
 
     # ── Step 1: Load JD from DB (already fetched during triage) ──
     # Do NOT re-curl — LinkedIn and many other URLs require auth and will return garbage.
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     row = conn.execute("SELECT raw_jd_text, stage FROM jobs WHERE id=?", (job_id,)).fetchone()
     jd_text = (row["raw_jd_text"] or "").strip() if row else ""

@@ -55,7 +55,7 @@ def send(title, body, priority="default", tags=None):
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def db_connect():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -152,7 +152,7 @@ def cmd_daily_stats():
     send("JSP Daily Stats", body, priority="default", tags="bar_chart")
 
 
-SHEET1_ROW_WARN = 1000  # warn if Sheet1 would sync more than this many rows
+SHEET1_ROW_WARN = 5000  # warn if Sheet1 would sync more than this many rows
 REVIEW_BACKLOG_WARN = 100  # warn if manual_review backlog exceeds this
 TARGET_LOWSCORE_DAYS = 7  # check for mis-scored target company jobs within this window
 

@@ -53,7 +53,7 @@ load_env()
 def _build_feedback_block():
     """Query feedback_log and return a compact rejection-history block for the scorer prompt."""
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=30)
         conn.row_factory = sqlite3.Row
         rows = conn.execute("""
             SELECT reject_reason, title, relevance_score
@@ -114,7 +114,9 @@ JD:
     result = subprocess.run([AICHAT, "--role", "job_scorer", "-S", prompt], capture_output=True, text=True, timeout=60)
     latency_ms = int((time.time() - start) * 1000)
 
-    parsed, error = validate_llm_json(result.stdout, SCHEMA_PATH)
+    from findajob.scoring import _normalize_llm_output
+
+    parsed, error = validate_llm_json(_normalize_llm_output(result.stdout), SCHEMA_PATH)
     if error:
         log_event("rescore_validation_failed", error=error, title=title, company=company)
         # Stage 1.5: if LLM failed AND title matches a hard reject pattern, auto-reject
@@ -156,7 +158,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Report what would be rescored without making LLM calls")
     args = parser.parse_args()
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
 

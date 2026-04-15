@@ -6,7 +6,7 @@ from findajob.paths import BASE
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 
-conn = sqlite3.connect(DB_PATH)
+conn = sqlite3.connect(DB_PATH, timeout=30)
 conn.executescript("""
 CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
