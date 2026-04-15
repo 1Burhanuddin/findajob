@@ -434,4 +434,29 @@ Generated: {date}
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        # Recover from any unhandled error: log failure and reset stage so
+        # the job can be retried on the next poll cycle.
+        job_id = sys.argv[4] if len(sys.argv) > 4 else "unknown"
+        company = sys.argv[1] if len(sys.argv) > 1 else "unknown"
+        title = sys.argv[2] if len(sys.argv) > 2 else "unknown"
+        log_event(
+            "prep_failed",
+            job_id=job_id,
+            company=company,
+            title=title,
+            error=f"{type(exc).__name__}: {exc}",
+        )
+        try:
+            conn = sqlite3.connect(DB_PATH, timeout=30)
+            conn.execute(
+                "UPDATE jobs SET stage='scored', updated_at=? WHERE id=? AND stage='prep_in_progress'",
+                (datetime.now(UTC).isoformat(), job_id),
+            )
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass  # DB recovery is best-effort
+        raise

@@ -1,5 +1,6 @@
 ---
 model: claude:claude-sonnet-4-6:thinking
+max_tokens: 4096
 temperature: 0.3
 ---
 You write pre-interview briefing documents for a job candidate.

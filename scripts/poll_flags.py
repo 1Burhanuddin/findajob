@@ -597,7 +597,9 @@ def main():
     # Trigger prep for each flagged job — fire-and-forget so the poller
     # doesn't block for the duration of prep (resume + cover letter + briefing
     # can take several minutes; blocking here hangs the entire poll cycle).
-    for job in flagged_jobs:
+    # Cap at 3 per cycle to avoid exhausting API rate limits / quotas.
+    MAX_CONCURRENT_PREPS = 3
+    for job in flagged_jobs[:MAX_CONCURRENT_PREPS]:
         subprocess.Popen(
             [
                 sys.executable,
@@ -608,6 +610,23 @@ def main():
                 job["id"],
             ],
             start_new_session=True,
+        )
+    if len(flagged_jobs) > MAX_CONCURRENT_PREPS:
+        # Reset deferred jobs back to scored so next poll cycle picks them up
+        deferred = flagged_jobs[MAX_CONCURRENT_PREPS:]
+        deferred_conn = sqlite3.connect(DB_PATH, timeout=30)
+        now = datetime.now(UTC).isoformat()
+        for job in deferred:
+            deferred_conn.execute(
+                "UPDATE jobs SET stage='scored', stage_updated=?, updated_at=? WHERE id=?",
+                (now, now, job["id"]),
+            )
+        deferred_conn.commit()
+        deferred_conn.close()
+        log_event(
+            "prep_deferred",
+            count=len(deferred),
+            jobs=[f"{j['company']} - {j['title']}" for j in deferred],
         )
 
 
