@@ -12,7 +12,7 @@ The pipeline is mostly autonomous. Your job is:
 2. **Review** — look at new jobs with score ≥ 7
 3. **Action** — set STATUS in the Dashboard:
    - `Flag for Prep` → generates application materials (~5–10 min)
-   - `REJECT_REASON` (any value) → rejects, logs, moves to `_done/`
+   - `REJECT_REASON` (any value) → rejects, logs, moves to `_rejected/`
 4. **Apply** — when prep is done, STATUS auto-changes to `Ready to Apply`; you review materials and submit
 5. **Track** — set STATUS to `Applied` / `Interviewing` / `Offer` / `Withdrew` as appropriate
 
@@ -156,19 +156,16 @@ Safe to re-run — skips already-renamed folders.
 
 ## Google Drive Sync (rclone)
 
-The pipeline bisync `companies/` to Google Drive at `gdrive:01 PROJECTS/Jobs To Apply For`.
+The pipeline uses push-only `rclone copy --update` to sync `companies/` to Google Drive at `gdrive:01 PROJECTS/Jobs To Apply For`. Local is authoritative for new content; `--update` never overwrites newer files on Drive (preserving user edits made via phone/browser).
+
+The `findajob-jobsync.timer` runs `rclone copy --update` every 15 minutes. Additionally, `prep_application.py` and `poll_flags.py` push individual folders immediately after creating or moving them.
+
+Folder moves (reject → `_rejected/`, apply → `_applied/`, waitlist → `_waitlisted/`) use `rclone move` within Drive (server-side) to preserve user edits, then `rclone copy` to push any new local files (e.g., marker files).
 
 Manual sync:
 ```bash
-rclone bisync ~/findajob/companies/ "gdrive:01 PROJECTS/Jobs To Apply For" --create-empty-src-dirs
+rclone copy --update ~/Code/findajob/companies/ "gdrive:01 PROJECTS/Jobs To Apply For"
 ```
-
-If bisync aborts with "safety abort" (>50% of files deleted):
-```bash
-rclone bisync ~/findajob/companies/ "gdrive:01 PROJECTS/Jobs To Apply For" --create-empty-src-dirs --force
-```
-
-This happens when a large batch of folders are renamed or moved at once.
 
 ---
 

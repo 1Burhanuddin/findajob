@@ -84,6 +84,25 @@ sqlite3 -csv data/pipeline.db \
 
 ---
 
+### `send-raw` — Arbitrary Notification
+**No schedule — manual only.**
+
+Send a custom notification with any title and body:
+```bash
+python3 scripts/notify.py send-raw "My Title" "My message body"
+```
+
+Useful for testing ntfy connectivity or sending one-off alerts from other scripts.
+
+---
+
+### `ci-check` — CI Failure Alert
+**Default schedule:** triggered by systemd timer after each push (or run manually)
+
+Checks the latest GitHub Actions CI run. If it failed, sends a high-priority notification with the run title and URL. Silent if CI is passing.
+
+---
+
 ## Schedule Summary
 
 | Notification | Schedule |
@@ -93,6 +112,8 @@ sqlite3 -csv data/pipeline.db \
 | `apply-reminder` | 5:00 AM daily |
 | `issues-ping` | Mon/Wed/Fri 8:00 AM |
 | `feedback-review` | Sunday 8:00 AM |
+| `send-raw` | Manual only |
+| `ci-check` | Manual / on-push |
 
 Schedules are defined in the scheduler config:
 - macOS: `~/Library/LaunchAgents/com.findajob.notify-*.plist`
@@ -108,6 +129,8 @@ python3 scripts/notify.py health-check
 python3 scripts/notify.py apply-reminder
 python3 scripts/notify.py issues-ping
 python3 scripts/notify.py feedback-review
+python3 scripts/notify.py send-raw "Title" "Body"
+python3 scripts/notify.py ci-check
 ```
 
 ---

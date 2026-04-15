@@ -2,7 +2,7 @@
 
 All scripts live in `scripts/`. Diag scripts live in `scripts/diag/` and are run manually only.
 
-All scripts import `BASE`, `AICHAT`, `PANDOC`, and/or `RCLONE` from `scripts/paths.py`.
+All scripts import `BASE`, `AICHAT`, `PANDOC`, and/or `RCLONE` from `findajob.paths` (`src/findajob/paths.py`).
 Never hardcode binary paths in scripts — add overrides to `config/paths.env` instead.
 
 ---
@@ -39,7 +39,7 @@ Generates a full application package for one job. LLM calls run sequentially.
 - `job_description.txt`
 - `REVIEW_CHECKLIST.md`
 
-**After completion:** updates DB to `stage=materials_drafted`, calls `sync_sheet.py`, sends ntfy notification, triggers rclone bisync.
+**After completion:** updates DB to `stage=materials_drafted`, calls `sync_sheet.py`, sends ntfy notification, pushes folder to Google Drive via `rclone copy`.
 
 ---
 
@@ -47,12 +47,17 @@ Generates a full application package for one job. LLM calls run sequentially.
 **Run by:** scheduler (every 30 min)
 **No arguments.**
 
-Reads `Dashboard!A2:C10000` from Google Sheets. Columns: STATUS, REJECT_REASON, fingerprint.
+Reads STATUS, REJECT_REASON, and fingerprint from three tabs: `Dashboard!A2:C10000`, `Review!A2:C10000`, and `Waitlist!A2:C10000`.
 
-**Logic (in priority order):**
-1. If `REJECT_REASON` is set and job not already rejected → calls `handle_rejection()`: updates DB, writes `feedback_log`, moves prep folder to `_done/`, fires rclone bisync (non-blocking)
-2. If `STATUS` is `Applied/Interviewing/Offer/Withdrew` → updates DB stage
-3. If `STATUS` is `Flag for Prep` and job is in `scored/manual_review/enriched` stage → validates company (not an aggregator) → calls `prep_application.py`
+**Dashboard logic (in priority order):**
+1. If `REJECT_REASON` is set and job not already rejected → calls `handle_rejection()`: updates DB, writes `feedback_log`, moves prep folder to `_rejected/`, fires rclone sync (non-blocking)
+2. If `STATUS` is `Regenerate` → deletes existing prep folder, re-runs prep
+3. If `STATUS` is `Applied/Interviewing/Offer/Withdrew` → updates DB stage; `Applied` moves folder to `_applied/`
+4. If `STATUS` is `Waitlist` → sets stage=waitlisted, moves folder to `_waitlisted/`
+5. If `STATUS` is `Flag for Prep` and job is in `scored/manual_review/enriched` stage → sets stage=prep_in_progress, validates company (not an aggregator) → calls `prep_application.py`
+
+**Review logic:** `Promote` sets score=7 + stage=scored. REJECT_REASON rejects.
+**Waitlist logic:** `Reactivate` restores to scored/materials_drafted. REJECT_REASON rejects from waitlist.
 
 ---
 
@@ -62,7 +67,7 @@ Reads `Dashboard!A2:C10000` from Google Sheets. Columns: STATUS, REJECT_REASON, 
 
 Reads SQLite, writes to Sheet1 (full archive) and Dashboard (actionable queue).
 
-**Dashboard filter:** `relevance_score >= 7 AND stage IN ('scored', 'manual_review')` OR `stage = 'materials_drafted'`. Materials_drafted jobs float to the top (sorted first).
+**Dashboard filter:** `relevance_score >= 7 AND stage IN ('scored', 'manual_review', 'prep_in_progress')` OR `stage = 'materials_drafted'`. Materials_drafted jobs float to the top (sorted first).
 
 **STATUS value in Dashboard:** derived from DB — `Ready to Apply` if `stage=materials_drafted`, `Flag for Prep` if `apply_flag=1 AND stage≠materials_drafted`, else empty.
 
@@ -84,16 +89,18 @@ Creates and formats the Dashboard tab. Sets up:
 ---
 
 ### `notify.py`
-**Run by:** scheduler (5 subcommands on different schedules); also callable manually
+**Run by:** scheduler (5 scheduled subcommands) + 2 manual-only; also all callable manually
 **Args:** one subcommand
 
 | Subcommand | What it sends |
 |---|---|
 | `daily-stats` | Queue depth, today's new jobs, last triage timestamp |
-| `health-check` | Errors from last 25h of logs, last `pipeline_complete` event |
+| `health-check` | Errors from last 25h of logs, last `pipeline_complete` event, stuck prep_in_progress jobs |
 | `issues-ping` | Open items from `docs/ISSUES.md` |
 | `apply-reminder` | Rotating motivational nudge to submit an application |
 | `feedback-review` | Alert when `feedback_log` has ≥ 10 entries to analyze |
+| `send-raw` | Send an arbitrary notification: `notify.py send-raw <title> <body>` |
+| `ci-check` | Check latest GitHub Actions CI run; alert with high priority if failed |
 
 ntfy topic is read from `NTFY_TOPIC` in `data/.env`.
 

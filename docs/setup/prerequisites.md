@@ -36,7 +36,7 @@ Used by: `company_researcher`
 - Sign up at https://www.perplexity.ai
 - Create an API key
 - Add to `data/.env` as `PERPLEXITY_API_KEY`
-- Model: `sonar-pro` (real-time web access)
+- Model: `sonar-reasoning-pro` (real-time web access with reasoning)
 
 ### 5. RapidAPI — jobs-api14
 Used by: LinkedIn and Indeed job search in `triage.py`

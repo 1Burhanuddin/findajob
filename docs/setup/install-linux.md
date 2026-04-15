@@ -59,7 +59,8 @@ pip3 install --break-system-packages \
   google-auth-httplib2 \
   google-auth-oauthlib \
   requests \
-  jsonschema
+  jsonschema \
+  beautifulsoup4
 ```
 
 ---
@@ -91,7 +92,7 @@ which rclone     # likely /usr/bin/rclone
 which aichat-ng  # likely /usr/local/bin/aichat-ng (installed in step 2)
 ```
 
-If all paths match the defaults in `scripts/paths.py`, you don't need `config/paths.env`.
+If all paths match the defaults in `src/findajob/paths.py`, you don't need `config/paths.env`.
 If any path differs:
 
 ```bash
@@ -197,7 +198,7 @@ mkdir -p ~/.config/systemd/user
 
 Run the systemd setup script (generates and loads all units):
 ```bash
-python3 scripts/bootstrap.py --systemd
+bash scripts/bootstrap.sh --systemd
 ```
 
 Or manually create service units. Example for the daily triage:
@@ -250,25 +251,26 @@ systemctl --user enable --now findajob-triage.timer
 
 See [bootstrap.sh](../../scripts/bootstrap.sh) for all service unit definitions.
 
-### Google Drive jobsync — one-time bisync initialization
+### Google Drive jobsync
 
-The `findajob-jobsync.service` uses `rclone bisync` for bidirectional sync between local `companies/` and Google Drive. This means:
+The `findajob-jobsync.service` uses push-only `rclone copy --update` to sync local `companies/` to Google Drive every 15 minutes. This is simpler than the previous bisync approach:
 
-- New prep folders created locally are pushed to Drive (as expected)
-- **Edits you make to files directly in Drive are preserved** and pulled back to local on the next sync (every 15 minutes)
-- Folder moves (reject → `_rejected/`, apply → `_applied/`) propagate in both directions
+- New prep folders created locally are pushed to Drive
+- `--update` skips files that are newer on Drive, preserving edits made via phone/browser
+- No state files, no `--resync` initialization, no conflict copies
+- Folder moves (reject → `_rejected/`, apply → `_applied/`, waitlist → `_waitlisted/`) are handled inline by `poll_flags.py` using `rclone move` within Drive (server-side)
 
-`bisync` requires a one-time initialization with `--resync` to establish its state file. Run this **once** after your first prep folder exists locally (i.e., after you've run a prep):
+No one-time initialization is needed. The jobsync timer will push files on its next run after your first prep. To verify the remote is configured:
 
 ```bash
-rclone bisync ~/findajob/companies/ "gdrive:01 PROJECTS/Jobs To Apply For" --resync --max-delete 500
+rclone lsd "gdrive:01 PROJECTS/Jobs To Apply For"
 ```
 
-`--resync` means "local wins any conflicts for this initial sync." After this, normal bisync runs (without `--resync`) handle both directions symmetrically.
+To push manually:
 
-If bisync ever aborts with a message like `cannot find prior Path1 listing`, the state file is missing or corrupted. Re-run the `--resync` command above and the service will resume normally on the next timer fire.
-
-**Warning:** `bisync` is marked experimental in older rclone versions (< 1.67). The pipeline uses `--max-delete 500` as a safety check — if bisync sees more than 500 deletes pending on either side, it aborts rather than risk data loss. If a legitimate bulk operation (like renaming all prep files) exceeds this, you'll need to run `--resync` again to re-establish the baseline after the local change.
+```bash
+rclone copy --update ~/Code/findajob/companies/ "gdrive:01 PROJECTS/Jobs To Apply For"
+```
 
 ---
 

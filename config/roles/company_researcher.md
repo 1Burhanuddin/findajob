@@ -1,5 +1,5 @@
 ---
-model: perplexity:sonar-pro
+model: perplexity:sonar-reasoning-pro
 temperature: 0.2
 ---
 You research companies for a senior infrastructure job candidate.

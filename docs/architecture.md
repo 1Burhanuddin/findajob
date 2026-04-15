@@ -88,7 +88,7 @@ prep_application.py (runs in foreground)
     │  1. resume_tailor → tailored_resume_DRAFT.md │
     │  2. resume_change_reviewer → CHANGES.md     │
     │  3. cover_letter_writer → cover_letter_DRAFT.md │
-    │  4. company_researcher (Perplexity sonar-pro) │
+    │  4. company_researcher (Perplexity sonar-reasoning-pro) │
     │  5. briefing_writer → company_briefing.md   │
     │  6. find_contacts.py → outreach_*.txt       │
     └─────┬──────────────────────────────────────┘
@@ -98,7 +98,7 @@ prep_application.py (runs in foreground)
     DB updated: stage = materials_drafted
     sync_sheet.py: Dashboard STATUS → "Ready to Apply"
     ntfy notification sent
-    rclone bisync: companies/ → Google Drive
+    rclone copy: companies/ → Google Drive
 ```
 
 ---
@@ -123,7 +123,8 @@ interview_likelihood INTEGER -- 1–10 from LLM scorer
 ai_notes TEXT                -- LLM rationale
 score_status TEXT            -- scored | manual_review | prefiltered
 stage TEXT                   -- discovered | enriched | scored | manual_review |
-                             --   materials_drafted | applied | interview | offer | withdrawn | rejected
+                             --   prep_in_progress | materials_drafted | waitlisted |
+                             --   applied | interview | offer | withdrawn | rejected
 apply_flag INTEGER           -- 0/1, mirrors Dashboard STATUS
 reject_reason TEXT
 comp_estimate TEXT
@@ -180,8 +181,8 @@ All jobs that passed dedup. Read-only reference view.
 | M | source | |
 | N | url | |
 
-### Dashboard — Actionable Queue (A–L)
-Filter: `score >= 7 AND stage IN (scored, manual_review)` OR `stage = materials_drafted`.
+### Dashboard — Actionable Queue (A–N)
+Filter: `score >= 7 AND stage IN (scored, manual_review, prep_in_progress)` OR `stage = materials_drafted`.
 poll_flags.py reads this tab every 30 min.
 
 | Col | Field | Notes |
@@ -189,20 +190,70 @@ poll_flags.py reads this tab every 30 min.
 | A | STATUS | Dropdown — user sets this |
 | B | REJECT_REASON | Dropdown — triggers rejection workflow |
 | C | fingerprint | Hidden |
-| D | relevance_score | |
-| E | title | Hyperlink to job URL |
-| F | company | |
+| D | fit_score | LLM-assigned fit score |
+| E | probability_score | LLM-assigned interview probability |
+| F | relevance_score | 1–10 composite score |
+| G | title | Hyperlink to job URL |
+| H | company | Hyperlink to Drive folder when prepped |
+| I | location | |
+| J | remote_status | Color-coded |
+| K | known_contacts | Amber when non-empty |
+| L | comp_estimate | |
+| M | ai_notes | |
+| N | date_found | |
+
+**STATUS dropdown options:** `Flag for Prep` → `Prep in Progress` *(system)* → `Ready to Apply` *(system)* → `Applied` *(user)* → `Interviewing` → `Offer` / `Withdrew`. Also: `Regenerate` (re-runs prep), `Waitlist` (defers the job).
+
+**REJECT_REASON:** setting any value triggers: stage=rejected, feedback_log entry, folder move to `_rejected/`, immediate rclone sync to Drive.
+
+### Review — Manual Review Triage (A–H)
+Filter: `stage = manual_review` (scorer flagged for human review, e.g., null scores or schema failures).
+
+| Col | Field | Notes |
+|---|---|---|
+| A | STATUS | Dropdown: `Promote` |
+| B | REJECT_REASON | Dropdown — same options as Dashboard |
+| C | fingerprint | Hidden |
+| D | title | Hyperlink to job URL |
+| E | company | |
+| F | score_flag_reason | Why the scorer flagged this job |
+| G | source | |
+| H | date_found | |
+
+`Promote` sets score=7, stage=scored → job appears on Dashboard. REJECT_REASON rejects the job.
+
+### Waitlist — Deferred Jobs (A–K)
+Filter: `stage = waitlisted`.
+
+| Col | Field | Notes |
+|---|---|---|
+| A | STATUS | Dropdown: `Reactivate` |
+| B | REJECT_REASON | Dropdown — same options as Dashboard |
+| C | fingerprint | Hidden |
+| D | title | Hyperlink to job URL |
+| E | company | |
+| F | relevance_score | |
 | G | location | |
-| H | remote_status | Color-coded |
-| I | known_contacts | Amber when non-empty |
-| J | comp_estimate | |
-| K | ai_notes | |
-| L | date_found | |
+| H | remote_status | |
+| I | ai_notes | |
+| J | date_found | |
+| K | blocking_app | Active application at same company (computed at sync time) |
 
-**STATUS lifecycle:**
-`(empty)` → `Flag for Prep` *(user)* → prep runs → `Ready to Apply` *(system)* → `Applied` *(user)* → `Interviewing` → `Offer` / `Withdrew`
+`Reactivate` restores to `scored` (no folder) or `materials_drafted` (has folder), moves folder back from `_waitlisted/`. When an active application at the same company is rejected/withdrawn, ntfy surfaces waitlisted jobs.
 
-**REJECT_REASON:** setting any value triggers: stage=rejected, feedback_log entry, folder move to `_done/`, immediate rclone bisync.
+### Rejected Applications (A–H)
+Jobs that were rejected after reaching `applied` stage. Read-only reference view.
+
+| Col | Field | Notes |
+|---|---|---|
+| A | title | Hyperlink to job URL |
+| B | company | Hyperlink to Drive folder if available |
+| C | reject_reason | |
+| D | applied_date | Date the job was marked Applied |
+| E | rejected_date | Date the rejection was recorded |
+| F | fit_score | |
+| G | probability_score | |
+| H | ai_notes | |
 
 ---
 
@@ -214,6 +265,6 @@ poll_flags.py reads this tab every 30 min.
 | Direct profile injection (not RAG) | RAG chunking drops contact info, employer names, and dates. Profile is short enough to inject raw. |
 | Two-stage prefilter before LLM | Hard rejects (wrong domain, title-deterministic) don't need LLM calls. Saves ~$0.10/day and speeds triage. |
 | JSON output validation | `jsonschema` validates every LLM scoring response. Malformed output → manual_review, not a crash. |
-| rclone bisync (not unidirectional) | Prep folders may be edited on other machines (phone via Google Drive). Bisync preserves both directions. |
+| rclone copy --update (push-only) | Bisync was replaced — conflict copies and state-file corruption outweighed bidirectional convenience. Local is authoritative for new content; Drive edits are preserved by `--update` (never overwrites newer remote files). Folder moves use `rclone move` within Drive (server-side). |
 | Rejection before prep in poll_flags | Prevents a race condition where a job gets prepped and then rejected in the same poll cycle. |
 | `abbrev_title()` in folder names | Same-day preps for the same company would overwrite each other without title disambiguation. HHMMSS suffix prevents same-title same-day overwrites. |

@@ -53,7 +53,8 @@ cd ~/findajob
   google-auth-httplib2 \
   google-auth-oauthlib \
   requests \
-  jsonschema
+  jsonschema \
+  beautifulsoup4
 ```
 
 ---
@@ -197,7 +198,7 @@ sqlite3 ~/findajob/data/pipeline.db "SELECT count(*) FROM jobs;"
 |---|---|---|
 | `com.findajob.triage` | triage.py | 7:00 AM daily |
 | `com.findajob.poller` | poll_flags.py | Every 30 min |
-| `com.findajob.jobsync` | rclone bisync | Every 15 min |
+| `com.findajob.jobsync` | rclone copy --update | Every 15 min |
 | `com.findajob.form-ingest` | ingest_form.py | Every 30 min |
 | `com.findajob.rag-rebuild` | aichat-ng --rag rebuild | Sunday 6:00 AM |
 | `com.findajob.notify-stats` | notify.py daily-stats | 7:05 AM daily |

@@ -98,7 +98,7 @@ PANDOC=/usr/bin/pandoc           # Linux default
 RCLONE=/usr/bin/rclone           # Linux default
 ```
 
-Linux defaults are already built into `scripts/paths.py`. If everything is in the expected locations, you can skip this file.
+Linux defaults are already built into `src/findajob/paths.py`. If everything is in the expected locations, you can skip this file.
 
 ---
 
