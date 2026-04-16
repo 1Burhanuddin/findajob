@@ -701,6 +701,25 @@ def cmd_scoreboard():
     ).fetchone()[0]
     not_selected = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'not_selected'").fetchone()[0]
 
+    # ── Low-signal feeds (last 7d) ──
+    # Companies producing ≥20 scored jobs in 7 days with 0 scoring 7+ are strong
+    # candidates for removal from feed_urls.txt. The scorer is working correctly
+    # for these — the feed is genuinely off-target for the user's profile.
+    low_signal_rows = conn.execute("""
+        SELECT
+            company,
+            COUNT(*) AS total,
+            GROUP_CONCAT(DISTINCT source) AS sources
+        FROM jobs
+        WHERE julianday('now') - julianday(created_at) <= 7
+          AND (dupe_of = '' OR dupe_of IS NULL)
+          AND relevance_score IS NOT NULL
+          AND company != ''
+        GROUP BY company
+        HAVING total >= 20 AND SUM(CASE WHEN relevance_score >= 7 THEN 1 ELSE 0 END) = 0
+        ORDER BY total DESC
+    """).fetchall()
+
     conn.close()
 
     # ── Build markdown ──
@@ -710,6 +729,19 @@ def cmd_scoreboard():
         dist_table += f"| {r['relevance_score']} | {r['cnt']:,} | {pct}% |\n"
 
     hit_health = "healthy" if 2 <= float(hit_rate) <= 5 else "review needed"
+
+    if low_signal_rows:
+        low_signal_section = (
+            "Companies with ≥20 scored jobs in the last 7d and 0 scoring 7+. "
+            "Strong candidates for removal from `feed_urls.txt` — the scorer is "
+            "correctly rejecting these as off-profile; the feed just adds noise.\n\n"
+            "| Company | Jobs (7d) | Source(s) |\n"
+            "|---|---|---|\n"
+        )
+        for r in low_signal_rows:
+            low_signal_section += f"| {r['company']} | {r['total']} | {r['sources']} |\n"
+    else:
+        low_signal_section = "_None — every active feed produced at least one 7+ job in the last 7 days._"
 
     body = f"""\
 > **This is a living scoreboard, not a task.** Auto-updated weekly by `notify.py scoreboard`.
@@ -764,6 +796,10 @@ Cumulative counts — how many jobs ever reached each stage, not just current st
 ## Score Distribution
 
 {dist_table}
+
+## Low-Signal Feeds (last 7d)
+
+{low_signal_section}
 
 ## What to Watch
 
