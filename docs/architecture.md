@@ -73,8 +73,9 @@ Everything between them is mediated by SQLite. The Google Sheet is a synced view
 User sets STATUS = "Flag for Prep" in Dashboard
           │
           ▼
-poll_flags.py (runs every 30 min)
-  reads Dashboard!A2:C10000
+poll_flags.py (runs every 10 min)
+  reads Dashboard!A2:C10000 AND Applied!A2:C10000
+  (and Review/Waitlist for their own STATUS transitions)
   matches fingerprint → DB job
   validates company (not an aggregator)
           │
@@ -129,8 +130,12 @@ apply_flag INTEGER           -- 0/1, mirrors Dashboard STATUS
 reject_reason TEXT
 comp_estimate TEXT
 known_contacts TEXT
+user_notes TEXT              -- free text set via Applied tab col I
 stage_updated TEXT           -- ISO timestamp of last stage change
 prep_folder_path TEXT        -- absolute path to companies/ subfolder
+gdrive_folder_url TEXT       -- link to prep folder on Drive
+fit_score REAL               -- 0-100% avg from fit_analyst
+probability_score REAL       -- 0-100% avg from fit_analyst
 created_at TEXT
 updated_at TEXT
 ```
@@ -181,9 +186,9 @@ All jobs that passed dedup. Read-only reference view.
 | M | source | |
 | N | url | |
 
-### Dashboard — Actionable Queue (A–N)
-Filter: `score >= 7 AND stage IN (scored, manual_review, prep_in_progress)` OR `stage = materials_drafted`.
-poll_flags.py reads this tab every 30 min.
+### Dashboard — Pre-Application Queue (A–N)
+Filter: `(score >= 7 AND stage IN (scored, manual_review))` OR `stage IN (prep_in_progress, materials_drafted)`.
+poll_flags.py reads this tab every 10 min. Once the user marks STATUS=Applied, the poller sets `stage=applied` and the row moves to the Applied tab on the next sync.
 
 | Col | Field | Notes |
 |---|---|---|
@@ -202,9 +207,31 @@ poll_flags.py reads this tab every 30 min.
 | M | ai_notes | |
 | N | date_found | |
 
-**STATUS dropdown options:** `Flag for Prep` → `Prep in Progress` *(system)* → `Ready to Apply` *(system)* → `Applied` *(user)* → `Interviewing` → `Offer` / `Not Selected` / `Withdrew`. Also: `Regenerate` (re-runs prep), `Waitlist` (defers the job). `Not Selected` = company rejected the application (folder stays in `_applied/`, no feedback_log write).
+**STATUS dropdown options (Dashboard — pre-application):** `Flag for Prep` → `Prep in Progress` *(system)* → `Ready to Apply` *(system)* → `Applied` *(user)*. Also: `Regenerate` (re-runs prep), `Waitlist` (defers the job). Once marked `Applied`, the poller sets stage=applied and the row moves to the Applied tab where `Interviewing` / `Offer` / `Ghosted` / `Not Selected` / `Withdrew` are set.
 
 **REJECT_REASON:** behavior depends on STATUS. If STATUS = `Not Selected`: company rejection → `stage=not_selected`, no feedback_log, folder stays in `_applied/`. Otherwise: user rejection → `stage=rejected`, feedback_log entry, folder move to `_rejected/`, immediate rclone sync to Drive.
+
+### Applied — Post-Application Queue (A–N)
+Filter: `stage IN (applied, interview, offer)`. UI for managing jobs that have been submitted.
+
+| Col | Field | Notes |
+|---|---|---|
+| A | STATUS | Dropdown: `Interviewing` / `Offer` / `Ghosted` / `Not Selected` / `Withdrew` |
+| B | REJECT_REASON | Dropdown — same 11 options as Dashboard |
+| C | fingerprint | Hidden |
+| D | title | Hyperlink to job URL |
+| E | company | Hyperlink to Drive folder |
+| F | applied_date | Date job was marked Applied (from `audit_log`) |
+| G | days_since_applied | Live `=IF(F2="","",TODAY()-F2)` formula |
+| H | stage | `applied` / `interview` / `offer` (read-only) |
+| I | user_notes | Free text, syncs back to `jobs.user_notes` |
+| J | known_contacts | |
+| K | location | |
+| L | remote_status | |
+| M | comp_estimate | |
+| N | ai_notes | Read-only (scorer output) |
+
+Row-color priority (first match wins): Offer→gold, Interviewing→purple, `Ghosted` or `>=21 days`→gray, 14–20d→red, 7–13d→yellow, 0–6d→green. `Ghosted` is visual-only — stage stays `applied` so the row doesn't leave the tab; flip to `Not Selected` when giving up.
 
 ### Review — Manual Review Triage (A–H)
 Filter: `stage = manual_review` (scorer flagged for human review, e.g., null scores or schema failures).

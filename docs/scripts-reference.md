@@ -47,15 +47,16 @@ Generates a full application package for one job. LLM calls run sequentially.
 **Run by:** scheduler (every 10 min)
 **No arguments.**
 
-Reads STATUS, REJECT_REASON, and fingerprint from three tabs: `Dashboard!A2:C10000`, `Review!A2:C10000`, and `Waitlist!A2:C10000`.
+Reads STATUS, REJECT_REASON, and fingerprint from four tabs: `Dashboard!A2:C10000`, `Applied!A2:C10000`, `Review!A2:C10000`, and `Waitlist!A2:C10000`. All share the col A/B/C layout so one processing loop handles them.
 
-**Dashboard logic (in priority order):**
+**STATUS logic (Dashboard + Applied, in priority order):**
 1. If `STATUS` is `Not Selected` and job is in `applied/interview/offer` → calls `handle_not_selected()`: sets `stage=not_selected`, drops marker file in `_applied/`, NO `feedback_log` write
 2. If `REJECT_REASON` is set and job not already rejected → calls `handle_rejection()`: updates DB, writes `feedback_log`, moves prep folder to `_rejected/`, fires rclone sync (non-blocking)
 3. If `STATUS` is `Regenerate` → deletes existing prep folder, re-runs prep
 4. If `STATUS` is `Applied/Interviewing/Offer/Withdrew` → updates DB stage; `Applied` moves folder to `_applied/`
 5. If `STATUS` is `Waitlist` → sets stage=waitlisted, moves folder to `_waitlisted/`
 6. If `STATUS` is `Flag for Prep` and job is in `scored/manual_review/enriched` stage → sets stage=prep_in_progress, validates company (not an aggregator) → calls `prep_application.py`
+7. If `STATUS` is `Ghosted` (Applied tab only) → no DB change; preserved across syncs for row coloring
 
 **Review logic:** `Promote` sets score=7 + stage=scored. REJECT_REASON rejects.
 **Waitlist logic:** `Reactivate` restores to scored/materials_drafted. REJECT_REASON rejects from waitlist.
@@ -66,11 +67,15 @@ Reads STATUS, REJECT_REASON, and fingerprint from three tabs: `Dashboard!A2:C100
 **Run by:** end of triage, end of prep; also callable manually
 **No arguments.**
 
-Reads SQLite, writes to Sheet1 (full archive) and Dashboard (actionable queue).
+Reads SQLite, writes Sheet1 (full archive), Dashboard (pre-application queue), Applied (post-application), Review (manual triage), Waitlist (deferred), and Rejected Applications.
 
-**Dashboard filter:** `relevance_score >= 7 AND stage IN ('scored', 'manual_review', 'prep_in_progress')` OR `stage = 'materials_drafted'`. Materials_drafted jobs float to the top (sorted first).
+**Dashboard filter:** `(relevance_score >= 7 AND stage IN ('scored', 'manual_review'))` OR `stage IN ('prep_in_progress', 'materials_drafted')`. Materials_drafted jobs float to the top (sorted first).
+
+**Applied filter:** `stage IN ('applied', 'interview', 'offer')`. Sort: offer → interview → applied, most recently updated first. `sync_applied()` reads the current Applied tab before clearing so (a) user-set STATUS/REJECT_REASON/user_notes survive the rewrite and (b) any edited `user_notes` is written back to the DB.
 
 **STATUS value in Dashboard:** derived from DB — `Ready to Apply` if `stage=materials_drafted`, `Flag for Prep` if `apply_flag=1 AND stage≠materials_drafted`, else empty.
+
+**STATUS value in Applied:** derived from stage — `Offer` for `offer`, `Interviewing` for `interview`, empty for `applied` (user hasn't changed it yet). User-set values (`Ghosted`, `Not Selected`, `Withdrew`) override via pending_statuses preservation.
 
 ---
 
@@ -78,13 +83,14 @@ Reads SQLite, writes to Sheet1 (full archive) and Dashboard (actionable queue).
 **Run by:** manually (once on new sheet; safe to re-run)
 **No arguments.**
 
-Creates and formats the Dashboard tab. Sets up:
-- STATUS dropdown (col A) with conditional row highlighting
+Creates and formats every tab (Sheet1, Dashboard, Review, Waitlist, Rejected Applications, Applied). One-time: if a legacy `Active` tab exists (from before #43), it is renamed to `Applied` on first run. Sets up:
+- STATUS dropdown (col A) with conditional row highlighting — per-tab option set
 - REJECT_REASON dropdown (col B) with per-option colors
-- Remote status color coding (col H): Remote=red, Hybrid=yellow, On-site=green
-- Contacts amber highlight (col I)
-- Row banding
-- Column widths and hidden columns
+- Remote status color coding: Remote=red, Hybrid=yellow, On-site=green
+- Contacts amber highlight
+- Applied-tab row coloring by priority: Offer→gold, Interviewing→purple, `Ghosted` or ≥21d→gray, 14–20d→red, 7–13d→yellow, 0–6d→green
+- Row banding (where the tab doesn't conflict with full-row CF coloring)
+- Column widths, hidden fingerprint columns, number formats (dates, days count)
 - Rejected row formatting on Sheet1 (grey)
 
 ---

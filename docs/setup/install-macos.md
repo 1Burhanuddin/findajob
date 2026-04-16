@@ -197,7 +197,7 @@ sqlite3 ~/findajob/data/pipeline.db "SELECT count(*) FROM jobs;"
 | launchd label | Script | Schedule |
 |---|---|---|
 | `com.findajob.triage` | triage.py | 7:00 AM daily |
-| `com.findajob.poller` | poll_flags.py | Every 30 min |
+| `com.findajob.poller` | poll_flags.py | Every 10 min |
 | `com.findajob.jobsync` | rclone copy --update | Every 15 min |
 | `com.findajob.form-ingest` | ingest_form.py | Every 30 min |
 | `com.findajob.rag-rebuild` | aichat-ng --rag rebuild | Sunday 6:00 AM |

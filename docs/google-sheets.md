@@ -32,12 +32,14 @@ Rejected rows are greyed out (conditional formatting on `stage="rejected"`).
 
 ---
 
-### Dashboard — Actionable Queue
+### Dashboard — Pre-Application Queue
 
-The working view. Updated by `sync_sheet.py` (runs after triage and after every prep).
-`poll_flags.py` reads this tab every 30 minutes and acts on STATUS and REJECT_REASON.
+Jobs the user can still act on before applying. Updated by `sync_sheet.py` (after triage and after every prep).
+`poll_flags.py` reads this tab every 10 minutes and acts on STATUS and REJECT_REASON.
 
-**Filter:** jobs with `relevance_score >= 7 AND stage IN (scored, manual_review, prep_in_progress)` OR `stage = materials_drafted`.
+**Filter:** `(relevance_score >= 7 AND stage IN (scored, manual_review))` OR `stage IN (prep_in_progress, materials_drafted)`.
+
+Once the user marks STATUS=Applied, the poller sets `stage=applied` and the job leaves the Dashboard for the Applied tab.
 
 **Sort:** `materials_drafted` jobs first (most actionable), then by score descending.
 
@@ -68,7 +70,7 @@ The STATUS dropdown drives the entire application workflow.
 | Value | Set by | What happens |
 |---|---|---|
 | *(empty)* | System (default) | No action |
-| `Flag for Prep` | You | `poll_flags.py` triggers `prep_application.py` within 30 min |
+| `Flag for Prep` | You | `poll_flags.py` triggers `prep_application.py` within 10 min |
 | `Prep in Progress` | System | Set when prep is actively running (prevents duplicate triggers) |
 | `Regenerate` | You | Deletes existing prep folder and re-runs prep from scratch |
 | `Ready to Apply` | System | Set automatically when `stage=materials_drafted` (prep done) |
@@ -88,14 +90,14 @@ The STATUS dropdown drives the entire application workflow.
 Behavior depends on the STATUS column:
 
 **If STATUS = `Not Selected` (company rejection):**
-1. `poll_flags.py` (within 30 min) detects the value
+1. `poll_flags.py` (within 10 min) detects the value
 2. DB updated: `stage=not_selected`, `reject_reason=<value>`
 3. No `feedback_log` write (company rejections don't contaminate the scorer)
 4. Folder stays in `companies/_applied/` with a `NOT_SELECTED_{reason}_{date}.txt` marker file
 5. Waitlisted jobs at the same company are surfaced via ntfy notification
 
 **Otherwise (user rejection):**
-1. `poll_flags.py` (within 30 min) detects the value
+1. `poll_flags.py` (within 10 min) detects the value
 2. DB updated: `stage=rejected`, `reject_reason=<value>`
 3. Row written to `feedback_log` table (for pattern analysis)
 4. If a prep folder exists for this job: it is moved to `companies/_rejected/`
@@ -105,6 +107,60 @@ Behavior depends on the STATUS column:
 "Not Selected" is checked before generic rejection in the poll cycle to prevent routing errors.
 
 **Tip:** You can reject and prep at the same time by setting both — rejection wins. If you change your mind after rejecting, you'd need to manually update the DB.
+
+---
+
+## Applied Tab — Post-Application Management
+
+The management view for jobs you've submitted and are waiting to hear back on. Every row here represents an application in flight.
+
+**Filter:** `stage IN (applied, interview, offer)`.
+
+**Sort:** by stage — `offer` first, then `interview`, then `applied`; within each stage, most recently updated first.
+
+Columns A–N:
+| Col | Field | Who writes it |
+|---|---|---|
+| A | STATUS | You (dropdown) |
+| B | REJECT_REASON | You (dropdown — same 11 options as Dashboard) |
+| C | fingerprint (hidden) | System |
+| D | title (hyperlink to JD) | System |
+| E | company (hyperlink to Drive folder) | System |
+| F | applied_date | System (from `audit_log` first `applied` transition) |
+| G | days_since_applied | Live `=IF(F2="","",TODAY()-F2)` formula |
+| H | stage | System (`applied` / `interview` / `offer`) |
+| I | user_notes | You (free text — syncs back to `jobs.user_notes`) |
+| J | known_contacts | System |
+| K | location | System |
+| L | remote_status | System |
+| M | comp_estimate | System |
+| N | ai_notes | System (read-only — scorer output) |
+
+### STATUS Dropdown
+
+| Value | What happens |
+|---|---|
+| `Interviewing` | `poll_flags.py` sets `stage=interview`, row stays on Applied tab |
+| `Offer` | `poll_flags.py` sets `stage=offer`, row stays on Applied tab |
+| `Ghosted` | Visual-only — stage stays `applied`, row stays on tab, whole row turns gray |
+| `Not Selected` | Company rejection — `stage=not_selected`, marker file in `_applied/`, row moves to Rejected Applications tab |
+| `Withdrew` | `stage=withdrawn`, row leaves Applied tab |
+
+`Ghosted` is for jobs where a recruiter has gone dark — the row stays so you can follow up. Flip to `Not Selected` when you give up.
+
+### Row Color Priority
+
+First matching rule wins:
+1. `STATUS = Offer` → gold (best news)
+2. `STATUS = Interviewing` → purple
+3. `STATUS = Ghosted` **or** `days_since_applied ≥ 21` → gray
+4. `days_since_applied 14–20` → red (getting stale)
+5. `days_since_applied 7–13` → yellow
+6. `days_since_applied 0–6` → green (fresh)
+
+### User Notes Writeback
+
+`sync_sheet.py` reads the Applied tab before clearing it. If the user changed `user_notes` (col I) since the last sync, the new value is written to `jobs.user_notes` before the tab is re-rendered. No separate migration or action needed — just edit and it persists.
 
 ---
 
@@ -178,6 +234,7 @@ Columns A–H:
 
 ## Color Coding
 
+**Dashboard** (pre-application statuses only):
 | Column | Color trigger | Color |
 |---|---|---|
 | STATUS col A | `Flag for Prep` | Entire row turns light blue |
@@ -185,16 +242,27 @@ Columns A–H:
 | STATUS col A | `Regenerate` | Entire row turns warm orange |
 | STATUS col A | `Ready to Apply` | Entire row turns teal |
 | STATUS col A | `Waitlist` | Entire row turns warm amber |
-| STATUS col A | `Applied` | Entire row turns green |
-| STATUS col A | `Interviewing` | Entire row turns purple |
-| STATUS col A | `Offer` | Entire row turns gold |
-| STATUS col A | `Withdrew` | Entire row turns grey |
+| STATUS col A | `Applied` | Entire row turns green (brief — poller removes row within 10 min) |
 | REJECT_REASON col B | Any value | Cell gets a distinct color per reason |
 | remote_status col J | `Remote` | Red background |
 | remote_status col J | `Hybrid` | Yellow background |
 | remote_status col J | `On-site`/`Onsite` | Green background |
 | known_contacts col K | Non-empty | Amber background |
-| Sheet1 stage col H | `rejected` | Entire row turns grey with grey text |
+
+**Applied tab** (row-color priority — first match wins):
+| Trigger | Color |
+|---|---|
+| `STATUS = Offer` | Gold |
+| `STATUS = Interviewing` | Purple |
+| `STATUS = Ghosted` OR `days_since_applied ≥ 21` | Gray |
+| `days_since_applied 14–20` | Red |
+| `days_since_applied 7–13` | Yellow |
+| `days_since_applied 0–6` | Green |
+
+**Sheet1:**
+| Column | Trigger | Color |
+|---|---|---|
+| stage col H | `rejected` | Entire row grey with grey text |
 
 ---
 
@@ -223,5 +291,8 @@ Google Sheets has race conditions when multiple concurrent writes happen. The AP
 **Why read fingerprint (col C) instead of row index?**
 The sheet is re-written from scratch on each sync. Row positions are unstable. The fingerprint identifies a job uniquely across both the sheet and the DB.
 
-**Why does the poller run every 30 min instead of instantly?**
-launchd/systemd granularity. 30 min is the practical minimum for a scheduled interval. If you need faster response, you can run `python3 scripts/poll_flags.py` manually immediately after flagging.
+**Why does the poller run every 10 min instead of instantly?**
+systemd timer granularity. 10 min is the default cadence; if you need faster response, run `python3 scripts/poll_flags.py` manually immediately after flagging.
+
+**Where does `poll_flags.py` read from?**
+Four tabs per cycle: `Dashboard!A2:C10000`, `Applied!A2:C10000`, `Review!A2:C10000`, `Waitlist!A2:C10000`. All use the same col A=STATUS, B=REJECT_REASON, C=fingerprint layout so one loop handles them.
