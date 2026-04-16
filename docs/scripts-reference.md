@@ -44,7 +44,7 @@ Generates a full application package for one job. LLM calls run sequentially.
 ---
 
 ### `poll_flags.py`
-**Run by:** scheduler (every 30 min)
+**Run by:** scheduler (every 10 min)
 **No arguments.**
 
 Reads STATUS, REJECT_REASON, and fingerprint from three tabs: `Dashboard!A2:C10000`, `Review!A2:C10000`, and `Waitlist!A2:C10000`.

@@ -346,7 +346,7 @@ install_systemd_units() {
   # TimeoutStartSec=900 gives 15 min before systemd sends SIGTERM.
   write_interval_service "poller"       "poll_flags.py"     "sheet flag poller"
   echo "TimeoutStartSec=900" >> "${SYSTEMD_DIR}/findajob-poller.service"
-  write_interval_timer   "poller"       "findajob flag poller"  "30min"
+  write_interval_timer   "poller"       "findajob flag poller"  "10min"
 
   # Form ingest — every 30 min
   write_interval_service "form-ingest"  "ingest_form.py"    "Google Form ingestion"
