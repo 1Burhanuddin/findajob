@@ -277,15 +277,14 @@ def main():
         check=False,
     )
 
-    # ── Step 3: Resume — briefing context now available ──
-    # Truncate briefing to key sections for prompt size management
-    briefing_context = briefing[:3000] if briefing else ""
+    # ── Step 3: Resume — briefing + fit analysis context now available ──
+    briefing_context = full_briefing[:10000] if full_briefing else ""
     resume_prompt = (
         f"MASTER RESUME:\n{master_text}\n\n"
         f"CANDIDATE PROFILE:\n{profile_text}\n\n"
         f"Company: {company}\nTitle: {title}\n\n"
         f"JD:\n{jd_text}\n\n"
-        f"COMPANY BRIEFING (use to inform bullet selection and summary framing):\n{briefing_context}"
+        f"COMPANY BRIEFING AND FIT ANALYSIS:\n{briefing_context}"
     )
     resume_md = aichat("resume_tailor", resume_prompt)
     # Strip [VERIFY: ...] lines that appear before the first # header
@@ -341,14 +340,14 @@ def main():
     with open(out["changes_md"], "w") as f:
         f.write(changes_md)
 
-    # ── Step 4: Cover letter — briefing context for specific company signals ──
+    # ── Step 4: Cover letter — briefing + fit analysis for company signals ──
     today_str = datetime.now().strftime("%B %d, %Y")
     cover_prompt = (
         f"CANDIDATE PROFILE:\n{profile_text}\n\n"
         f"MASTER RESUME:\n{master_text}\n\n"
         f"Company: {company}\nTitle: {title}\nDate: {today_str}\n\n"
         f"JD:\n{jd_text}\n\n"
-        f"COMPANY BRIEFING (use for specific signals, news, and context about this company):\n{briefing_context}"
+        f"COMPANY BRIEFING AND FIT ANALYSIS:\n{briefing_context}"
     )
     cover_md_text = aichat("cover_letter_writer", cover_prompt)
     # Strip horizontal rules — the LLM inserts "---" between header and body,

@@ -64,6 +64,7 @@ Do NOT force a rigid paragraph count. Break on logic, not template. Typical flow
 Lead with a specific, analytical observation about the company's current
 operational challenge or inflection point. Reference something concrete: a
 funding round, product launch, partnership, hiring surge, or recent news.
+Draw on the COMPANY BRIEFING for these signals and the FIT ANALYSIS Key Strengths to choose which experience thread to develop in the body.
 Then pivot with a bridge sentence that connects their challenge to the
 candidate's capability. Pattern: "[Observation about their situation]. That's
 exactly the kind of problem I've spent [timeframe] solving: [brief capability

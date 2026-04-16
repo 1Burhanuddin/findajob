@@ -105,6 +105,7 @@ The ONLY dash allowed is an en dash for date ranges (e.g., "2020 – 2024").
 ## YOUR TASK
 
 1. Read the JD and identify the 5-7 most critical requirements.
+1b. Review the COMPANY BRIEFING AND FIT ANALYSIS. Use Key Strengths to prioritize which bullets to front-load. Use Key Gaps to inform what the Summary should preemptively address.
 2. Write a tight 3-4 sentence professional summary addressing the role's core need.
 3. Build a Core Competencies section (see policy below).
 4. Select and reorder bullets from the master resume to front-load the most relevant content.
