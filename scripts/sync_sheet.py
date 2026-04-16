@@ -544,12 +544,14 @@ def sync_applied(svc, conn):
             conn.execute("UPDATE jobs SET user_notes=?, updated_at=datetime('now') WHERE fingerprint=?", (note, fp))
     conn.commit()
 
-    # applied_date from audit log (first 'applied' stage transition per job).
+    # applied_date from audit log — earliest transition INTO a post-application
+    # stage. Some jobs skip 'applied' (e.g., recruiter contacts user first and
+    # they jump straight to 'interview'), so we can't require new_value='applied'.
     applied_dates = {}
     for row in rows:
         entry = conn.execute(
             "SELECT changed_at FROM audit_log WHERE job_id=? "
-            "AND field_changed='stage' AND new_value='applied' "
+            "AND field_changed='stage' AND new_value IN ('applied', 'interview', 'offer') "
             "ORDER BY changed_at ASC LIMIT 1",
             (row["id"],),
         ).fetchone()

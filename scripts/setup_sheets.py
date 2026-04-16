@@ -1224,8 +1224,21 @@ def main():
         col_width(applied_id, 13, 300),  # N: ai_notes
     ]
 
+    # Purge any existing CF rules on this sheet before re-adding ours.
+    # Without this, re-running setup_sheets stacks rules on top of the old
+    # set (including legacy rules from the Active-tab era) and the
+    # highest-priority new rules get buried.
+    applied_existing = next((s for s in sheets_meta if s["properties"]["sheetId"] == applied_id), None)
+    existing_cf = applied_existing.get("conditionalFormats", []) if applied_existing else []
+    for _ in existing_cf:
+        applied_requests.append({"deleteConditionalFormatRule": {"sheetId": applied_id, "index": 0}})
+
     # Conditional formatting — whole-row coloring by priority.
-    # First matching rule wins in Google Sheets, so list strongest signals first.
+    # Google Sheets evaluates CF rules from index 0 downward and uses the FIRST
+    # match. With `index: 0` each new rule goes to the top, so the LAST inserted
+    # is the FIRST evaluated. Insert in reverse priority order: low-priority
+    # rules first (they end up at the bottom — evaluated last), high-priority
+    # last (evaluated first).
     applied_row_range = [{"sheetId": applied_id, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 14}]
 
     def _cf_formula(formula, bg):
@@ -1245,18 +1258,22 @@ def main():
             }
         }
 
-    # 1. Offer → gold (highest priority — best news)
-    applied_requests.append(_cf_formula('=$A2="Offer"', rgb(255, 217, 102)))
+    # Insert lowest priority first. Final rule order (top-down, which is the
+    # evaluation order): Offer → Interviewing → Ghosted/stale → red → yellow → green.
+    # Day-band rules all guard on ISNUMBER($G2) so empty rows below the data
+    # stay uncolored (blank cells coerce to 0 in >= comparisons otherwise).
+    # 6. 0–6 days → green (fresh, default)
+    applied_requests.append(_cf_formula("=AND(ISNUMBER($G2), $G2>=0, $G2<7)", rgb(198, 240, 198)))
+    # 5. 7–13 days → yellow
+    applied_requests.append(_cf_formula("=AND(ISNUMBER($G2), $G2>=7, $G2<14)", rgb(255, 245, 178)))
+    # 4. 14–20 days → red (getting stale)
+    applied_requests.append(_cf_formula("=AND(ISNUMBER($G2), $G2>=14, $G2<21)", rgb(255, 198, 198)))
+    # 3. Ghosted flag OR 21+ days silent → gray
+    applied_requests.append(_cf_formula('=OR($A2="Ghosted", AND(ISNUMBER($G2), $G2>=21))', rgb(200, 200, 200)))
     # 2. Interviewing → soft purple
     applied_requests.append(_cf_formula('=$A2="Interviewing"', rgb(226, 208, 245)))
-    # 3. Ghosted (user-flagged OR 21+ days silent) → gray
-    applied_requests.append(_cf_formula('=OR($A2="Ghosted", $G2>=21)', rgb(200, 200, 200)))
-    # 4. 14–20 days → red (getting stale)
-    applied_requests.append(_cf_formula("=AND($G2>=14, $G2<21)", rgb(255, 198, 198)))
-    # 5. 7–13 days → yellow
-    applied_requests.append(_cf_formula("=AND($G2>=7, $G2<14)", rgb(255, 245, 178)))
-    # 6. 0–6 days → green (fresh)
-    applied_requests.append(_cf_formula("=AND($G2>=0, $G2<7)", rgb(198, 240, 198)))
+    # 1. Offer → gold (highest priority — best news, top of stack)
+    applied_requests.append(_cf_formula('=$A2="Offer"', rgb(255, 217, 102)))
 
     # Reject reason color on col B (same palette as Dashboard)
     applied_requests += reject_cf_rules(applied_id)
