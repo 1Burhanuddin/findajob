@@ -135,6 +135,12 @@ def build_row(row, headers, lookup, status_override=None, reject_override=None, 
                     sheet_row.append("Ready to Apply")
                 elif row["stage"] == "prep_in_progress":
                     sheet_row.append("Prep in Progress")
+                elif row["stage"] == "applied":
+                    sheet_row.append("Applied")
+                elif row["stage"] == "interview":
+                    sheet_row.append("Interviewing")
+                elif row["stage"] == "offer":
+                    sheet_row.append("Offer")
                 elif bool(val) and row["stage"] in ("scored", "manual_review", "enriched"):
                     sheet_row.append("Flag for Prep")
                 else:
@@ -232,10 +238,19 @@ def sync_dashboard(svc, conn):
         WHERE (dupe_of = '' OR dupe_of IS NULL)
           AND (
             (relevance_score >= 7 AND stage IN ('scored', 'manual_review'))
-            OR stage IN ('prep_in_progress', 'materials_drafted')
+            OR stage IN ('prep_in_progress', 'materials_drafted',
+                         'applied', 'interview', 'offer')
           )
         ORDER BY
-            CASE stage WHEN 'materials_drafted' THEN 0 ELSE 1 END,
+            CASE stage
+                WHEN 'materials_drafted' THEN 0
+                WHEN 'prep_in_progress' THEN 1
+                WHEN 'scored' THEN 2
+                WHEN 'manual_review' THEN 2
+                WHEN 'offer' THEN 3
+                WHEN 'interview' THEN 4
+                WHEN 'applied' THEN 5
+                ELSE 6 END,
             CASE WHEN probability_score IS NOT NULL THEN probability_score ELSE 0 END DESC,
             CASE WHEN fit_score IS NOT NULL THEN fit_score ELSE 0 END DESC,
             CASE WHEN relevance_score IS NOT NULL THEN relevance_score ELSE 0 END DESC,
@@ -279,7 +294,11 @@ def sync_dashboard(svc, conn):
         # If materials have been prepped and we have a Drive folder URL, turn the
         # company cell into a HYPERLINK to the Drive folder for quick access.
         gdrive_url = row["gdrive_folder_url"] if "gdrive_folder_url" in row.keys() else None
-        if row["stage"] == "materials_drafted" and gdrive_url and str(gdrive_url).startswith("http"):
+        if (
+            row["stage"] in ("materials_drafted", "applied", "interview", "offer")
+            and gdrive_url
+            and str(gdrive_url).startswith("http")
+        ):
             company_idx = DASH_HEADERS.index("company")
             sheet_row[company_idx] = hyperlink(gdrive_url, row["company"])
         sheet_rows.append(sheet_row)
@@ -289,9 +308,13 @@ def sync_dashboard(svc, conn):
         spreadsheetId=SHEET_ID, range="Dashboard!A1", valueInputOption="USER_ENTERED", body={"values": sheet_rows}
     ).execute()
     n_prepped = sum(1 for r in rows if r["stage"] == "materials_drafted")
-    n_queued = len(rows) - n_prepped
+    n_post_app = sum(1 for r in rows if r["stage"] in ("applied", "interview", "offer"))
+    n_queued = len(rows) - n_prepped - n_post_app
     n_dash = len(sheet_rows) - 1
-    print(f"Dashboard: {n_dash} jobs ({n_queued} queued, {n_prepped} prepped/pending apply)")
+    print(
+        f"Dashboard: {n_dash} jobs ({n_queued} queued, {n_prepped} prepped/pending apply, "
+        f"{n_post_app} post-application)"
+    )
     return n_dash
 
 

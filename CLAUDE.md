@@ -208,7 +208,7 @@ Jobs appear if: `score>=5` OR `stage in lifecycle stages` OR `age < 14 days` OR 
 Low-score old jobs from non-target companies stay in DB only.
 `fingerprint(hidden) | APPLY_FLAG(checkbox) | score | title | company | location | remote | stage | contacts | comp | notes | date | source | url`
 
-**Dashboard** — actionable queue (A–N), filter: `score>=7 AND stage IN (scored,manual_review)` OR `stage=materials_drafted`:
+**Dashboard** — actionable queue (A–N), filter: `(score>=7 AND stage IN (scored,manual_review))` OR `stage IN (prep_in_progress, materials_drafted, applied, interview, offer)`. Post-application stages stay on Dashboard so the user can update STATUS (Interviewing/Offer/Not Selected/Withdrew) without hunting through Sheet1:
 `STATUS(dropdown) | REJECT_REASON(dropdown) | fingerprint(hidden) | fit_score | probability_score | relevance_score | title(hyperlink) | company | location | remote | contacts | comp | notes | date`
 
 **Review** — manual review triage (A–H), filter: `stage=manual_review`:

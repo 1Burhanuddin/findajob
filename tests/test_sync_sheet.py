@@ -206,6 +206,21 @@ class TestBuildRowDashboard:
         result = build_row(row, DASH_HEADERS, DASH_LOOKUP, use_status=True)
         assert result[0] == "Prep in Progress"
 
+    def test_applied_stage_shows_applied(self):
+        row = _make_row(stage="applied", apply_flag=1)
+        result = build_row(row, DASH_HEADERS, DASH_LOOKUP, use_status=True)
+        assert result[0] == "Applied"
+
+    def test_interview_stage_shows_interviewing(self):
+        row = _make_row(stage="interview", apply_flag=1)
+        result = build_row(row, DASH_HEADERS, DASH_LOOKUP, use_status=True)
+        assert result[0] == "Interviewing"
+
+    def test_offer_stage_shows_offer(self):
+        row = _make_row(stage="offer", apply_flag=1)
+        result = build_row(row, DASH_HEADERS, DASH_LOOKUP, use_status=True)
+        assert result[0] == "Offer"
+
 
 # ---------------------------------------------------------------------------
 # build_row() — Sheet1 mode (use_status=False)
