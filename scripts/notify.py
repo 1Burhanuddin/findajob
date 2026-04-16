@@ -743,6 +743,38 @@ def cmd_scoreboard():
     else:
         low_signal_section = "_None — every active feed produced at least one 7+ job in the last 7 days._"
 
+    # ── Prefilter expansion candidates ──
+    # Title n-grams that recur in score-7+ rejections with title-related reject
+    # reasons. Each one is a concrete candidate to add to scorer_prefilter.py.
+    # Human-approved — this is a proposal list, nothing is auto-applied.
+    try:
+        from analyze_feedback import analyze as feedback_analyze
+
+        fb_conn = db_connect()
+        fb = feedback_analyze(fb_conn)
+        fb_conn.close()
+        candidates = fb.get("prefilter_candidates", [])[:10]
+    except Exception:
+        candidates = []
+    if candidates:
+        prefilter_candidates_section = (
+            "Title n-grams recurring in score-7+ rejections (3+ times, title-related reasons only, "
+            "not in applied-job titles). Each is a candidate to add to `scorer_prefilter.py` Stage 1. "
+            "Review and add the patterns that consistently waste scoring budget.\n\n"
+            "| Count | Reason | N-gram | Proposed regex | Example |\n"
+            "|---|---|---|---|---|\n"
+        )
+        for c in candidates:
+            ngram = " ".join(c["ngram"])
+            example = (c["examples"][0] if c["examples"] else "")[:60]
+            prefilter_candidates_section += (
+                f"| {c['count']} | {c['dominant_reason']} | `{ngram}` | `{c['proposed_regex']}` | {example} |\n"
+            )
+    else:
+        prefilter_candidates_section = (
+            "_No recurring patterns (need ≥3 rejections at score 7+ with title-related reason)._"
+        )
+
     body = f"""\
 > **This is a living scoreboard, not a task.** Auto-updated weekly by `notify.py scoreboard`.
 
@@ -800,6 +832,10 @@ Cumulative counts — how many jobs ever reached each stage, not just current st
 ## Low-Signal Feeds (last 7d)
 
 {low_signal_section}
+
+## Prefilter Expansion Candidates
+
+{prefilter_candidates_section}
 
 ## What to Watch
 

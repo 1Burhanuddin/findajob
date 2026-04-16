@@ -192,7 +192,127 @@ def analyze(conn):
     out["n_applied_jobs"] = n_applied
     out["n_rejected_high_score"] = n_rejected
 
+    # ── 8. Prefilter expansion candidates (n-gram recurrences) ───────────────
+    # Surface 2–3 word title sequences that recur in score-7+ rejections AND
+    # never appear in applied titles. These are concrete candidates to add to
+    # scorer_prefilter.py Stage 1 (title regex hard-reject).
+    out["prefilter_candidates"] = _prefilter_candidates(fp_rows, applied_rows)
+
     return out
+
+
+# Short words that dominate low-value n-grams — filter out n-grams that are
+# entirely made of these (e.g., "manager and" is useless).
+_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "of",
+        "and",
+        "for",
+        "with",
+        "to",
+        "in",
+        "on",
+        "at",
+        "by",
+        "or",
+        "from",
+    }
+)
+
+
+def _tokenize(title):
+    return re.findall(r"\b[a-zA-Z][a-zA-Z0-9-]*\b", (title or "").lower())
+
+
+def _ngrams(tokens, n):
+    return [tuple(tokens[i : i + n]) for i in range(len(tokens) - n + 1)]
+
+
+# Reject reasons that indicate the TITLE was the problem (not user already
+# applied, not the posting going stale, etc). Only these feed the prefilter
+# candidate analysis — we're looking for patterns the scorer keeps missing.
+_TITLE_SIGNAL_REASONS = frozenset(
+    {
+        "Too Senior",
+        "Too Junior",
+        "Skills Mismatch",
+        "Too TPM-Heavy",
+        "Too Software/Systems",
+        "Too Facilities/MEP",
+        "Too Manufacturing/Test",
+        "Wrong Niche",
+        "Low Fit Score",
+    }
+)
+
+
+def _prefilter_candidates(rejected_rows, applied_rows, min_recurrences=3):
+    """Return list of n-gram patterns recurring in rejections, absent from applied.
+
+    Only counts rejections where reject_reason signals a title problem
+    (not 'Already Applied', 'Stale/Closed', 'Other' etc.).
+
+    Each candidate dict has:
+      - ngram: tuple of tokens
+      - count: times seen in rejections at score 7+
+      - dominant_reason: most common reject_reason for this n-gram
+      - proposed_regex: regex suitable for scorer_prefilter.py Stage 1
+      - examples: up to 3 example titles that matched
+    """
+    # Build applied n-gram set for negative filtering — anything the user
+    # actively applied to should never be hard-rejected.
+    applied_ngrams: set[tuple[str, ...]] = set()
+    for r in applied_rows:
+        toks = _tokenize(r["title"])
+        for n in (2, 3):
+            applied_ngrams.update(_ngrams(toks, n))
+
+    # Count n-grams across rejections where reason is title-related
+    rejected_counter: Counter[tuple[str, ...]] = Counter()
+    reasons_by_ngram: dict[tuple[str, ...], Counter[str]] = {}
+    examples: dict[tuple[str, ...], list[str]] = {}
+    for r in rejected_rows:
+        reason = r["reject_reason"]
+        if reason not in _TITLE_SIGNAL_REASONS:
+            continue
+        title = r["title"] or ""
+        toks = _tokenize(title)
+        seen_here: set[tuple[str, ...]] = set()
+        for n in (2, 3):
+            for g in _ngrams(toks, n):
+                if g in seen_here:
+                    continue
+                seen_here.add(g)
+                if all(t in _STOPWORDS for t in g):
+                    continue
+                rejected_counter[g] += 1
+                reasons_by_ngram.setdefault(g, Counter())[reason] += 1
+                examples.setdefault(g, []).append(title)
+
+    candidates = []
+    for g, count in rejected_counter.most_common():
+        if count < min_recurrences:
+            continue
+        if g in applied_ngrams:
+            continue  # the user liked something with this pattern
+        if not any(len(t) >= 4 for t in g):
+            continue
+        dominant_reason, _ = reasons_by_ngram[g].most_common(1)[0]
+        parts = [re.escape(t) for t in g]
+        proposed_regex = r"\b" + r"\s+".join(parts) + r"\b"
+        candidates.append(
+            {
+                "ngram": g,
+                "count": count,
+                "dominant_reason": dominant_reason,
+                "proposed_regex": proposed_regex,
+                "examples": examples[g][:3],
+            }
+        )
+    return candidates
 
 
 def format_report(data):
