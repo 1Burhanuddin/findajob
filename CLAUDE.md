@@ -111,8 +111,8 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 
 # ── Entry point scripts (called by systemd / CLI) ──────────────────────────
 <repo>/scripts/triage.py                    # daily ingest → score → DB
-<repo>/scripts/poll_flags.py                # reads Dashboard + Review + Waitlist tabs (STATUS, REJECT_REASON, fingerprint)
-<repo>/scripts/sync_sheet.py                # SQLite → Sheet1 + Dashboard + Review + Waitlist tabs
+<repo>/scripts/poll_flags.py                # reads Dashboard + Applied + Review + Waitlist tabs (STATUS, REJECT_REASON, fingerprint)
+<repo>/scripts/sync_sheet.py                # SQLite → Sheet1 + Dashboard + Applied + Review + Waitlist + Rejected Applications tabs
 <repo>/scripts/setup_sheets.py             # one-time sheet formatting (idempotent)
 <repo>/scripts/prep_application.py          # on-demand LLM material generation
 <repo>/scripts/find_contacts.py             # LinkedIn contact matching + outreach drafts
@@ -146,7 +146,7 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 
 # ── Quality ─────────────────────────────────────────────────────────────────
 <repo>/pyproject.toml                       # deps, pytest, ruff, mypy config
-<repo>/tests/                               # 318 unit tests (pytest)
+<repo>/tests/                               # 430 unit tests (pytest)
 <repo>/.github/workflows/ci.yml            # CI: ruff + mypy + pytest on every push
 ```
 
@@ -231,12 +231,20 @@ Low-score old jobs from non-target companies stay in DB only.
 - `REJECT_REASON` = same as Dashboard → `poll_flags.py` rejects the job from waitlist
 - `blocking_app` = computed at sync time: title + stage of active application at same company
 
-**STATUS dropdown options** (Dashboard col A): `Flag for Prep` → `Ready to Apply` → `Waitlist` → `Applied` → `Interviewing` → `Offer` → `Not Selected` → `Withdrew`
-- `Flag for Prep` = user action → triggers `prep_application.py` via `poll_flags.py`
-- `Ready to Apply` = system-set when `stage=materials_drafted` (prep done, folder exists)
-- `Waitlist` = user action → `poll_flags.py` sets `stage=waitlisted`, moves folder to `_waitlisted/`
-- `Applied/Interviewing/Offer/Withdrew` = user action → `poll_flags.py` updates DB stage
-- `Not Selected` = user action (company rejected) → `poll_flags.py` sets `stage=not_selected`, folder stays in `_applied/`, no `feedback_log` write
+**STATUS dropdown options** differ by tab:
+
+- **Dashboard col A** (pre-application): `Flag for Prep` → `Prep in Progress` *(system)* → `Ready to Apply` *(system)* → `Regenerate` → `Waitlist` → `Applied`
+- **Applied col A** (post-application): `Interviewing` → `Offer` → `Ghosted` → `Not Selected` → `Withdrew`
+
+Actions:
+- `Flag for Prep` (Dashboard) = user action → triggers `prep_application.py` via `poll_flags.py`
+- `Ready to Apply` (Dashboard, system) = set when `stage=materials_drafted` (prep done, folder exists)
+- `Regenerate` (Dashboard) = user action → deletes prep folder, re-runs prep
+- `Waitlist` (Dashboard) = user action → `poll_flags.py` sets `stage=waitlisted`, moves folder to `_waitlisted/`
+- `Applied` (Dashboard) = user action → `poll_flags.py` sets `stage=applied`, moves folder to `_applied/`, row moves off Dashboard to Applied tab on next sync
+- `Interviewing/Offer/Withdrew` (Applied) = user action → `poll_flags.py` updates DB stage
+- `Ghosted` (Applied) = user-set flag, visual-only — no DB change; preserved across syncs; triggers gray row color
+- `Not Selected` (Applied) = user action (company rejected) → `poll_flags.py` sets `stage=not_selected`, folder stays in `_applied/`, no `feedback_log` write
 
 **REJECT_REASON dropdown** (col B): 11 options (includes "Low Fit Score"). Behavior depends on STATUS:
 - If STATUS = `Not Selected`: company rejection → `stage=not_selected`, NO `feedback_log`, folder stays in `_applied/` with `NOT_SELECTED_` marker file
@@ -246,11 +254,29 @@ Low-score old jobs from non-target companies stay in DB only.
 
 **Stage `waitlisted`:** Set by `poll_flags.py` when user selects "Waitlist" on Dashboard. Folder moves to `companies/_waitlisted/`. Job disappears from Dashboard, appears on Waitlist tab. Not a rejection — does not write to feedback_log or contaminate scorer feedback loop. When active application at same company is rejected/withdrawn, ntfy notification surfaces waitlisted jobs.
 
-**Stage `not_selected`:** Set by `poll_flags.py` when user selects "Not Selected" on Dashboard. Only valid for post-application stages (`applied`, `interview`, `offer`). Folder stays in `companies/_applied/` with a `NOT_SELECTED_{reason}_{date}.txt` marker file. Does NOT write to `feedback_log` — company rejections must not contaminate the scorer's feedback loop. `notify_waitlist_resurface()` still fires (company rejection is a trigger to surface waitlisted jobs at that company). Appears on the Rejected Applications tab alongside user rejections.
+**Stage `not_selected`:** Set by `poll_flags.py` when user selects "Not Selected" on the Applied tab. Only valid for post-application stages (`applied`, `interview`, `offer`). Folder stays in `companies/_applied/` with a `NOT_SELECTED_{reason}_{date}.txt` marker file. Does NOT write to `feedback_log` — company rejections must not contaminate the scorer's feedback loop. `notify_waitlist_resurface()` still fires (company rejection is a trigger to surface waitlisted jobs at that company). Appears on the Rejected Applications tab alongside user rejections.
 
 **Stage `prep_in_progress`:** Set by `poll_flags.py` immediately before launching `prep_application.py` as a subprocess. Prevents duplicate prep runs across poll cycles. Cleared to `materials_drafted` on success. Health check warns if any job is stuck in this stage >1h.
 
 **Health checks** (`notify.py health-check`): warns if Sheet1 > 1000 rows, manual_review backlog > 100, or any target-company job scored 3–6 in last 7 days (potential mis-scores).
+
+---
+
+## Project Board — Single Source of Truth
+
+All work is tracked on the GitHub Project board at https://github.com/users/brockamer/projects/1. **Not on the board = not on the roadmap.** No markdown tracking files, no TODO lists.
+
+Canonical conventions live in [`docs/project-board.md`](docs/project-board.md). Read it before any work that creates, moves, or reprioritizes issues. That doc covers columns, Priority field, Work Stream field, labels, triage checklist, and `gh project` CLI IDs.
+
+Core rules (enforced — see the doc for detail):
+- Creating an issue is **two steps**: `gh issue create` then `gh project item-add 1 --owner brockamer --url <url>`. New issues do not auto-add.
+- Every open issue on the board must have **Priority** (High/Medium/Low) and **Work Stream** (Job Search / Generalization / Infrastructure) set.
+- `priority: high/med/low` labels are legacy — the **Priority field** is canonical. Reconcile mismatches.
+- In Progress should hold 1–3 items max. If more, focus is scattered.
+- Status transitions: Backlog → Up Next → In Progress → Done. Closing an issue auto-moves to Done; verify after closing.
+- Re-sync board state before changing it — other sessions may have updated it.
+
+**When board usage evolves** (new column, new label, new workflow, new convention): update `docs/project-board.md` in the same change. The doc describes how the board actually works, not how it used to work. Behavior drifting ahead of docs is the main failure mode.
 
 ---
 
