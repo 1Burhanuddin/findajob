@@ -238,7 +238,6 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-KillMode=process
 ExecStart=${PYTHON_BIN} ${SCRIPT_DIR}/${script}
 WorkingDirectory=${REPO}
 EnvironmentFile=${DATA_DIR}/.env
@@ -336,12 +335,17 @@ install_systemd_units() {
     warn "aichat-ng not found; using default path ${aichat_bin}"
   fi
 
-  # Triage — 7:00 AM daily
+  # Triage — 7:00 AM daily.  triage.py has its own SIGTERM handler and
+  # uses ThreadPoolExecutor internally.  TimeoutStartSec=3600 (1 hour).
   write_service_unit  "triage"          "triage.py"         "daily triage pipeline"
+  echo "TimeoutStartSec=3600" >> "${SYSTEMD_DIR}/findajob-triage.service"
   write_timer_unit    "triage"          "findajob daily triage" "*-*-* 07:00:00"
 
-  # Poller — every 30 min
+  # Poller — every 30 min.  poll_flags.py waits for child processes
+  # (sync_sheet + prep_application), so it can run for several minutes.
+  # TimeoutStartSec=900 gives 15 min before systemd sends SIGTERM.
   write_interval_service "poller"       "poll_flags.py"     "sheet flag poller"
+  echo "TimeoutStartSec=900" >> "${SYSTEMD_DIR}/findajob-poller.service"
   write_interval_timer   "poller"       "findajob flag poller"  "30min"
 
   # Form ingest — every 30 min

@@ -211,10 +211,6 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-# KillMode=process: only terminate the main triage process on service stop.
-# Default (control-group) would also kill sync_sheet.py / aichat-ng children
-# launched via subprocess, leading to incomplete runs.
-KillMode=process
 # TimeoutStartSec: max time the triage can run before systemd sends SIGTERM.
 # A typical run takes 30-40 minutes depending on how many new jobs are scored
 # and how many LLM calls hit. 3600 (1 hour) gives comfortable headroom.

@@ -97,7 +97,7 @@ Creates and formats the Dashboard tab. Sets up:
 |---|---|
 | `daily-stats` | Queue depth, today's new jobs, last triage timestamp |
 | `health-check` | Errors from last 25h of logs, last `pipeline_complete` event, stuck prep_in_progress jobs |
-| `issues-ping` | Open items from `docs/ISSUES.md` |
+| `issues-ping` | Open issues from GitHub board |
 | `apply-reminder` | Rotating motivational nudge to submit an application |
 | `feedback-review` | Alert when `feedback_log` has ≥ 10 entries to analyze |
 | `send-raw` | Send an arbitrary notification: `notify.py send-raw <title> <body>` |

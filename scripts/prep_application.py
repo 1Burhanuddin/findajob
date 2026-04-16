@@ -51,6 +51,44 @@ def abbrev_title(title, max_words=3):
     return "_".join(words) if words else "Job"
 
 
+def _add_cover_letter_spacing(docx_path):
+    """Post-process cover letter .docx for clean formatting.
+
+    Fixes three issues:
+    1. Heading 1 renders with a theme bottom-border line — convert to plain bold
+    2. No spacing between contact line and date — add space-before on date
+    3. No paragraph spacing — add 12pt space-after from date onward
+    """
+    try:
+        from docx import Document
+        from docx.shared import Pt
+
+        doc = Document(docx_path)
+        if not doc.paragraphs:
+            return
+
+        # 1. Convert Heading 1 to Normal + bold (removes theme border line)
+        heading = doc.paragraphs[0]
+        if heading.style.name == "Heading 1":
+            heading.style = doc.styles["Normal"]
+            for run in heading.runs:
+                run.bold = True
+                run.font.size = Pt(14)
+
+        # 2. Add space before the date line (paragraph [2]) to separate from contact
+        if len(doc.paragraphs) > 2:
+            doc.paragraphs[2].paragraph_format.space_before = Pt(12)
+
+        # 3. Add 12pt space-after from date onward
+        for para in doc.paragraphs[2:]:
+            if para.text.strip():
+                para.paragraph_format.space_after = Pt(12)
+
+        doc.save(docx_path)
+    except Exception:
+        pass  # post-processing is cosmetic — never block prep
+
+
 def _linkify_contact_info(md):
     """Ensure bare email addresses and LinkedIn URLs are Markdown hyperlinks.
 
@@ -312,6 +350,9 @@ def main():
         f"COMPANY BRIEFING (use for specific signals, news, and context about this company):\n{briefing_context}"
     )
     cover_md_text = aichat("cover_letter_writer", cover_prompt)
+    # Strip horizontal rules — the LLM inserts "---" between header and body,
+    # but it renders as an ugly line in the docx. Paragraph spacing handles separation.
+    cover_md_text = re.sub(r"\n---\n", "\n\n", cover_md_text)
     with open(out["cover_md"], "w") as f:
         f.write(cover_md_text)
     subprocess.run(
@@ -327,6 +368,7 @@ def main():
         ],
         check=False,
     )
+    _add_cover_letter_spacing(out["cover_docx"])
 
     # ── Step 5: Network outreach ──
     # Pass the file_prefix and timestamp so outreach files follow the same naming convention.

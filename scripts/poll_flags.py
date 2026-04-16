@@ -560,8 +560,10 @@ def main():
     if flagged_jobs:
         need_sync = True
 
+    children = []  # Popen handles to wait on before exit
+
     if need_sync:
-        subprocess.Popen([sys.executable, f"{BASE}/scripts/sync_sheet.py"], start_new_session=True)
+        children.append(subprocess.Popen([sys.executable, f"{BASE}/scripts/sync_sheet.py"]))
 
     # Folder moves use rclone move (server-side on Drive) to preserve user edits,
     # then rclone copy --update to push new local files (markers) without overwriting.
@@ -580,6 +582,12 @@ def main():
             review_promoted=review_promoted,
             review_rejected=review_rejected,
         )
+        for proc in children:
+            try:
+                proc.wait(timeout=120)
+            except subprocess.TimeoutExpired:
+                log_event("child_timeout", pid=proc.pid)
+                proc.kill()
         return
 
     log_event(
@@ -594,22 +602,21 @@ def main():
         jobs=[f"{j['company']} - {j['title']}" for j in flagged_jobs],
     )
 
-    # Trigger prep for each flagged job — fire-and-forget so the poller
-    # doesn't block for the duration of prep (resume + cover letter + briefing
-    # can take several minutes; blocking here hangs the entire poll cycle).
+    # Launch prep for each flagged job in parallel, then wait for all to finish.
     # Cap at 3 per cycle to avoid exhausting API rate limits / quotas.
     MAX_CONCURRENT_PREPS = 3
     for job in flagged_jobs[:MAX_CONCURRENT_PREPS]:
-        subprocess.Popen(
-            [
-                sys.executable,
-                f"{BASE}/scripts/prep_application.py",
-                job["company"],
-                job["title"],
-                job["url"],
-                job["id"],
-            ],
-            start_new_session=True,
+        children.append(
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    f"{BASE}/scripts/prep_application.py",
+                    job["company"],
+                    job["title"],
+                    job["url"],
+                    job["id"],
+                ],
+            )
         )
     if len(flagged_jobs) > MAX_CONCURRENT_PREPS:
         # Reset deferred jobs back to scored so next poll cycle picks them up
@@ -628,6 +635,15 @@ def main():
             count=len(deferred),
             jobs=[f"{j['company']} - {j['title']}" for j in deferred],
         )
+
+    # Wait for all child processes (sync_sheet + preps) so systemd tracks them
+    # properly and no orphaned processes accumulate.
+    for proc in children:
+        try:
+            proc.wait(timeout=600)
+        except subprocess.TimeoutExpired:
+            log_event("child_timeout", pid=proc.pid)
+            proc.kill()
 
 
 if __name__ == "__main__":

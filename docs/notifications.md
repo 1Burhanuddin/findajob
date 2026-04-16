@@ -51,7 +51,7 @@ Content:
 **Default schedule:** Mon/Wed/Fri 8:00 AM
 
 Content:
-- Open items from `docs/ISSUES.md` (lines marked `- [ ]`)
+- Open issues from GitHub (`gh issue list --state open`)
 - Count of open issues
 
 Only fires if there are open issues. Silent if the list is clean.

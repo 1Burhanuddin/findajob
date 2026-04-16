@@ -40,7 +40,7 @@ Claude Code is used for:
 - **Debugging** — diagnosing triage failures, sheet sync issues, API errors from log output
 - **Role prompt iteration** — editing `config/roles/*.md` after observing poor output quality
 - **Infrastructure changes** — modifying scheduler configs, adding new launchd/systemd agents
-- **Documentation** — updating CLAUDE.md, ISSUES.md, and these docs
+- **Documentation** — updating CLAUDE.md, GitHub issues, and these docs
 
 Claude Code is NOT used to:
 - Run the pipeline autonomously (that's the scheduler's job)
@@ -130,7 +130,7 @@ A new user cloning the repo gets a complete, working codebase with `.example` te
 ! python3 scripts/triage.py 2>&1 | tail -20
 ```
 
-**Reference ISSUES.md for open work.** `docs/ISSUES.md` tracks open bugs and enhancement ideas. Claude Code reads it for context. When you close an issue, mark it `[x]` in the file.
+**Reference GitHub Issues for open work.** The [project board](https://github.com/users/brockamer/projects/1) tracks all bugs and enhancement ideas. Use `gh issue list` for context. When you close an issue, close it on GitHub.
 
 **Binary path governance.** Claude Code is instructed never to guess binary paths. If it suggests a path you don't recognize, check `config/paths.py` and `config/paths.env`. The right answer is always in those files.
 

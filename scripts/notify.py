@@ -6,7 +6,7 @@ ntfy push notification suite for the JobSearchPipeline.
 Usage:
   notify.py daily-stats      — morning stats: queue depth, recent activity
   notify.py health-check     — surface errors from logs, confirm automations ran
-  notify.py issues-ping      — open issues from ISSUES.md (run every other day)
+  notify.py issues-ping      — open GitHub issues (run every other day)
   notify.py apply-reminder   — humorous daily nudge to submit at least one application
   notify.py feedback-review  — alert when feedback_log has enough data to be useful
 
@@ -16,7 +16,6 @@ ntfy topic is read from NTFY_TOPIC in data/.env, or falls back to NTFY_TOPIC env
 import glob
 import json
 import os
-import re
 import sqlite3
 import subprocess
 import sys
@@ -28,7 +27,7 @@ from findajob.utils import load_env
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 LOG_PATH = f"{BASE}/logs/pipeline.jsonl"
-ISSUES_PATH = f"{BASE}/docs/ISSUES.md"
+REPO_SLUG = "brockamer/findajob"
 
 # ── Load ntfy topic ────────────────────────────────────────────────────────────
 _env = load_env()
@@ -79,17 +78,25 @@ def recent_log_events(hours=25):
 
 
 def open_issues():
-    """Parse ISSUES.md and return list of open (unchecked) issue titles."""
-    issues = []
+    """Fetch open issues from GitHub via `gh issue list`."""
     try:
-        with open(ISSUES_PATH) as f:
-            for line in f:
-                m = re.match(r"- \[ \] \*\*(.+?)\*\*", line)
-                if m:
-                    issues.append(m.group(1))
-    except FileNotFoundError:
-        pass
-    return issues
+        rc = subprocess.run(
+            ["gh", "issue", "list", "--repo", REPO_SLUG, "--state", "open",
+             "--json", "number,title,labels", "--limit", "50"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if rc.returncode != 0:
+            return []
+        import json as _json
+        items = _json.loads(rc.stdout)
+        results = []
+        for item in items:
+            labels = ", ".join(lbl["name"] for lbl in item.get("labels", []))
+            tag = f" [{labels}]" if labels else ""
+            results.append(f"#{item['number']}: {item['title']}{tag}")
+        return results
+    except Exception:
+        return []
 
 
 # ── Commands ───────────────────────────────────────────────────────────────────
@@ -217,6 +224,27 @@ def cmd_health_check():
         issues.append(f"WARN: {len(rclone_failures)} rclone sync failure(s) in last 25h")
         for e in rclone_failures[:2]:
             issues.append(f"  • {e.get('reason', '?')} exit={e.get('exit_code', '?')}")
+
+    # ── System resource checks ──────────────────────────────────────────
+    try:
+        with open("/proc/meminfo") as f:
+            meminfo = {}
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 2:
+                    meminfo[parts[0].rstrip(":")] = int(parts[1])
+        mem_total_mb = meminfo.get("MemTotal", 0) // 1024
+        mem_avail_mb = meminfo.get("MemAvailable", 0) // 1024
+        swap_total_mb = meminfo.get("SwapTotal", 0) // 1024
+        swap_free_mb = meminfo.get("SwapFree", 0) // 1024
+        swap_used_mb = swap_total_mb - swap_free_mb
+
+        if mem_avail_mb < 256:
+            issues.append(f"WARN: low memory — {mem_avail_mb} MB available of {mem_total_mb} MB")
+        if swap_total_mb > 0 and swap_used_mb > swap_total_mb * 0.5:
+            issues.append(f"WARN: high swap usage — {swap_used_mb}/{swap_total_mb} MB used")
+    except Exception:
+        pass  # /proc/meminfo unavailable — skip
 
     # ── Sheet / queue health checks ──────────────────────────────────────
     conn = db_connect()
@@ -400,7 +428,7 @@ def cmd_health_check():
 def cmd_issues_ping():
     issues = open_issues()
     if not issues:
-        body = "No open issues in ISSUES.md."
+        body = "No open issues on GitHub."
         tags = "white_check_mark"
     else:
         lines = [f"{len(issues)} open issue(s):"]
