@@ -105,6 +105,19 @@ def fetch_jd(job):
                 return strip_jd_boilerplate(desc)[:JD_MAX_CHARS]
         return "[No description available]"
 
+    if source in ("ashby_json", "lever_json"):
+        desc = job.get("description", "")
+        if desc and len(desc.strip()) > 30:
+            try:
+                plain = subprocess.run(
+                    [PANDOC, "-f", "html", "-t", "plain"], input=desc, capture_output=True, text=True, timeout=10
+                ).stdout
+                plain = strip_jd_boilerplate(plain)[:JD_MAX_CHARS]
+                return plain if plain.strip() else "[No description available]"
+            except Exception:
+                return strip_jd_boilerplate(desc)[:JD_MAX_CHARS]
+        return "[No description available]"
+
     if source in ("jobsapi_linkedin", "gmail_linkedin"):
         api_id = job.get("api_id", "")
         if api_id:
@@ -186,6 +199,123 @@ def fetch_greenhouse_jobs(feed_urls_path):
             log_event("greenhouse_fetch", slug=slug, count=len(gh_jobs))
         except Exception as e:
             log_event("greenhouse_fetch_error", slug=slug, error=str(e))
+        time.sleep(0.3)
+
+    return jobs
+
+
+def fetch_ashby_jobs(feed_urls_path):
+    """Fetch jobs via Ashby public posting API.
+
+    Parses slugs from ashbyhq.com URLs in feed_urls.txt.
+    API: https://api.ashbyhq.com/posting-api/job-board/{slug}
+    """
+    import requests as req
+
+    jobs: list[dict[str, str]] = []
+    try:
+        with open(feed_urls_path) as f:
+            urls = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+    except FileNotFoundError:
+        return jobs
+
+    slug_re = re.compile(r"ashbyhq\.com/([A-Za-z0-9_.-]+)")
+    seen_slugs: set[str] = set()
+    slugs = []
+    for url in urls:
+        m = slug_re.search(url)
+        if m:
+            slug = m.group(1)
+            if slug not in seen_slugs:
+                seen_slugs.add(slug)
+                slugs.append(slug)
+
+    headers = {"User-Agent": "findajob-pipeline/1.0 (personal job search tool)"}
+
+    for slug in slugs:
+        api_url = f"https://api.ashbyhq.com/posting-api/job-board/{slug}"
+        try:
+            resp = req.get(api_url, headers=headers, timeout=15)
+            if resp.status_code != 200:
+                log_event("ashby_fetch_skip", slug=slug, status=resp.status_code)
+                continue
+            ashby_jobs = resp.json().get("jobs", [])
+            for j in ashby_jobs:
+                loc = j.get("location") or ""
+                if isinstance(loc, dict):
+                    loc = loc.get("name", "")
+                jobs.append(
+                    {
+                        "title": j.get("title", ""),
+                        "company": clean_company(slug),
+                        "url": j.get("jobUrl", ""),
+                        "location": loc,
+                        "source": "ashby_json",
+                        "description": j.get("descriptionHtml", "") or j.get("descriptionPlain", ""),
+                    }
+                )
+            log_event("ashby_fetch", slug=slug, count=len(ashby_jobs))
+        except Exception as e:
+            log_event("ashby_fetch_error", slug=slug, error=str(e))
+        time.sleep(0.3)
+
+    return jobs
+
+
+def fetch_lever_jobs(feed_urls_path):
+    """Fetch jobs via Lever public postings API.
+
+    Parses slugs from lever.co URLs in feed_urls.txt.
+    API: https://api.lever.co/v0/postings/{slug}
+    """
+    import requests as req
+
+    jobs: list[dict[str, str]] = []
+    try:
+        with open(feed_urls_path) as f:
+            urls = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+    except FileNotFoundError:
+        return jobs
+
+    slug_re = re.compile(r"lever\.co/([A-Za-z0-9_.-]+)")
+    seen_slugs: set[str] = set()
+    slugs = []
+    for url in urls:
+        m = slug_re.search(url)
+        if m:
+            slug = m.group(1)
+            if slug not in seen_slugs:
+                seen_slugs.add(slug)
+                slugs.append(slug)
+
+    headers = {"User-Agent": "findajob-pipeline/1.0 (personal job search tool)"}
+
+    for slug in slugs:
+        api_url = f"https://api.lever.co/v0/postings/{slug}"
+        try:
+            resp = req.get(api_url, headers=headers, timeout=15)
+            if resp.status_code != 200:
+                log_event("lever_fetch_skip", slug=slug, status=resp.status_code)
+                continue
+            lever_jobs = resp.json()
+            if not isinstance(lever_jobs, list):
+                log_event("lever_fetch_skip", slug=slug, status="unexpected_format")
+                continue
+            for j in lever_jobs:
+                cats = j.get("categories", {})
+                jobs.append(
+                    {
+                        "title": j.get("text", ""),
+                        "company": clean_company(slug),
+                        "url": j.get("hostedUrl", ""),
+                        "location": cats.get("location", ""),
+                        "source": "lever_json",
+                        "description": j.get("descriptionPlain", "") or j.get("description", ""),
+                    }
+                )
+            log_event("lever_fetch", slug=slug, count=len(lever_jobs))
+        except Exception as e:
+            log_event("lever_fetch_error", slug=slug, error=str(e))
         time.sleep(0.3)
 
     return jobs

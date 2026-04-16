@@ -18,7 +18,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 
 from findajob.cleaning import fingerprint, normalize
-from findajob.fetchers import fetch_gmail_jobs, fetch_greenhouse_jobs, fetch_jd, fetch_jobsapi_jobs
+from findajob.fetchers import (
+    fetch_ashby_jobs,
+    fetch_gmail_jobs,
+    fetch_greenhouse_jobs,
+    fetch_jd,
+    fetch_jobsapi_jobs,
+    fetch_lever_jobs,
+)
 from findajob.paths import BASE
 from findajob.scoring import _build_feedback_block, score_job
 from findajob.utils import (
@@ -112,10 +119,13 @@ def main():
     FETCH_RETRY_DELAY = 120  # seconds
 
     for attempt in range(1, MAX_FETCH_ATTEMPTS + 1):
-        greenhouse_jobs = fetch_greenhouse_jobs(f"{BASE}/config/feed_urls.txt")
+        feed_urls = f"{BASE}/config/feed_urls.txt"
+        greenhouse_jobs = fetch_greenhouse_jobs(feed_urls)
+        ashby_jobs = fetch_ashby_jobs(feed_urls)
+        lever_jobs = fetch_lever_jobs(feed_urls)
         api_jobs = fetch_jobsapi_jobs(f"{BASE}/config/jsearch_queries.txt")
         gmail_jobs = fetch_gmail_jobs()
-        raw_jobs = greenhouse_jobs + api_jobs + gmail_jobs
+        raw_jobs = greenhouse_jobs + ashby_jobs + lever_jobs + api_jobs + gmail_jobs
         log_event(
             "jobs_fetched",
             count=len(raw_jobs),

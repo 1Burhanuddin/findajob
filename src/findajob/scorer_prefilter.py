@@ -55,6 +55,20 @@ TIER1: frozenset[str] = frozenset(
         "aetherflux",
         "cleanspark",
         "t5 data",
+        # Robotics / AV / Adjacent (2026-04-16, issue #1)
+        "figure ai",
+        "figureai",
+        "agility robotics",
+        "apptronik",
+        "sanctuary ai",
+        "collaborative robotics",
+        "serve robotics",
+        "locus robotics",
+        "waymo",
+        "zoox",
+        "motional",
+        "nuro",
+        "helion",
     ]
 )
 
