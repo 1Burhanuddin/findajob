@@ -217,6 +217,14 @@ def main():
     )
     briefing = aichat("briefing_writer", formatted_brief_prompt)
 
+    # ── Validate: briefing must end with an Overall Recommendation section ──
+    # The role prompt requires this verdict heading; model sometimes drops it.
+    # Retry once; if still missing, let downstream validator fail prep cleanly.
+    rec_re = re.compile(r"^##[^\n]*Overall Recommendation\s*:", re.MULTILINE)
+    if not briefing or not rec_re.search(briefing):
+        log_event("briefing_missing_recommendation", job_id=job_id, company=company, retry=1)
+        briefing = aichat("briefing_writer", formatted_brief_prompt)
+
     # Fit analysis: multi-dimensional assessment appended to briefing
     fit_prompt = (
         f"Analyze the fit between this candidate and this role.\n\n"
@@ -228,12 +236,21 @@ def main():
     )
     fit_analysis = aichat("fit_analyst", fit_prompt, model_override="perplexity:sonar-reasoning-pro")
 
-    # Combine briefing and fit analysis into one document
-    full_briefing = briefing
+    # Combine briefing and fit analysis into one document.
+    # The briefing ends with an Overall Recommendation verdict; fit analysis
+    # contains the Matrix/Probability/Strengths/Gaps detail that should sit
+    # BEFORE the verdict so the doc reads detail → synthesis → recommendation.
     fit_score_avg = None
     prob_score_avg = None
+    full_briefing = briefing
     if fit_analysis:
-        full_briefing += f"\n\n---\n\n# Fit Analysis\n\n{fit_analysis}"
+        rec_match = rec_re.search(briefing)
+        if rec_match:
+            briefing_pre = briefing[: rec_match.start()].rstrip()
+            briefing_rec = briefing[rec_match.start() :]
+            full_briefing = f"{briefing_pre}\n\n---\n\n# Fit Analysis\n\n{fit_analysis}\n\n---\n\n{briefing_rec}"
+        else:
+            full_briefing = f"{briefing}\n\n---\n\n# Fit Analysis\n\n{fit_analysis}"
         # Parse scores from fit analysis for DB storage
         # All scores are 0-100%. Fit Matrix section has 6 dimensions, Probability has 3.
         try:
@@ -421,6 +438,15 @@ Generated: {date}
             sz = 0
         if sz < MIN_BYTES:
             validation_failures.append(f"{label}: {sz}B (min {MIN_BYTES})")
+    # Briefing must end with an Overall Recommendation verdict — model drift
+    # sometimes drops it despite role prompt enforcement.
+    try:
+        with open(out["briefing_md"]) as f:
+            briefing_text = f.read()
+    except OSError:
+        briefing_text = ""
+    if not rec_re.search(briefing_text):
+        validation_failures.append("briefing: missing Overall Recommendation")
     if validation_failures:
         log_event(
             "prep_validation_failed",
