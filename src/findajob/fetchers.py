@@ -204,35 +204,72 @@ def fetch_greenhouse_jobs(feed_urls_path):
     return jobs
 
 
+def _parse_feed_slugs(feed_urls_path, slug_regex):
+    """Extract (slug, display_name) from feed_urls.txt for a given URL pattern.
+
+    Inline comments like `https://jobs.lever.co/zoox  # Zoox` are recognized
+    as display-name overrides. Without a comment, the display name defaults
+    to the slug titlecased (best-effort — multi-word slugs still won't split).
+
+    De-duplicates by slug; first occurrence wins.
+
+    Args:
+        feed_urls_path: path to feed_urls.txt
+        slug_regex: compiled regex with one capture group for the slug
+    Returns:
+        list of (slug, display_name) tuples
+    """
+    try:
+        with open(feed_urls_path) as f:
+            lines = [line.rstrip("\n") for line in f]
+    except FileNotFoundError:
+        return []
+
+    results = []
+    seen: set[str] = set()
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Split off any trailing comment — the part BEFORE the # is the URL.
+        if "#" in line:
+            url_part, _, comment = line.partition("#")
+            url_part = url_part.strip()
+            display = comment.strip() or None
+        else:
+            url_part = line
+            display = None
+        m = slug_regex.search(url_part)
+        if not m:
+            continue
+        slug = m.group(1)
+        if slug in seen:
+            continue
+        seen.add(slug)
+        # Default display name: titlecase the slug so "zoox" → "Zoox".
+        # User-supplied comment wins when present.
+        results.append((slug, display or slug.title()))
+    return results
+
+
 def fetch_ashby_jobs(feed_urls_path):
     """Fetch jobs via Ashby public posting API.
 
-    Parses slugs from ashbyhq.com URLs in feed_urls.txt.
+    Parses slugs from ashbyhq.com URLs in feed_urls.txt. Supports inline
+    `# Display Name` comments for company-name override.
     API: https://api.ashbyhq.com/posting-api/job-board/{slug}
     """
     import requests as req
 
     jobs: list[dict[str, str]] = []
-    try:
-        with open(feed_urls_path) as f:
-            urls = [line.strip() for line in f if line.strip() and not line.startswith("#")]
-    except FileNotFoundError:
-        return jobs
-
     slug_re = re.compile(r"ashbyhq\.com/([A-Za-z0-9_.-]+)")
-    seen_slugs: set[str] = set()
-    slugs = []
-    for url in urls:
-        m = slug_re.search(url)
-        if m:
-            slug = m.group(1)
-            if slug not in seen_slugs:
-                seen_slugs.add(slug)
-                slugs.append(slug)
+    feeds = _parse_feed_slugs(feed_urls_path, slug_re)
+    if not feeds:
+        return jobs
 
     headers = {"User-Agent": "findajob-pipeline/1.0 (personal job search tool)"}
 
-    for slug in slugs:
+    for slug, display_name in feeds:
         api_url = f"https://api.ashbyhq.com/posting-api/job-board/{slug}"
         try:
             resp = req.get(api_url, headers=headers, timeout=15)
@@ -247,7 +284,7 @@ def fetch_ashby_jobs(feed_urls_path):
                 jobs.append(
                     {
                         "title": j.get("title", ""),
-                        "company": clean_company(slug),
+                        "company": clean_company(display_name),
                         "url": j.get("jobUrl", ""),
                         "location": loc,
                         "source": "ashby_json",
@@ -265,32 +302,21 @@ def fetch_ashby_jobs(feed_urls_path):
 def fetch_lever_jobs(feed_urls_path):
     """Fetch jobs via Lever public postings API.
 
-    Parses slugs from lever.co URLs in feed_urls.txt.
+    Parses slugs from lever.co URLs in feed_urls.txt. Supports inline
+    `# Display Name` comments for company-name override.
     API: https://api.lever.co/v0/postings/{slug}
     """
     import requests as req
 
     jobs: list[dict[str, str]] = []
-    try:
-        with open(feed_urls_path) as f:
-            urls = [line.strip() for line in f if line.strip() and not line.startswith("#")]
-    except FileNotFoundError:
-        return jobs
-
     slug_re = re.compile(r"lever\.co/([A-Za-z0-9_.-]+)")
-    seen_slugs: set[str] = set()
-    slugs = []
-    for url in urls:
-        m = slug_re.search(url)
-        if m:
-            slug = m.group(1)
-            if slug not in seen_slugs:
-                seen_slugs.add(slug)
-                slugs.append(slug)
+    feeds = _parse_feed_slugs(feed_urls_path, slug_re)
+    if not feeds:
+        return jobs
 
     headers = {"User-Agent": "findajob-pipeline/1.0 (personal job search tool)"}
 
-    for slug in slugs:
+    for slug, display_name in feeds:
         api_url = f"https://api.lever.co/v0/postings/{slug}"
         try:
             resp = req.get(api_url, headers=headers, timeout=15)
@@ -306,7 +332,7 @@ def fetch_lever_jobs(feed_urls_path):
                 jobs.append(
                     {
                         "title": j.get("text", ""),
-                        "company": clean_company(slug),
+                        "company": clean_company(display_name),
                         "url": j.get("hostedUrl", ""),
                         "location": cats.get("location", ""),
                         "source": "lever_json",
