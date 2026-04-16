@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 
 from findajob.cleaning import fingerprint, normalize
+from findajob.cost_tracking import log_call
 from findajob.fetchers import (
     fetch_ashby_jobs,
     fetch_gmail_jobs,
@@ -414,12 +415,19 @@ def main():
                 write_audit(conn, job_id, "stage", "enriched", stage)
                 scored_count += 1
 
-                conn.execute(
-                    """
-                    INSERT INTO cost_log (job_id, operation, model, latency_ms, success)
-                    VALUES (?, 'score', ?, ?, 1)
-                """,
-                    (job_id, SCORER_MODEL, latency_ms),
+                # Input estimate: raw JD + profile + feedback block + title/company framing.
+                # Output estimate: the JSON scorer response.
+                scoring_input = (row["raw_jd_text"] or "") + candidate_profile + (_FEEDBACK_BLOCK or "")
+                scoring_output = str(scored)
+                log_call(
+                    conn,
+                    job_id=job_id,
+                    operation="score",
+                    model=SCORER_MODEL,
+                    input_text=scoring_input,
+                    output_text=scoring_output,
+                    latency_ms=latency_ms,
+                    success=True,
                 )
                 conn.commit()
 

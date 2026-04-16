@@ -756,6 +756,47 @@ def cmd_scoreboard():
         candidates = fb.get("prefilter_candidates", [])[:10]
     except Exception:
         candidates = []
+    # ── LLM spend (last 7d, populated cost_log rows only) ──
+    spend_conn = db_connect()
+    spend_rows = spend_conn.execute("""
+        SELECT
+            operation,
+            COUNT(*) AS n_calls,
+            SUM(cost_usd) AS total_cost,
+            SUM(input_tokens) AS in_tok,
+            SUM(output_tokens) AS out_tok
+        FROM cost_log
+        WHERE cost_usd IS NOT NULL
+          AND julianday('now') - julianday(logged_at) <= 7
+        GROUP BY operation
+        ORDER BY total_cost DESC
+    """).fetchall()
+    total_7d = sum((r["total_cost"] or 0) for r in spend_rows)
+    total_calls_7d = sum((r["n_calls"] or 0) for r in spend_rows)
+    spend_conn.close()
+
+    if spend_rows:
+        monthly_proj = total_7d * (30 / 7)
+        spend_section = (
+            f"**Total: ${total_7d:.2f}** across {total_calls_7d:,} calls "
+            f"(estimated monthly burn: **${monthly_proj:.0f}**).\n\n"
+            "Estimates from char-based token heuristic × model pricing; accurate to ~±30% vs actual bills.\n\n"
+            "| Operation | Calls | Input tok | Output tok | Cost (7d) |\n"
+            "|---|---|---|---|---|\n"
+        )
+        for r in spend_rows:
+            spend_section += (
+                f"| {r['operation']} | {r['n_calls']:,} | "
+                f"{(r['in_tok'] or 0):,} | {(r['out_tok'] or 0):,} | "
+                f"${(r['total_cost'] or 0):.2f} |\n"
+            )
+        spend_section += (
+            "\n_Prep-stage calls (resume, cover letter, briefing, fit analysis) "
+            "not yet instrumented — see follow-up. Scoring only for now._"
+        )
+    else:
+        spend_section = "_No cost data in the last 7d (cost_log rows need the cost_usd column populated by #32)._"
+
     if candidates:
         prefilter_candidates_section = (
             "Title n-grams recurring in score-7+ rejections (3+ times, title-related reasons only, "
@@ -836,6 +877,10 @@ Cumulative counts — how many jobs ever reached each stage, not just current st
 ## Prefilter Expansion Candidates
 
 {prefilter_candidates_section}
+
+## LLM Spend (last 7d)
+
+{spend_section}
 
 ## What to Watch
 

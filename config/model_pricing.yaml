@@ -1,0 +1,44 @@
+# LLM pricing table for cost estimation.
+# Prices are USD per million tokens. Update as provider rates change.
+# Only models in use by the pipeline are tracked here; others fall back
+# to a default rate and get logged as best-effort estimates.
+#
+# Matching: cost_tracking.py looks up the longest prefix match of the
+# aichat-ng model string, so "claude:claude-opus-4-6:thinking" matches
+# "claude:claude-opus-4-6" if ":thinking" isn't explicitly listed.
+#
+# Last updated: 2026-04-16
+
+default:
+  input_per_mtok: 1.00
+  output_per_mtok: 5.00
+
+models:
+  # Anthropic Claude
+  "claude:claude-opus-4-6":
+    input_per_mtok: 15.0
+    output_per_mtok: 75.0
+  "claude:claude-opus-4-6:thinking":
+    input_per_mtok: 15.0
+    output_per_mtok: 75.0
+  "claude:claude-sonnet-4-6":
+    input_per_mtok: 3.0
+    output_per_mtok: 15.0
+  "claude:claude-sonnet-4-6:thinking":
+    input_per_mtok: 3.0
+    output_per_mtok: 15.0
+  # Perplexity
+  "perplexity:sonar-reasoning-pro":
+    input_per_mtok: 2.0
+    output_per_mtok: 8.0
+  # OpenRouter
+  "openrouter:deepseek/deepseek-v3.2":
+    input_per_mtok: 0.27
+    output_per_mtok: 1.10
+  # Google Gemini (via aichat-ng direct)
+  "gemini:gemini-3-flash-preview":
+    input_per_mtok: 0.10
+    output_per_mtok: 0.40
+  "gemini-embed:gemini-embedding-001":
+    input_per_mtok: 0.02
+    output_per_mtok: 0.00
