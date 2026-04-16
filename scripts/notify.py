@@ -81,13 +81,27 @@ def open_issues():
     """Fetch open issues from GitHub via `gh issue list`."""
     try:
         rc = subprocess.run(
-            ["gh", "issue", "list", "--repo", REPO_SLUG, "--state", "open",
-             "--json", "number,title,labels", "--limit", "50"],
-            capture_output=True, text=True, timeout=30,
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                REPO_SLUG,
+                "--state",
+                "open",
+                "--json",
+                "number,title,labels",
+                "--limit",
+                "50",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if rc.returncode != 0:
             return []
         import json as _json
+
         items = _json.loads(rc.stdout)
         results = []
         for item in items:
