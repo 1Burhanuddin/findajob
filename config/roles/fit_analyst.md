@@ -56,11 +56,8 @@ Notes here.
 ## ⚠️ Key Gaps to Address
 1. ...
 2. ...
-
-## 🏁 Overall Recommendation
-**Strong Apply** / **Apply** / **Apply with Reservations** / **Skip**
-
-One paragraph explaining why.
 ```
+
+Do NOT include an Overall Recommendation section. The briefing writer handles that.
 
 Keep rationales concise. The candidate values signal over verbosity.
