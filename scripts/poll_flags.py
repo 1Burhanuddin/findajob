@@ -252,7 +252,9 @@ def main():
     creds = service_account.Credentials.from_service_account_file(SA_FILE, scopes=SCOPES)
     svc = build("sheets", "v4", credentials=creds)
 
-    # Read APPLY_FLAG (col A), REJECT_REASON (col B), fingerprint (col C) from Dashboard
+    # Read STATUS (col A), REJECT_REASON (col B), fingerprint (col C) from
+    # Dashboard (pre-application queue) and Applied (post-application queue).
+    # Both tabs use the same col A/B/C layout so one processing loop handles them.
     try:
         result = svc.spreadsheets().values().get(spreadsheetId=SHEET_ID, range="Dashboard!A2:C10000").execute()
         rows = result.get("values", [])
@@ -261,6 +263,12 @@ def main():
             log_event("poll_flags", found=0, note="sheet_empty_or_range_exceeded")
             return
         raise
+    try:
+        applied_result = svc.spreadsheets().values().get(spreadsheetId=SHEET_ID, range="Applied!A2:C10000").execute()
+        rows += applied_result.get("values", [])
+    except HttpError as e:
+        if e.resp.status != 400:
+            raise
 
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row

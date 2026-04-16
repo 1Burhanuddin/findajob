@@ -208,8 +208,17 @@ Jobs appear if: `score>=5` OR `stage in lifecycle stages` OR `age < 14 days` OR 
 Low-score old jobs from non-target companies stay in DB only.
 `fingerprint(hidden) | APPLY_FLAG(checkbox) | score | title | company | location | remote | stage | contacts | comp | notes | date | source | url`
 
-**Dashboard** — actionable queue (A–N), filter: `(score>=7 AND stage IN (scored,manual_review))` OR `stage IN (prep_in_progress, materials_drafted, applied, interview, offer)`. Post-application stages stay on Dashboard so the user can update STATUS (Interviewing/Offer/Not Selected/Withdrew) without hunting through Sheet1:
+**Dashboard** — pre-application queue (A–N), filter: `(score>=7 AND stage IN (scored,manual_review))` OR `stage IN (prep_in_progress, materials_drafted)`. Once user marks STATUS=Applied the poller sets stage=applied and the row moves off Dashboard to the Applied tab:
 `STATUS(dropdown) | REJECT_REASON(dropdown) | fingerprint(hidden) | fit_score | probability_score | relevance_score | title(hyperlink) | company | location | remote | contacts | comp | notes | date`
+
+**Applied** — post-application queue (A–N), filter: `stage IN (applied, interview, offer)`. This is the UI for managing jobs you've submitted and are waiting to hear back on:
+`STATUS(dropdown) | REJECT_REASON(dropdown) | fingerprint(hidden) | title(hyperlink) | company(Drive hyperlink) | applied_date | days_since_applied(formula) | stage | user_notes | known_contacts | location | remote | comp | ai_notes`
+- `STATUS` options (col A): `Interviewing` / `Offer` / `Ghosted` / `Not Selected` / `Withdrew`
+- `days_since_applied` = live `=IF(F2="","",TODAY()-F2)` formula — no re-sync needed
+- Row color by priority: Offer→gold, Interviewing→purple, Ghosted OR >=21d→gray, 14–20d→red, 7–13d→yellow, 0–6d→green
+- `user_notes` (col I) is free-text and syncs back to `jobs.user_notes` via `sync_sheet.py` on each run
+- `applied_date` sourced from `audit_log` where `new_value='applied'` (first transition)
+- `Ghosted` is visual-only: stage remains `applied`, row stays on tab — user flips to Not Selected when they give up
 
 **Review** — manual review triage (A–H), filter: `stage=manual_review`:
 `STATUS(dropdown:Promote) | REJECT_REASON(dropdown) | fingerprint(hidden) | title(hyperlink) | company | score_flag_reason | source | date`
@@ -233,7 +242,7 @@ Low-score old jobs from non-target companies stay in DB only.
 - If STATUS = `Not Selected`: company rejection → `stage=not_selected`, NO `feedback_log`, folder stays in `_applied/` with `NOT_SELECTED_` marker file
 - Otherwise: user rejection → `stage=rejected`, writes `feedback_log`, moves folder to `_rejected/`, syncs to Drive
 
-**poll_flags.py** reads `Dashboard!A2:C10000`, `Review!A2:C10000`, and `Waitlist!A2:C10000`. "Not Selected" is checked before generic rejection to prevent routing errors.
+**poll_flags.py** reads `Dashboard!A2:C10000`, `Applied!A2:C10000`, `Review!A2:C10000`, and `Waitlist!A2:C10000`. "Not Selected" is checked before generic rejection to prevent routing errors. `Ghosted` STATUS on the Applied tab is a no-op in DB (visual only) but is preserved across syncs via pending_statuses.
 
 **Stage `waitlisted`:** Set by `poll_flags.py` when user selects "Waitlist" on Dashboard. Folder moves to `companies/_waitlisted/`. Job disappears from Dashboard, appears on Waitlist tab. Not a rejection — does not write to feedback_log or contaminate scorer feedback loop. When active application at same company is rejected/withdrawn, ntfy notification surfaces waitlisted jobs.
 

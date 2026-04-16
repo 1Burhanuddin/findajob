@@ -46,6 +46,22 @@ Review layout (A–H):
   G: source
   H: date_found
 
+Applied layout (A–N):
+  A: STATUS              (dropdown: Interviewing / Offer / Ghosted / Not Selected / Withdrew)
+  B: REJECT_REASON       (dropdown: same 11 options as Dashboard)
+  C: fingerprint         (hidden — used by poll_flags.py)
+  D: title               (HYPERLINK formula — JD)
+  E: company             (HYPERLINK formula — Drive folder)
+  F: applied_date
+  G: days_since_applied  (live =TODAY()-F formula — conditional row color)
+  H: stage               (applied / interview / offer)
+  I: user_notes          (free text — syncs back to jobs.user_notes via sync_sheet)
+  J: known_contacts
+  K: location
+  L: remote_status
+  M: comp_estimate
+  N: ai_notes            (read-only)
+
 Waitlist layout (A–K):
   A: STATUS          (dropdown: Reactivate)
   B: REJECT_REASON   (dropdown: same as Dashboard)
@@ -464,6 +480,27 @@ def main():
     review_id = sheets.get("Review")
     waitlist_id = sheets.get("Waitlist")
     rejected_apps_id = sheets.get("Rejected Applications")
+    applied_id = sheets.get("Applied")
+
+    # ── One-time: rename legacy "Active" tab to "Applied" ──────────────────
+    # Previous name was "Active"; if we still see it (and not Applied), rename.
+    if applied_id is None and "Active" in sheets:
+        legacy_id = sheets["Active"]
+        svc.spreadsheets().batchUpdate(
+            spreadsheetId=SHEET_ID,
+            body={
+                "requests": [
+                    {
+                        "updateSheetProperties": {
+                            "properties": {"sheetId": legacy_id, "title": "Applied"},
+                            "fields": "title",
+                        }
+                    }
+                ]
+            },
+        ).execute()
+        applied_id = legacy_id
+        print("Renamed 'Active' tab to 'Applied'.")
 
     # ── Create missing tabs ────────────────────────────────────────────────
     init_requests = []
@@ -471,6 +508,7 @@ def main():
     create_review = review_id is None
     create_waitlist = waitlist_id is None
     create_rejected_apps = rejected_apps_id is None
+    create_applied = applied_id is None
 
     if create_dash:
         init_requests.append(
@@ -520,6 +558,18 @@ def main():
                 }
             }
         )
+    if create_applied:
+        init_requests.append(
+            {
+                "addSheet": {
+                    "properties": {
+                        "title": "Applied",
+                        "index": 4,
+                        "gridProperties": {"rowCount": 1000, "columnCount": 14},
+                    }
+                }
+            }
+        )
 
     if init_requests:
         resp = svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": init_requests}).execute()
@@ -540,8 +590,12 @@ def main():
             rejected_apps_id = resp["replies"][reply_idx]["addSheet"]["properties"]["sheetId"]
             print("Created Rejected Applications tab.")
             reply_idx += 1
+        if create_applied:
+            applied_id = resp["replies"][reply_idx]["addSheet"]["properties"]["sheetId"]
+            print("Created Applied tab.")
+            reply_idx += 1
     else:
-        print("Dashboard, Review, Waitlist, and Rejected Applications tabs already exist — re-applying formatting.")
+        print("All tabs already exist — re-applying formatting.")
 
     # ── Sheet1 formatting ──────────────────────────────────────────────────
     s1_requests = [
@@ -1061,6 +1115,167 @@ def main():
     )
     svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": ra_band_requests}).execute()
     print("Rejected Applications row banding applied.")
+
+    # ── Applied tab formatting ────────────────────────────────────────────
+    APPLIED_STATUS_OPTIONS = ["Interviewing", "Offer", "Ghosted", "Not Selected", "Withdrew"]
+
+    applied_requests = [
+        {
+            "updateSheetProperties": {
+                "properties": {
+                    "sheetId": applied_id,
+                    "gridProperties": {"frozenRowCount": 1, "rowCount": 1000, "columnCount": 14},
+                },
+                "fields": "gridProperties.frozenRowCount,gridProperties.rowCount,gridProperties.columnCount",
+            }
+        },
+        # Bold + dark header row
+        {
+            "repeatCell": {
+                "range": {
+                    "sheetId": applied_id,
+                    "startRowIndex": 0,
+                    "endRowIndex": 1,
+                    "startColumnIndex": 0,
+                    "endColumnIndex": 14,
+                },
+                "cell": {
+                    "userEnteredFormat": {
+                        "textFormat": {
+                            "bold": True,
+                            "foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
+                        },
+                        "backgroundColor": {"red": 0.18, "green": 0.18, "blue": 0.18},
+                    }
+                },
+                "fields": "userEnteredFormat(textFormat(bold,foregroundColor),backgroundColor)",
+            }
+        },
+        # STATUS dropdown col A: what user can mark a post-application job as
+        {
+            "setDataValidation": {
+                "range": {"sheetId": applied_id, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 1},
+                "rule": {
+                    "condition": {
+                        "type": "ONE_OF_LIST",
+                        "values": [{"userEnteredValue": opt} for opt in APPLIED_STATUS_OPTIONS],
+                    },
+                    "showCustomUi": True,
+                    "strict": False,
+                },
+            }
+        },
+        # REJECT_REASON dropdown col B
+        {
+            "setDataValidation": {
+                "range": {"sheetId": applied_id, "startRowIndex": 1, "startColumnIndex": 1, "endColumnIndex": 2},
+                "rule": {
+                    "condition": {
+                        "type": "ONE_OF_LIST",
+                        "values": [{"userEnteredValue": opt} for opt in REJECT_OPTIONS],
+                    },
+                    "showCustomUi": True,
+                    "strict": False,
+                },
+            }
+        },
+        # Hide col C (fingerprint)
+        {
+            "updateDimensionProperties": {
+                "range": {"sheetId": applied_id, "dimension": "COLUMNS", "startIndex": 2, "endIndex": 3},
+                "properties": {"hiddenByUser": True},
+                "fields": "hiddenByUser",
+            }
+        },
+        # Format col F (applied_date) as YYYY-MM-DD so the serial number renders as a date
+        {
+            "repeatCell": {
+                "range": {"sheetId": applied_id, "startRowIndex": 1, "startColumnIndex": 5, "endColumnIndex": 6},
+                "cell": {"userEnteredFormat": {"numberFormat": {"type": "DATE", "pattern": "yyyy-mm-dd"}}},
+                "fields": "userEnteredFormat.numberFormat",
+            }
+        },
+        # Format col G (days_since_applied) as integer
+        {
+            "repeatCell": {
+                "range": {"sheetId": applied_id, "startRowIndex": 1, "startColumnIndex": 6, "endColumnIndex": 7},
+                "cell": {
+                    "userEnteredFormat": {
+                        "numberFormat": {"type": "NUMBER", "pattern": "0"},
+                        "horizontalAlignment": "CENTER",
+                    }
+                },
+                "fields": "userEnteredFormat(numberFormat,horizontalAlignment)",
+            }
+        },
+        # Column widths
+        col_width(applied_id, 0, 120),  # A: STATUS
+        col_width(applied_id, 1, 140),  # B: REJECT_REASON
+        col_width(applied_id, 3, 280),  # D: title (hyperlink)
+        col_width(applied_id, 4, 150),  # E: company (Drive hyperlink)
+        col_width(applied_id, 5, 100),  # F: applied_date
+        col_width(applied_id, 6, 70),  # G: days_since_applied
+        col_width(applied_id, 7, 90),  # H: stage
+        col_width(applied_id, 8, 260),  # I: user_notes
+        col_width(applied_id, 9, 160),  # J: known_contacts
+        col_width(applied_id, 10, 130),  # K: location
+        col_width(applied_id, 11, 80),  # L: remote_status
+        col_width(applied_id, 12, 100),  # M: comp_estimate
+        col_width(applied_id, 13, 300),  # N: ai_notes
+    ]
+
+    # Conditional formatting — whole-row coloring by priority.
+    # First matching rule wins in Google Sheets, so list strongest signals first.
+    applied_row_range = [{"sheetId": applied_id, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 14}]
+
+    def _cf_formula(formula, bg):
+        return {
+            "addConditionalFormatRule": {
+                "index": 0,
+                "rule": {
+                    "ranges": applied_row_range,
+                    "booleanRule": {
+                        "condition": {
+                            "type": "CUSTOM_FORMULA",
+                            "values": [{"userEnteredValue": formula}],
+                        },
+                        "format": {"backgroundColor": bg},
+                    },
+                },
+            }
+        }
+
+    # 1. Offer → gold (highest priority — best news)
+    applied_requests.append(_cf_formula('=$A2="Offer"', rgb(255, 217, 102)))
+    # 2. Interviewing → soft purple
+    applied_requests.append(_cf_formula('=$A2="Interviewing"', rgb(226, 208, 245)))
+    # 3. Ghosted (user-flagged OR 21+ days silent) → gray
+    applied_requests.append(_cf_formula('=OR($A2="Ghosted", $G2>=21)', rgb(200, 200, 200)))
+    # 4. 14–20 days → red (getting stale)
+    applied_requests.append(_cf_formula("=AND($G2>=14, $G2<21)", rgb(255, 198, 198)))
+    # 5. 7–13 days → yellow
+    applied_requests.append(_cf_formula("=AND($G2>=7, $G2<14)", rgb(255, 245, 178)))
+    # 6. 0–6 days → green (fresh)
+    applied_requests.append(_cf_formula("=AND($G2>=0, $G2<7)", rgb(198, 240, 198)))
+
+    # Reject reason color on col B (same palette as Dashboard)
+    applied_requests += reject_cf_rules(applied_id)
+
+    svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": applied_requests}).execute()
+    print("Applied tab formatted.")
+
+    # Applied tab row banding (subtle — real coloring comes from CF rules above)
+    if create_applied:
+        spreadsheet = svc.spreadsheets().get(spreadsheetId=SHEET_ID).execute()
+        sheets_meta = spreadsheet.get("sheets", [])
+    applied_sheet = next((s for s in sheets_meta if s["properties"]["sheetId"] == applied_id), None)
+    applied_banding = applied_sheet.get("bandedRanges", []) if applied_sheet else []
+    ab_requests = [{"deleteBanding": {"bandedRangeId": b["bandedRangeId"]}} for b in applied_banding]
+    # No row banding — the CF color bands would conflict visually. Just
+    # clear any stale banding from the legacy "Active" layout.
+    if ab_requests:
+        svc.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body={"requests": ab_requests}).execute()
+        print("Applied tab legacy banding cleared.")
 
     print()
     print("Done. Run sync_sheet.py to populate.")

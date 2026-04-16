@@ -238,19 +238,10 @@ def sync_dashboard(svc, conn):
         WHERE (dupe_of = '' OR dupe_of IS NULL)
           AND (
             (relevance_score >= 7 AND stage IN ('scored', 'manual_review'))
-            OR stage IN ('prep_in_progress', 'materials_drafted',
-                         'applied', 'interview', 'offer')
+            OR stage IN ('prep_in_progress', 'materials_drafted')
           )
         ORDER BY
-            CASE stage
-                WHEN 'materials_drafted' THEN 0
-                WHEN 'prep_in_progress' THEN 1
-                WHEN 'scored' THEN 2
-                WHEN 'manual_review' THEN 2
-                WHEN 'offer' THEN 3
-                WHEN 'interview' THEN 4
-                WHEN 'applied' THEN 5
-                ELSE 6 END,
+            CASE stage WHEN 'materials_drafted' THEN 0 ELSE 1 END,
             CASE WHEN probability_score IS NOT NULL THEN probability_score ELSE 0 END DESC,
             CASE WHEN fit_score IS NOT NULL THEN fit_score ELSE 0 END DESC,
             CASE WHEN relevance_score IS NOT NULL THEN relevance_score ELSE 0 END DESC,
@@ -308,13 +299,9 @@ def sync_dashboard(svc, conn):
         spreadsheetId=SHEET_ID, range="Dashboard!A1", valueInputOption="USER_ENTERED", body={"values": sheet_rows}
     ).execute()
     n_prepped = sum(1 for r in rows if r["stage"] == "materials_drafted")
-    n_post_app = sum(1 for r in rows if r["stage"] in ("applied", "interview", "offer"))
-    n_queued = len(rows) - n_prepped - n_post_app
+    n_queued = len(rows) - n_prepped
     n_dash = len(sheet_rows) - 1
-    print(
-        f"Dashboard: {n_dash} jobs ({n_queued} queued, {n_prepped} prepped/pending apply, "
-        f"{n_post_app} post-application)"
-    )
+    print(f"Dashboard: {n_dash} jobs ({n_queued} queued, {n_prepped} prepped/pending apply)")
     return n_dash
 
 
@@ -489,6 +476,142 @@ def sync_waitlist(svc, conn):
     return n_waitlist
 
 
+# ── Applied: post-application queue (stage in applied/interview/offer) ───────
+# Col A: STATUS (Interviewing/Offer/Ghosted/Not Selected/Withdrew),
+# Col B: REJECT_REASON, Col C: fingerprint (hidden).
+# Title → hyperlink to JD; Company → hyperlink to Drive folder.
+# Col F: applied_date, Col G: days_since_applied (live TODAY() formula).
+APPLIED_HEADERS = [
+    "STATUS",
+    "REJECT_REASON",
+    "fingerprint",
+    "title",
+    "company",
+    "applied_date",
+    "days_since_applied",
+    "stage",
+    "user_notes",
+    "known_contacts",
+    "location",
+    "remote_status",
+    "comp_estimate",
+    "ai_notes",
+]
+
+# STATUS values the user can set on the Applied tab. Preserved across syncs
+# until poll_flags.py observes them and transitions the DB stage.
+APPLIED_VALID_STATUSES = {"Interviewing", "Offer", "Ghosted", "Not Selected", "Withdrew"}
+
+
+def sync_applied(svc, conn):
+    """Sync post-application jobs (stage in applied/interview/offer) to Applied tab.
+
+    The Applied tab is the user's UI for managing jobs they've submitted and
+    are waiting to hear back on. STATUS dropdown lets them mark Interviewing,
+    Offer, Ghosted, Not Selected, or Withdrew; poll_flags.py handles the DB
+    transitions. USER_NOTES is a free-text column that syncs back to DB.
+    """
+    try:
+        current = (
+            svc.spreadsheets()
+            .values()
+            .get(spreadsheetId=SHEET_ID, range="Applied!A2:I10000")
+            .execute()
+            .get("values", [])
+        )
+        # Col A=STATUS, B=REJECT_REASON, C=fingerprint, I=user_notes.
+        pending_statuses = {r[2]: r[0] for r in current if len(r) >= 3 and r[0] in APPLIED_VALID_STATUSES}
+        pending_rejects = {r[2]: r[1] for r in current if len(r) >= 3 and len(r) > 1 and r[1]}
+        pending_notes = {r[2]: r[8] for r in current if len(r) >= 9 and r[8]}
+    except Exception:
+        pending_statuses = {}
+        pending_rejects = {}
+        pending_notes = {}
+
+    rows = conn.execute("""
+        SELECT * FROM jobs
+        WHERE (dupe_of = '' OR dupe_of IS NULL)
+          AND stage IN ('applied', 'interview', 'offer')
+        ORDER BY
+            CASE stage WHEN 'offer' THEN 0 WHEN 'interview' THEN 1 ELSE 2 END,
+            updated_at DESC
+    """).fetchall()
+
+    # Write back any user-edited notes that differ from DB.
+    for fp, note in pending_notes.items():
+        db_note = conn.execute("SELECT user_notes FROM jobs WHERE fingerprint=?", (fp,)).fetchone()
+        if db_note and (db_note[0] or "") != note:
+            conn.execute("UPDATE jobs SET user_notes=?, updated_at=datetime('now') WHERE fingerprint=?", (note, fp))
+    conn.commit()
+
+    # applied_date from audit log (first 'applied' stage transition per job).
+    applied_dates = {}
+    for row in rows:
+        entry = conn.execute(
+            "SELECT changed_at FROM audit_log WHERE job_id=? "
+            "AND field_changed='stage' AND new_value='applied' "
+            "ORDER BY changed_at ASC LIMIT 1",
+            (row["id"],),
+        ).fetchone()
+        if entry:
+            applied_dates[row["id"]] = entry["changed_at"][:10]
+
+    sheet_rows = [APPLIED_HEADERS]
+    for i, row in enumerate(rows, start=2):  # row index on sheet (row 1 = header)
+        fp = row["fingerprint"]
+        # STATUS: prefer user-set pending over derived stage.
+        if fp in pending_statuses:
+            status = pending_statuses[fp]
+        elif row["stage"] == "offer":
+            status = "Offer"
+        elif row["stage"] == "interview":
+            status = "Interviewing"
+        else:
+            status = ""  # stage=applied — user hasn't changed it yet
+        reject = pending_rejects.get(fp, row["reject_reason"] or "")
+        # Refresh user_notes from DB (post-writeback).
+        user_notes = conn.execute("SELECT user_notes FROM jobs WHERE id=?", (row["id"],)).fetchone()[0] or ""
+        applied_date = applied_dates.get(row["id"], "")
+        # Live formula so "days_since_applied" updates without re-sync.
+        days_formula = f'=IF(F{i}="","",TODAY()-F{i})' if applied_date else ""
+        title_cell = hyperlink(row["url"], row["title"]) if row["url"] else safe_str(row["title"])
+        gdrive_url = row["gdrive_folder_url"] if "gdrive_folder_url" in row.keys() else None
+        company_cell = (
+            hyperlink(gdrive_url, row["company"])
+            if gdrive_url and str(gdrive_url).startswith("http")
+            else safe_str(row["company"])
+        )
+        sheet_rows.append(
+            [
+                status,
+                safe_str(reject),
+                safe_str(fp),
+                title_cell,
+                company_cell,
+                safe_str(applied_date),
+                days_formula,
+                safe_str(row["stage"]),
+                safe_str(user_notes),
+                safe_str(row["known_contacts"] or ""),
+                safe_str(row["location"] or ""),
+                safe_str(row["remote_status"] or ""),
+                safe_str(row["comp_estimate"] or ""),
+                safe_str(row["ai_notes"] or ""),
+            ]
+        )
+
+    svc.spreadsheets().values().clear(spreadsheetId=SHEET_ID, range="Applied!A2:N10000").execute()
+    svc.spreadsheets().values().update(
+        spreadsheetId=SHEET_ID,
+        range="Applied!A1",
+        valueInputOption="USER_ENTERED",
+        body={"values": sheet_rows},
+    ).execute()
+    n = len(sheet_rows) - 1
+    print(f"Applied: {n} post-application jobs synced")
+    return n
+
+
 # ── Rejected Applications: jobs rejected after applying ──────────────────────
 REJECTED_APPS_HEADERS = [
     "title",
@@ -567,8 +690,16 @@ def main():
         n_dash = sync_dashboard(svc, conn)
         n_review = sync_review(svc, conn)
         n_waitlist = sync_waitlist(svc, conn)
+        n_applied = sync_applied(svc, conn)
         sync_rejected_apps(svc, conn)
-        log_event("sync_complete", sheet1=n_sheet1, dashboard=n_dash, review=n_review, waitlist=n_waitlist)
+        log_event(
+            "sync_complete",
+            sheet1=n_sheet1,
+            dashboard=n_dash,
+            review=n_review,
+            waitlist=n_waitlist,
+            applied=n_applied,
+        )
     except Exception as e:
         log_event("sync_failed", error=str(e))
         raise

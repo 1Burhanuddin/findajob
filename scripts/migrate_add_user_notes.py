@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""One-time migration: add user_notes column to jobs.
+
+Free-text field the user edits on the Applied tab; poll_flags.py syncs
+Applied sheet edits back to this column. Idempotent — ALTER TABLE ADD
+COLUMN IF NOT EXISTS via column-presence check.
+
+Usage:  python3 scripts/migrate_add_user_notes.py
+"""
+
+import sqlite3
+import sys
+from pathlib import Path
+
+from findajob.paths import BASE
+
+DB_PATH = Path(BASE) / "data" / "pipeline.db"
+
+
+def migrate() -> None:
+    if not DB_PATH.exists():
+        print(f"ERROR: DB not found at {DB_PATH}", file=sys.stderr)
+        sys.exit(1)
+
+    conn = sqlite3.connect(str(DB_PATH))
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+    if "user_notes" in cols:
+        print("user_notes column already exists — nothing to do.")
+        conn.close()
+        return
+
+    conn.execute("ALTER TABLE jobs ADD COLUMN user_notes TEXT DEFAULT ''")
+    conn.commit()
+    conn.close()
+    print("Added user_notes column to jobs table.")
+
+
+if __name__ == "__main__":
+    migrate()
