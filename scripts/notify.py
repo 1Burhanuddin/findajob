@@ -322,6 +322,19 @@ def cmd_health_check():
         for prefix, count in list(dupes.items())[:5]:
             issues.append(f"  • {prefix} ({count} copies)")
 
+    # ── Orphan folders (on disk but no DB record points to them) ────────────
+    db_paths = {
+        r[0]
+        for r in conn.execute(
+            "SELECT prep_folder_path FROM jobs WHERE prep_folder_path IS NOT NULL AND prep_folder_path != ''"
+        ).fetchall()
+    }
+    orphan_folders = [name for name in folder_names if os.path.join(companies_dir, name) not in db_paths]
+    if orphan_folders:
+        issues.append(f"WARN: {len(orphan_folders)} folder(s) in companies/ with no matching DB record:")
+        for name in orphan_folders[:5]:
+            issues.append(f"  • {name}")
+
     # ── rclone bisync conflict files ─────────────────────────────────────────
     conflict_files = glob.glob(f"{BASE}/companies/**/*.path1", recursive=True)
     conflict_files += glob.glob(f"{BASE}/companies/**/*.path2", recursive=True)

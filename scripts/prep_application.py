@@ -6,6 +6,7 @@
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -408,7 +409,37 @@ Generated: {date}
 - `{file_prefix} Outreach to *.txt`    ← network outreach drafts
 """)
 
-    # ── Step 7: Update SQLite (stage + scores) ──
+    # ── Step 7: Validate output before marking complete ──
+    # Guard against silent LLM failures (e.g. missing max_tokens) that produce
+    # empty files.  On failure: delete the damaged folder, reset to scored so
+    # the job can be re-prepped, and abort.
+    MIN_BYTES = 500
+    validation_failures = []
+    for label, path in [("resume", out["resume_md"]), ("cover_letter", out["cover_md"])]:
+        try:
+            sz = os.path.getsize(path)
+        except OSError:
+            sz = 0
+        if sz < MIN_BYTES:
+            validation_failures.append(f"{label}: {sz}B (min {MIN_BYTES})")
+    if validation_failures:
+        log_event(
+            "prep_validation_failed",
+            company=company,
+            title=title,
+            failures="; ".join(validation_failures),
+        )
+        shutil.rmtree(outdir, ignore_errors=True)
+        now = datetime.now(UTC).isoformat()
+        conn.execute(
+            "UPDATE jobs SET stage='scored', prep_folder_path=NULL, stage_updated=?, updated_at=? WHERE id=?",
+            (now, now, job_id),
+        )
+        conn.commit()
+        notify(f"PREP FAILED (empty files): {company} — {title}\n{'; '.join(validation_failures)}")
+        return
+
+    # ── Step 8: Update SQLite (stage + scores) ──
     now = datetime.now(UTC).isoformat()
     old_stage = row["stage"] if row else "unknown"
 

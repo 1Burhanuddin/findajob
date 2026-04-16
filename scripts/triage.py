@@ -17,7 +17,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 
-from findajob.cleaning import fingerprint
+from findajob.cleaning import fingerprint, normalize
 from findajob.fetchers import fetch_gmail_jobs, fetch_greenhouse_jobs, fetch_jd, fetch_jobsapi_jobs
 from findajob.paths import BASE
 from findajob.scoring import _build_feedback_block, score_job
@@ -291,6 +291,40 @@ def main():
         )
         conn.commit()
         write_audit(conn, job_id, "stage", "discovered", "enriched")
+
+        # Fuzzy dedup: if an existing job with the same normalized title+company
+        # is already at an advanced stage, mark this one as a duplicate.  Catches
+        # reposts from different sources whose location text differs (different
+        # fingerprints but same role).
+        norm_title = normalize(job.get("title", ""))
+        norm_company = normalize(job.get("company", ""))
+        if norm_title and norm_company:
+            advanced = conn.execute(
+                """
+                SELECT id FROM jobs
+                WHERE id != ? AND (dupe_of = '' OR dupe_of IS NULL)
+                  AND stage IN ('materials_drafted', 'applied', 'interview', 'offer')
+            """,
+                (job_id,),
+            ).fetchall()
+            for adv in advanced:
+                adv_row = conn.execute("SELECT title, company FROM jobs WHERE id=?", (adv["id"],)).fetchone()
+                if normalize(adv_row["title"]) == norm_title and normalize(adv_row["company"]) == norm_company:
+                    conn.execute(
+                        "UPDATE jobs SET dupe_of=?, stage='rejected', stage_updated=?, updated_at=? WHERE id=?",
+                        (adv["id"], now, now, job_id),
+                    )
+                    conn.commit()
+                    write_audit(conn, job_id, "stage", "enriched", "rejected")
+                    log_event(
+                        "dupe_advanced_stage",
+                        job_id=job_id,
+                        title=job["title"],
+                        company=job["company"],
+                        dupe_of=adv["id"],
+                    )
+                    dupe_count += 1
+                    break
 
     # ── Phase 2: Parallel scoring ──────────────────────────────────────────
     # Collect all enriched jobs (newly ingested + orphans from prior crashed runs)
