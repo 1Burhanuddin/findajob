@@ -54,10 +54,11 @@ def abbrev_title(title, max_words=3):
 def _add_cover_letter_spacing(docx_path):
     """Post-process cover letter .docx for clean formatting.
 
-    Fixes three issues:
-    1. Heading 1 renders with a theme bottom-border line — convert to plain bold
-    2. No spacing between contact line and date — add space-before on date
-    3. No paragraph spacing — add 12pt space-after from date onward
+    Heading 1 is left untouched — the reference.docx theme renders it correctly
+    (teal color, heading font) in Google Docs. Adjustments:
+    1. Remove pandoc bookmark anchors (render as blue bracket in Google Docs)
+    2. Space before the date line to separate from contact info
+    3. 12pt space-after from date onward for readable paragraph gaps
     """
     try:
         from docx import Document
@@ -67,13 +68,12 @@ def _add_cover_letter_spacing(docx_path):
         if not doc.paragraphs:
             return
 
-        # 1. Convert Heading 1 to Normal + bold (removes theme border line)
-        heading = doc.paragraphs[0]
-        if heading.style.name == "Heading 1":
-            heading.style = doc.styles["Normal"]
-            for run in heading.runs:
-                run.bold = True
-                run.font.size = Pt(14)
+        # 1. Strip bookmark anchors that pandoc adds to headings
+        body = doc.element.body
+        ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        for tag in ("bookmarkStart", "bookmarkEnd"):
+            for bm in body.findall(f".//{{{ns}}}{tag}"):
+                bm.getparent().remove(bm)
 
         # 2. Add space before the date line (paragraph [2]) to separate from contact
         if len(doc.paragraphs) > 2:
