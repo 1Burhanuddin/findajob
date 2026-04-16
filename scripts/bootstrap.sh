@@ -339,7 +339,7 @@ install_systemd_units() {
   # uses ThreadPoolExecutor internally.  TimeoutStartSec=3600 (1 hour).
   write_service_unit  "triage"          "triage.py"         "daily triage pipeline"
   echo "TimeoutStartSec=3600" >> "${SYSTEMD_DIR}/findajob-triage.service"
-  write_timer_unit    "triage"          "findajob daily triage" "*-*-* 07:00:00"
+  write_timer_unit    "triage"          "findajob daily triage" "*-*-* 00:00:00 America/Los_Angeles"
 
   # Poller — every 30 min.  poll_flags.py waits for child processes
   # (sync_sheet + prep_application), so it can run for several minutes.
@@ -354,13 +354,13 @@ install_systemd_units() {
 
   # Notifications
   write_notify_service "notify-stats"    "daily-stats"    "daily stats notification"
-  write_timer_unit     "notify-stats"    "findajob daily stats notification" "*-*-* 07:05:00"
+  write_timer_unit     "notify-stats"    "findajob daily stats notification" "*-*-* 06:15:00 America/Los_Angeles"
 
   write_notify_service "notify-health"   "health-check"   "health check notification"
-  write_timer_unit     "notify-health"   "findajob health check notification" "*-*-* 09:10:00"
+  write_timer_unit     "notify-health"   "findajob health check notification" "*-*-* 07:00:00 America/Los_Angeles"
 
   write_notify_service "notify-apply"    "apply-reminder" "apply reminder notification"
-  write_timer_unit     "notify-apply"    "findajob apply reminder notification" "*-*-* 05:00:00"
+  write_timer_unit     "notify-apply"    "findajob apply reminder notification" "*-*-* 06:00:00 America/Los_Angeles"
 
   write_notify_service "notify-issues"   "issues-ping"    "issues ping notification"
   cat > "${SYSTEMD_DIR}/findajob-notify-issues.timer" << EOF
@@ -368,7 +368,7 @@ install_systemd_units() {
 Description=findajob issues ping (Mon/Wed/Fri)
 
 [Timer]
-OnCalendar=Mon,Wed,Fri *-*-* 08:00:00
+OnCalendar=Mon,Wed,Fri *-*-* 08:00:00 America/Los_Angeles
 Persistent=true
 
 [Install]
@@ -381,7 +381,7 @@ EOF
 Description=findajob pipeline scoreboard (weekly Monday)
 
 [Timer]
-OnCalendar=Mon *-*-* 08:30:00
+OnCalendar=Mon *-*-* 08:30:00 America/Los_Angeles
 Persistent=true
 
 [Install]
@@ -394,7 +394,7 @@ EOF
 Description=findajob feedback review (Sunday)
 
 [Timer]
-OnCalendar=Sun *-*-* 08:00:00
+OnCalendar=Sun *-*-* 08:00:00 America/Los_Angeles
 Persistent=true
 
 [Install]
@@ -424,7 +424,7 @@ EOF
   # RAG rebuild — Sunday 6:00 AM
   AICHAT_BIN="${aichat_bin}"
   write_aichat_service "rag-rebuild" "RAG index rebuild" "--rag job_search_rag --rebuild-rag"
-  write_timer_unit     "rag-rebuild" "findajob RAG rebuild (Sunday)" "Sun *-*-* 06:00:00"
+  write_timer_unit     "rag-rebuild" "findajob RAG rebuild (Sunday)" "Sun *-*-* 03:00:00 America/Los_Angeles"
 
   ok "  systemd unit files written to ${SYSTEMD_DIR}"
 

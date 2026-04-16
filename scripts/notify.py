@@ -479,8 +479,10 @@ def cmd_apply_reminder():
         "Fun fact: 0% of jobs you don't apply to result in interviews.",
         "The Dashboard is not an art installation. It has checkboxes for a reason.",
     ]
-    # Rotate by day-of-year so it's deterministic per day but varies daily
-    day_index = datetime.now().timetuple().tm_yday % len(QUIPS)
+    # Rotate by day-of-year in PT so the quip changes at midnight Pacific
+    from zoneinfo import ZoneInfo
+
+    day_index = datetime.now(ZoneInfo("America/Los_Angeles")).timetuple().tm_yday % len(QUIPS)
     quip = QUIPS[day_index]
 
     # Pull real counts for the daily checklist
