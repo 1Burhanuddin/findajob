@@ -605,6 +605,159 @@ def cmd_ci_check():
     send("JSP CI Failure", "\n".join(lines), priority="high", tags="x")
 
 
+SCOREBOARD_ISSUE = 31
+SCOREBOARD_REPO = "brockamer/findajob"
+
+
+def cmd_scoreboard():
+    """Regenerate the pipeline funnel scoreboard and update issue #31."""
+    conn = db_connect()
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+
+    # ── Funnel counts ──
+    total = conn.execute("SELECT COUNT(*) FROM jobs WHERE dupe_of = '' OR dupe_of IS NULL").fetchone()[0]
+    scored = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE relevance_score IS NOT NULL AND (dupe_of = '' OR dupe_of IS NULL)"
+    ).fetchone()[0]
+    s7 = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE relevance_score >= 7 AND (dupe_of = '' OR dupe_of IS NULL)"
+    ).fetchone()[0]
+    prepped = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE prep_folder_path IS NOT NULL AND prep_folder_path != ''"
+    ).fetchone()[0]
+    applied = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE stage IN ('applied','interview','offer','not_selected')"
+    ).fetchone()[0]
+    interview = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage IN ('interview','offer')").fetchone()[0]
+    offer = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'offer'").fetchone()[0]
+
+    # ── Conversion rates ──
+    hit_rate = f"{s7 / scored * 100:.1f}" if scored else "0"
+    prep_rate = f"{prepped / s7 * 100:.0f}" if s7 else "0"
+    apply_rate = f"{applied / prepped * 100:.0f}" if prepped else "0"
+    interview_rate = f"{interview / applied * 100:.0f}" if applied else "0"
+
+    # ── Current queue ──
+    ready = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE stage = 'materials_drafted' AND (dupe_of = '' OR dupe_of IS NULL)"
+    ).fetchone()[0]
+    waitlisted = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'waitlisted'").fetchone()[0]
+    user_rejected = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'rejected'").fetchone()[0]
+    feedback_entries = conn.execute("SELECT COUNT(*) FROM feedback_log").fetchone()[0]
+
+    # ── Score distribution ──
+    dist_rows = conn.execute("""
+        SELECT relevance_score, COUNT(*) as cnt FROM jobs
+        WHERE relevance_score IS NOT NULL AND (dupe_of = '' OR dupe_of IS NULL)
+        GROUP BY relevance_score ORDER BY relevance_score
+    """).fetchall()
+
+    # ── Attrition ──
+    score1 = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE relevance_score = 1 AND (dupe_of = '' OR dupe_of IS NULL)"
+    ).fetchone()[0]
+    score2_6 = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE relevance_score BETWEEN 2 AND 6 AND (dupe_of = '' OR dupe_of IS NULL)"
+    ).fetchone()[0]
+    rejected_after_prep = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE stage = 'rejected' AND prep_folder_path IS NOT NULL AND prep_folder_path != ''"
+    ).fetchone()[0]
+    waitlisted_after_prep = conn.execute(
+        "SELECT COUNT(*) FROM jobs WHERE stage = 'waitlisted'"
+        " AND prep_folder_path IS NOT NULL AND prep_folder_path != ''"
+    ).fetchone()[0]
+    not_selected = conn.execute("SELECT COUNT(*) FROM jobs WHERE stage = 'not_selected'").fetchone()[0]
+
+    conn.close()
+
+    # ── Build markdown ──
+    dist_table = "| Score | Count | % |\n|-------|-------|---|\n"
+    for r in dist_rows:
+        pct = f"{r['cnt'] / scored * 100:.1f}" if scored else "0"
+        dist_table += f"| {r['relevance_score']} | {r['cnt']:,} | {pct}% |\n"
+
+    hit_health = "healthy" if 2 <= float(hit_rate) <= 5 else "review needed"
+
+    body = f"""\
+> **This is a living scoreboard, not a task.** Auto-updated weekly by `notify.py scoreboard`.
+
+## The Funnel (as of {today})
+
+Cumulative counts — how many jobs ever reached each stage, not just current state.
+
+```
+  Ingested    {total:,} jobs
+      │
+  Scored      {scored:,} ({scored / total * 100:.0f}%)
+      │
+  Score 7+      {s7:,} ({hit_rate}% of scored)     ← pipeline signal quality
+      │
+  Prepped        {prepped:,} ({prep_rate}% of 7+)          ← materials generated
+      │
+  Applied        {applied:,} ({apply_rate}% of prepped)     ← applications submitted
+      │
+  Interview       {interview} ({interview_rate}% of applied)      ← active interviews
+      │
+  Offer           {offer}                       ← pending
+```
+
+### Conversion Rates
+
+| Step | Rate | Interpretation |
+|------|------|---------------|
+| Scored → 7+ | {hit_rate}% | Selectivity. Too low = queries too broad. Too high = scorer too generous. |
+| 7+ → Prepped | {prep_rate}% | User triage. Rest rejected before prep (user filter working). |
+| Prepped → Applied | {apply_rate}% | User action bottleneck. Materials exist but applications require human effort. |
+| Applied → Interview | {interview_rate}% | Market signal. Low = resume/targeting needs work. |
+
+### Current Queue
+
+| Status | Count | Note |
+|--------|-------|------|
+| Ready to Apply (`materials_drafted`) | {ready} | |
+| Waitlisted | {waitlisted} | Deferred, not rejected |
+| User rejected | {user_rejected} | {feedback_entries} in feedback_log feeding back to scorer |
+
+### Attrition Detail
+
+| Exit Point | Count | Note |
+|------------|-------|------|
+| Hard reject (score 1) | {score1:,} | {score1 / scored * 100:.0f}% — prefilter working as intended |
+| Score 2–6 | {score2_6:,} | Filtered by Dashboard threshold |
+| User rejected after prep | {rejected_after_prep} | Prepped but user decided not to apply |
+| Waitlisted after prep | {waitlisted_after_prep} | Good fit but timing/competing apps |
+| Not selected (company) | {not_selected} | Company rejections |
+
+## Score Distribution
+
+{dist_table}
+
+## What to Watch
+
+- **Score 7+ hit rate** should be 2–5%. Currently {hit_rate}% — {hit_health}.
+- **Prepped → Applied conversion ({apply_rate}%)** is the user bottleneck.
+- **Applied → Interview rate ({interview_rate}%)** — needs 50+ applications before this metric is meaningful.
+
+---
+
+📌 Pinned — not a task to complete. Auto-updated weekly by `notify.py scoreboard`.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)"""
+
+    # Update the issue
+    rc = subprocess.run(
+        ["gh", "issue", "edit", str(SCOREBOARD_ISSUE), "--repo", SCOREBOARD_REPO, "--body", body],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if rc.returncode == 0:
+        msg = f"Pipeline funnel scoreboard (#31) updated for {today}."
+        send("Scoreboard Updated", msg, priority="low", tags="bar_chart")
+    else:
+        send("Scoreboard Update Failed", f"gh issue edit failed: {rc.stderr[:200]}", priority="high", tags="warning")
+
+
 # ── Dispatch ───────────────────────────────────────────────────────────────────
 COMMANDS = {
     "daily-stats": cmd_daily_stats,
@@ -614,6 +767,7 @@ COMMANDS = {
     "feedback-review": cmd_feedback_review,
     "send-raw": cmd_send_raw,
     "ci-check": cmd_ci_check,
+    "scoreboard": cmd_scoreboard,
 }
 
 if __name__ == "__main__":

@@ -375,6 +375,19 @@ Persistent=true
 WantedBy=timers.target
 EOF
 
+  write_notify_service "notify-scoreboard" "scoreboard" "pipeline scoreboard update"
+  cat > "${SYSTEMD_DIR}/findajob-notify-scoreboard.timer" << EOF
+[Unit]
+Description=findajob pipeline scoreboard (weekly Monday)
+
+[Timer]
+OnCalendar=Mon *-*-* 08:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
   write_notify_service "notify-feedback" "feedback-review" "feedback review notification"
   cat > "${SYSTEMD_DIR}/findajob-notify-feedback.timer" << EOF
 [Unit]
@@ -421,7 +434,7 @@ EOF
 
   local timers=(
     triage poller form-ingest notify-stats notify-health notify-apply
-    notify-issues notify-feedback jobsync rag-rebuild
+    notify-issues notify-scoreboard notify-feedback jobsync rag-rebuild
   )
   for t in "${timers[@]}"; do
     systemctl --user enable "findajob-${t}.timer" 2>/dev/null || true
@@ -429,7 +442,7 @@ EOF
 
   ok "  All timers enabled. Start them with:"
   echo "     systemctl --user start findajob-triage.timer"
-  echo "     (or start all: systemctl --user start findajob-{triage,poller,form-ingest,notify-stats,notify-health,notify-apply,notify-issues,notify-feedback,jobsync,rag-rebuild}.timer)"
+  echo "     (or start all: systemctl --user start findajob-{triage,poller,form-ingest,notify-stats,notify-health,notify-apply,notify-issues,notify-scoreboard,notify-feedback,jobsync,rag-rebuild}.timer)"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

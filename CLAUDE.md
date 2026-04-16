@@ -117,7 +117,7 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 <repo>/scripts/prep_application.py          # on-demand LLM material generation
 <repo>/scripts/find_contacts.py             # LinkedIn contact matching + outreach drafts
 <repo>/scripts/ingest_form.py               # Google Form → DB ingestion
-<repo>/scripts/notify.py                    # ntfy push notifications (6 subcommands incl. send-raw)
+<repo>/scripts/notify.py                    # ntfy push notifications (8 subcommands incl. send-raw, scoreboard)
 <repo>/scripts/rename_folders.py            # rename company folders to new format (idempotent)
 
 # ── Candidate content (all gitignored — fill these in after cloning) ────────

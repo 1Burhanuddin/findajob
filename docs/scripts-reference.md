@@ -102,6 +102,7 @@ Creates and formats the Dashboard tab. Sets up:
 | `feedback-review` | Alert when `feedback_log` has ≥ 10 entries to analyze |
 | `send-raw` | Send an arbitrary notification: `notify.py send-raw <title> <body>` |
 | `ci-check` | Check latest GitHub Actions CI run; alert with high priority if failed |
+| `scoreboard` | Regenerate pipeline funnel scoreboard and update GitHub issue #31 |
 
 ntfy topic is read from `NTFY_TOPIC` in `data/.env`.
 
