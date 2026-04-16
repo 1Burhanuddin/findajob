@@ -130,7 +130,9 @@ def main():
             "jobs_fetched",
             count=len(raw_jobs),
             greenhouse=len(greenhouse_jobs),
-            api=len(api_jobs),
+            ashby=len(ashby_jobs),
+            lever=len(lever_jobs),
+            jobsapi=len(api_jobs),
             gmail=len(gmail_jobs),
             attempt=attempt,
         )

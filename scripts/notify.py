@@ -232,6 +232,37 @@ def cmd_health_check():
     if null_score:
         issues.append(f"INFO: {len(null_score)} jobs scored None (likely LLM timeout)")
 
+    # ── Dead feed detection ─────────────────────────────────────────────
+    # Warn if any source returned 0 jobs in the latest triage but had >0 in
+    # the last 7 days — indicates a feed silently broke.
+    # Sources monitored: keys in the jobs_fetched event.
+    SOURCE_KEYS = ("greenhouse", "ashby", "lever", "jobsapi", "gmail")
+    latest_fetch = None
+    for e in reversed(events):
+        if e.get("event") == "jobs_fetched":
+            latest_fetch = e
+            break
+    if latest_fetch:
+        # Look back 7 days for the baseline — the source had to have produced
+        # jobs at some point recently for its zero today to be suspicious.
+        week_events = recent_log_events(hours=24 * 7)
+        week_max_per_source = {k: 0 for k in SOURCE_KEYS}
+        for e in week_events:
+            if e.get("event") != "jobs_fetched":
+                continue
+            for k in SOURCE_KEYS:
+                v = e.get(k)
+                if isinstance(v, int) and v > week_max_per_source[k]:
+                    week_max_per_source[k] = v
+        dead_feeds = [k for k in SOURCE_KEYS if latest_fetch.get(k, 0) == 0 and week_max_per_source[k] > 0]
+        if dead_feeds:
+            issues.append(
+                f"WARN: {len(dead_feeds)} source(s) returned 0 jobs in latest triage "
+                f"despite producing jobs in the last 7d — likely silent feed failure:"
+            )
+            for k in dead_feeds:
+                issues.append(f"  • {k}: 0 today, peak {week_max_per_source[k]} in last 7d")
+
     # Check rclone sync health
     rclone_failures = [e for e in events if e.get("event") == "rclone_failed"]
     if rclone_failures:
