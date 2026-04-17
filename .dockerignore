@@ -1,0 +1,58 @@
+# .dockerignore — keep the build context small and secret-free
+
+# VCS
+.git
+.gitignore
+.github
+
+# Docs / dev artifacts
+docs
+tests
+README.md
+
+# Python caches (glob patterns need ** to recurse in .dockerignore)
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Local state — MUST never enter the image
+data
+candidate_context
+companies
+logs
+.tmux.conf
+manual_job.txt
+
+# Personal config / credentials — gitignored files still land in Docker context
+# unless excluded here. Keep PII and secrets out of the build entirely.
+CLAUDE.local.md
+
+# config/ — exclude operator-personal files (gitignored) by exact name so that
+# tracked config (roles/, scoring_schema.json, model_pricing.yaml, reference.docx,
+# strip-bookmarks.lua) stays in the build context and gets bundled into the image.
+# Keep this list in sync with .gitignore's config/ entries.
+config/gmail_oauth_client.json
+config/gmail_token.json
+config/gsheets_creds.json
+config/sheet_id.txt
+config/ntfy_topic.txt
+config/form_responses_sheet_id.txt
+config/feed_urls.txt
+config/jsearch_queries.txt
+config/target_companies.md
+config/companies_of_interest.txt
+config/prefilter_rules.yaml
+config/in_domain_patterns.yaml
+config/paths.env
+
+# Editor / OS
+.DS_Store
+.vscode
+.idea
+
+# Release / build artifacts
+dist
+build
+**/*.egg-info
