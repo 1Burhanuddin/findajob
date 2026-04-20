@@ -8,6 +8,13 @@
 
 **Tech Stack:** `gh` CLI + GraphQL (Projects v2 API, native issue dependencies API), Python 3 for migration scripts (one-shot, lives in `/tmp`), bash for snapshot/restore safety net.
 
+## Issues
+
+- #98 — Phase 2A (migrate to native GitHub issue dependencies) — merged 2026-04-19.
+- #99 — Phase 2B (update jared skill template, sweep, references) — open; work lives in `brockamer/claude-skills`.
+
+Phase 1 (add Blocked column, fix #29's body-text dep) landed alongside Phase 2A and has no standalone issue.
+
 ---
 
 ## Spec reference
