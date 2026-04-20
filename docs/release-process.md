@@ -2,8 +2,9 @@
 
 This is the runbook Claude follows when cutting a release of the findajob pipeline's
 Docker image. Claude orchestrates the release end-to-end — proposing the cut, drafting
-the CHANGELOG, running the dogfood gate, writing notes, pushing the tag, verifying the
-outcome, and owning any rollback. The user reviews and approves the proposed cut but does
+the CHANGELOG, running the pre-tag smoke check (the full dogfood gate is suspended —
+see §"Pre-tag smoke check"), writing notes, pushing the tag, verifying the outcome,
+and owning any rollback. The user reviews and approves the proposed cut but does
 not author any of the release artifacts. This split is codified in the
 `feedback_release_management.md` memory.
 
@@ -19,12 +20,13 @@ remain in place; if they change, update this doc in the same commit.
 ## Ownership
 
 Claude drives every release. That means proposing when to cut, drafting the CHANGELOG
-entries from the merged PRs in the range, running the full 48-hour dogfood gate,
-flagging migration markers on PRs as they come in (or retroactively if a trigger was
-missed), writing the release notes content, executing `git tag` and `git push origin
-vX.Y.Z`, running post-tag verification against GitHub Actions and GHCR, and owning
-rollback if anything goes wrong. The user's role is review-only: they look at the
-proposed cut, confirm the dogfood signals, and approve or request changes. They
+entries from the merged PRs in the range, running the pre-tag smoke check (the full
+48h dogfood gate is suspended — see §"Pre-tag smoke check"), flagging migration
+markers on PRs as they come in (or retroactively if a trigger was missed), writing
+the release notes content, executing `git tag` and `git push origin vX.Y.Z`, running
+post-tag verification against GitHub Actions and GHCR, and owning rollback if
+anything goes wrong. The user's role is review-only: they look at the proposed
+cut, confirm the smoke-check output, and approve or request changes. They
 do not write CHANGELOG bullets, author the notes, or run the tag commands. If the release breaks something, Claude owns the recovery.
 
 ## Version scheme
@@ -48,7 +50,7 @@ The image tag taxonomy — which determines what a user pulling from GHCR actual
 
 | Tag | Type | Who pushes | Purpose |
 |---|---|---|---|
-| `:latest` | moving | `build-image.yml` on every `main` push | dogfood track — bleeding edge, what the maintainer's LXC runs |
+| `:latest` | moving | `build-image.yml` on every `main` push | dogfood track — bleeding edge, what the maintainer's `docker.lan` stack runs |
 | `:main-<sha>` | immutable | `build-image.yml` on every `main` push | bisecting, precise pinning for diagnosis |
 | `:v0.1.0` | immutable | `build-image.yml` on `v*.*.*` tag push | pinned release, never moves |
 | `:v0.1` | moving | `build-image.yml` on `v*.*.*` tag push | auto-advances to the latest `v0.1.x` — the recommended user pin |
@@ -89,88 +91,41 @@ tag against `HEAD`, and each released version links to its tag page. If the late
 release added a new link and the previous `[Unreleased]` line wasn't updated to
 reference the new tag, the file is inconsistent — fix before cutting.
 
-## Dogfood gate
+## Pre-tag smoke check (dogfood gate suspended)
 
-This is a hard binary gate. All six signals below must be clean across a continuous
-48-hour window on `:latest` running on the maintainer's LXC at `findajob.lan`. If any signal
-fails at any point in the window, the clock restarts after the fix lands on `main`
-and `:latest` rebuilds. No averaging, no "mostly green" — the point is to catch
-regressions that only surface after multiple scheduler cycles.
+**Current status: suspended as of 2026-04-20.** The full 48h multi-signal dogfood
+gate is on hold until the first external tester is deployed on a pinned `:vX.Y`
+tag. Today there are zero external users on any tag — the gate would be forcing
+every `main` merge through a 48h window to protect users who don't exist yet.
+Reactivation trigger is at the bottom of this section.
 
-The checks target the supercronic scheduler container running from
-`/opt/stacks/findajob-brock/compose.yaml`. The service is named `scheduler`.
-
-**1. At least two full triage runs completed.** Triage runs once daily at 00:00 PT,
-which is 07:00 UTC in PDT or 08:00 UTC in PST. Across a 48h window there should be
-at least two completions.
+Until reactivation, the pre-tag requirement is a lightweight smoke check: the
+maintainer's own `docker.lan` stack ran cleanly in the last 24 hours. Two
+commands, run from the dev laptop:
 
 ```bash
-ssh findajob.lan 'docker compose -f /opt/stacks/findajob-brock/compose.yaml logs scheduler --since 48h' \
-  | grep pipeline_complete
-```
-
-Expected: at least 2 `pipeline_complete` events.
-
-**2. poll_flags cycles firing every 10 min without exception rows.** `poll_flags.py`
-runs on a `*/10` supercronic line, so a 2h sample is enough to confirm it's healthy
-right now — but the 48h gate above catches intermittent failures.
-
-```bash
-ssh findajob.lan 'docker compose -f /opt/stacks/findajob-brock/compose.yaml logs scheduler --since 2h' \
-  | grep -E 'poll_flags|Traceback'
-```
-
-Expected: many `poll_flags` invocations, zero `Traceback` lines. Supercronic prints
-each job's exit code — every `poll_flags` exit should be `0`.
-
-**3. 07:00 UTC daily health-check notify fired on the maintainer's phone.** The
-`notify.py health-check` line fires daily at 07:00 UTC. The phone confirmation is
-the authoritative check (the notification actually reached ntfy). As a secondary
-scheduler-side check:
-
-```bash
-ssh findajob.lan 'docker compose -f /opt/stacks/findajob-brock/compose.yaml logs scheduler --since 48h' \
-  | grep 'health-check'
-```
-
-Expected: at least two `health-check` invocations with exit code 0 in the last 48h,
-and the maintainer confirms the phone notification landed.
-
-**4. Sheet syncs landed on two consecutive cycles.** Sheet1, Dashboard, and Applied
-tab writes are driven by `sync_sheet.py`. Two consecutive healthy cycles is enough
-to establish the Google Sheets path is working.
-
-```bash
-ssh findajob.lan 'docker compose -f /opt/stacks/findajob-brock/compose.yaml logs scheduler --since 2h' \
-  | grep sync_sheet
-```
-
-Expected: at least two `sync_sheet` invocations, zero non-zero exit codes in that
-window.
-
-**5. form-ingest runs clean.** `ingest_form.py` runs every 30 min; in a 24h window
-there should be roughly 48 invocations.
-
-```bash
-ssh findajob.lan 'docker compose -f /opt/stacks/findajob-brock/compose.yaml logs scheduler --since 24h' \
-  | grep -E 'ingest_form|Traceback'
-```
-
-Expected: many `ingest_form` invocations (every 30 min), zero tracebacks.
-
-**6. No stack traces in scheduler logs across the 48h window.** This is the
-belt-and-suspenders check — if any of the per-job checks above missed something,
-a `Traceback` count will catch it.
-
-```bash
-ssh findajob.lan 'docker compose -f /opt/stacks/findajob-brock/compose.yaml logs scheduler --since 48h' \
+ssh docker.lan 'docker compose -f /opt/stacks/findajob-brock/compose.yaml logs scheduler --since 24h' \
   | grep -c Traceback
 ```
 
 Expected: `0`.
 
-If and only if all six signals pass across the continuous 48h window, the gate is
-cleared and Claude may propose the cut to the user.
+```bash
+ssh docker.lan 'docker compose -f /opt/stacks/findajob-brock/compose.yaml logs scheduler --since 24h' \
+  | grep pipeline_complete
+```
+
+Expected: at least one `pipeline_complete` event (triage ran overnight).
+
+If both pass, the gate is cleared and Claude may propose the cut.
+
+### When the gate reactivates
+
+As soon as any external user is deployed on a pinned `:v0.1` or `:v0.1.0` tag —
+Alice Doe (first external tester, #20), or any subsequent tester — re-read this
+section and rebuild the gate to match the signals that actually protect that
+user's experience. The six-signal, 48h-window version is preserved in git
+history (file revisions prior to 2026-04-20) as a starting draft.
 
 ## migration-required label criteria
 
@@ -293,10 +248,10 @@ cleanly.
 
    Status `completed`, conclusion `success`.
 
-4. Verify the image is pullable from the LXC:
+4. Verify the image is pullable on `docker.lan`:
 
    ```bash
-   ssh findajob.lan "docker pull ghcr.io/brockamer/findajob:v${VERSION}"
+   ssh docker.lan "docker pull ghcr.io/brockamer/findajob:v${VERSION}"
    ```
 
    Expected: clean pull, no 401 (auth) or 404 (tag missing).
@@ -333,12 +288,12 @@ the prior image on their next `docker compose pull`.
    block near the top of the file (above `[Unreleased]`, below any intervening
    entries) naming the bad tag and stating the reason in a sentence or two.
 
-5. Notify external users (Amy and any future beta testers) via whatever channel
-   is active at the time.
+5. Notify external users (Alice Doe and any future beta testers) via whatever
+   channel is active at the time.
 
 **First-release note (v0.1.0 specifically).** There is no prior tag to roll back
 to. If `v0.1.0` ships broken, the only path is "stop recommending the release,
-fix forward on `main`, cut `v0.1.1` as soon as the dogfood gate clears again."
+fix forward on `main`, cut `v0.1.1` as soon as the pre-tag smoke check clears."
 Do not attempt to revive an older `:latest` by ad-hoc re-tagging — the immutable
 `:main-<sha>` tags on every `main` push are the audit trail, and rewriting
 `:latest` breaks that.

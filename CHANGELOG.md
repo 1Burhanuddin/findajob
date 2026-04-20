@@ -16,6 +16,10 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 - `migration-required` GitHub label for PRs needing post-pull manual steps; auto-surfaced by `create-release.yml` in "Action required" section of release notes (#69)
 - `CLAUDE.md` "Release Management" subsection pointing future sessions at the runbook (#69)
 
+### Changed
+- Release process: dogfood gate suspended until the first external tester is deployed on a pinned `:vX.Y` tag. Pre-tag requirement drops to a 24h smoke check (no tracebacks, at least one `pipeline_complete`). Full 48h six-signal gate preserved in file history for reactivation later.
+- Maintainer platform migrated from Proxmox LXC (`findajob.lan`) to Docker host (`docker.lan`). All release-process runbook SSH commands now target `docker.lan`. Old LXC entry moved to `CLAUDE.local.md` §Archived Platforms.
+
 ## [0.1.0] — TBD
 
 First containerized release. Ships the pipeline as a Docker image pulled
