@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     gdrive_folder_url TEXT,
     fit_score REAL,
     probability_score REAL,
+    user_notes TEXT DEFAULT '',
 
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
@@ -77,6 +78,9 @@ CREATE TABLE IF NOT EXISTS cost_log (
     latency_ms INTEGER,
     success INTEGER DEFAULT 1,
     error_message TEXT,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    cost_usd REAL,
     logged_at TEXT DEFAULT (datetime('now'))
 );
 
