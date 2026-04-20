@@ -327,6 +327,22 @@ Docker image releases follow [`docs/release-process.md`](docs/release-process.md
 
 ---
 
+## Commit Flow
+
+This is a solo repo. Default to committing directly to `main`. Use feature branches + PRs only when the change needs the review/CI/release-notes scaffolding.
+
+| Change type | Flow |
+|-------------|------|
+| Docs, board conventions, plan/spec files, jared skill tweaks, comment edits | Commit to `main` |
+| Code touching pipeline behavior (scoring, fetchers, sheet sync, DB schema, LLM roles) | Feature branch → PR → merge |
+| Anything qualifying for `migration-required` (schema, config, compose, crontab, mounts) | PR — release-notes workflow depends on it |
+
+Rationale: PRs exist to gate risky changes and to give the `migration-required` → release-notes pipeline something to attach to. A board-chore or docs-tweak PR is overhead without those benefits, and unmerged PRs cause drift (forgotten branches, misleading "merged in #N" references).
+
+When in doubt — does this change affect what users see when they pull `:latest`? If yes, PR. If no, commit to main.
+
+---
+
 ## Working Style
 
 - Terse. User reports completion of each step before asking what's next.
