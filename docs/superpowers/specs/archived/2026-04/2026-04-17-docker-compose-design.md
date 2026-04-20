@@ -1,3 +1,7 @@
+---
+**Archived 2026-04-20. shipped — findajob runs as a Docker Compose stack on docker.lan (#13 closed).**
+---
+
 # #13 Docker Compose — Design
 
 **Date:** 2026-04-17

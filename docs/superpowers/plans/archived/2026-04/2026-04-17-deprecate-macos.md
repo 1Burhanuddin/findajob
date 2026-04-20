@@ -1,3 +1,7 @@
+---
+**Archived 2026-04-20. shipped — macOS references purged from tracked files; Linux (container) is the single supported target.**
+---
+
 # Deprecate macOS Support Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

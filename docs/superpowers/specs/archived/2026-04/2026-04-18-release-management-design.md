@@ -1,3 +1,7 @@
+---
+**Archived 2026-04-20. shipped — docs/release-process.md + migration-required label + CHANGELOG workflow live (#69 closed).**
+---
+
 # Release Management Process for Docker Image Distribution — Design
 
 **Issue:** [#69](https://github.com/brockamer/findajob/issues/69)

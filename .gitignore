@@ -16,6 +16,7 @@ candidate_context/profile.md
 candidate_context/master_resume.md
 candidate_context/voice_samples/*.txt
 CLAUDE.local.md
+docs/personal/
 data/pipeline.db
 data/pipeline.db-journal
 data/pipeline.db-wal

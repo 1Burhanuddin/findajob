@@ -1,3 +1,7 @@
+---
+**Archived 2026-04-20. shipped — docs/release-process.md + migration-required label + CHANGELOG workflow live (#69 closed).**
+---
+
 # Release Management Implementation Plan (#69)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
