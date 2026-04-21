@@ -1,3 +1,7 @@
+---
+**Shipped in #14, #59 on 2026-04-21. Final decisions captured in issue body.**
+---
+
 # Web Materials Viewer — Design (14a / #59)
 
 First ship of Phase 4. Replace Google Drive folder-browsing with a bare HTTP viewer that serves prep-application folder contents from local disk, and rip out rclone + `jobsync` in the same release.

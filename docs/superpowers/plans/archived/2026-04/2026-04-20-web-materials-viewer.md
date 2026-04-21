@@ -1,3 +1,7 @@
+---
+**Shipped in #59 on 2026-04-21. Final decisions captured in issue body.**
+---
+
 # Web Materials Viewer Implementation Plan (14a / #59)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
