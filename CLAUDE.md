@@ -83,7 +83,7 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 | `fit_analyst` | `perplexity:sonar-reasoning-pro` — appended to company briefing |
 | `resume_change_reviewer` / `network_analyst` | `gemini:gemini-3-flash-preview` |
 | Job ingestion | jobs-api14 (RapidAPI) — LinkedIn (`datePosted: 'day'`) + Indeed; Gmail OAuth2 |
-| pip | `pip3 install --break-system-packages` (no venv) |
+| Package manager | `uv sync` for dev deps; `uv run` prefix for pytest/ruff/mypy/uvicorn |
 | Path resolution | `src/findajob/paths.py` — reads `config/paths.env`; BASE derived from `__file__` |
 | Roles dir | `config/roles/` |
 | Master resume | `candidate_context/master_resume.md` |
