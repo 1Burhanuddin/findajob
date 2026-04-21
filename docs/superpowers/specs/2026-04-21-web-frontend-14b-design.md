@@ -171,17 +171,20 @@ The current monolithic `src/findajob/web/routes.py` (153 lines) is split into a 
 
 ### Components
 
-1. **Five routes under `/board/`.** Each reads `jobs` directly with the filter from CLAUDE.md's Sheet Architecture section:
+1. **Five routes under `/board/`.** Each reads `jobs` directly with the filter from CLAUDE.md's Sheet Architecture section. Columns below are the read-only subset — the Sheet's `STATUS` and `REJECT_REASON` columns are **omitted** in 14b because they are write-only signal cells (user sets them, `poll_flags.py` consumes and clears them) with no meaningful DB-persisted value to render. They reappear as interactive controls in 14c (#61).
 
-   | Route | Filter | Column set (from CLAUDE.md) |
+   | Route | Filter | Column set (read-only columns only) |
    |---|---|---|
-   | `/board/dashboard` | `(fit_score>=7 AND stage IN ('scored','manual_review')) OR stage IN ('prep_in_progress','materials_drafted')` | STATUS, REJECT_REASON, fingerprint (hidden), fit_score, probability_score, relevance_score, title, company, location, remote, contacts, comp, notes, date |
-   | `/board/applied` | `stage IN ('applied','interview','offer')` | STATUS, REJECT_REASON, fingerprint (hidden), title, company, applied_date, days_since_applied, stage, user_notes, known_contacts, location, remote, comp, ai_notes |
-   | `/board/review` | `stage = 'manual_review'` | STATUS, REJECT_REASON, fingerprint (hidden), title, company, score_flag_reason, source, date |
-   | `/board/waitlist` | `stage = 'waitlisted'` | STATUS, REJECT_REASON, fingerprint (hidden), title, company, relevance_score, location, remote, ai_notes, date, blocking_app |
+   | `/board/dashboard` | `(fit_score>=7 AND stage IN ('scored','manual_review')) OR stage IN ('prep_in_progress','materials_drafted')` | fit_score, probability_score, relevance_score, title, company, location, remote, contacts, comp, notes, date |
+   | `/board/applied` | `stage IN ('applied','interview','offer')` | title, company, applied_date, days_since_applied (computed), stage, user_notes, known_contacts, location, remote, comp, ai_notes |
+   | `/board/review` | `stage = 'manual_review'` | title, company, score_flag_reason, source, date |
+   | `/board/waitlist` | `stage = 'waitlisted'` | title, company, relevance_score, location, remote, ai_notes, date, blocking_app (computed) |
    | `/board/archive` | `1=1` (no filter) | fit_score, title, company, stage, location, remote, date, source, url |
 
-   STATUS and REJECT_REASON columns render the value as plain text in 14b (they become dropdowns in 14c).
+   `fingerprint` is carried as a `data-fingerprint` attribute on each row for the materials-link lookup, not rendered as a visible column.
+   `applied_date` is not a column on `jobs`; it is looked up from `audit_log` (first row where `field_changed='stage'` and `new_value='applied'`). `days_since_applied` is computed in SQL from that.
+   `blocking_app` is computed per-row at query time: the most recent active application at the same company that isn't this job.
+   Column-name mapping — the table above uses the Sheet's display names (from CLAUDE.md's Sheet Architecture section). The DB-to-display mapping (e.g., `remote_status` → "remote", `comp_estimate` → "comp", `known_contacts` → "contacts") is an implementation detail for the plan.
 
 2. **Shared `_job_row.html` partial.** Single template renders a `<tr>` for any tab. Takes the row plus a `columns` list (what to show) and a `tab` name (for conditional formatting context, e.g., Applied row-age coloring only applies on `/board/applied`). Write the coloring logic once.
 
