@@ -28,6 +28,7 @@ __pycache__/
 rags/
 companies/
 data/connections.csv
+.superpowers/
 *.bak
 aichat_ng_config_backup/sessions/
 .DS_Store
