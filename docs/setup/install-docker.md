@@ -87,6 +87,24 @@ and offers `.docx` files for download.
 curl http://docker.lan:8090/healthz    # expect: ok
 ```
 
+### Materials viewer base URL (for Sheet hyperlinks)
+
+`sync_sheet.py` hyperlinks the company cell on Dashboard / Applied / Waitlist / Rejected Applications tabs into the viewer, but only when `FINDAJOB_MATERIALS_BASE_URL` is set in the stack `.env` **and** the deployed `compose.yaml` passes it into the container. Unset → cells render as plain text, no crash.
+
+```
+FINDAJOB_MATERIALS_BASE_URL=http://docker.lan:8090
+```
+
+Match the hostname and port to what the user's browser can reach (LAN hostname or VPN hostname + `FINDAJOB_MATERIALS_PORT`).
+
+**If you deployed from `ops/compose.yaml.example` on v0.1.2 or earlier**, the env var isn't forwarded yet — the template was updated after that release. Add this line under `environment:` in the `scheduler` service:
+
+```yaml
+FINDAJOB_MATERIALS_BASE_URL: ${FINDAJOB_MATERIALS_BASE_URL:-}
+```
+
+Then `docker compose up -d` to restart with the new env. Full migration writeup in [`state-migration.md`](state-migration.md).
+
 ## 4. Initial auth: Gmail (optional)
 
 ```bash

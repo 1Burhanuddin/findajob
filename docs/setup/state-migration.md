@@ -279,3 +279,40 @@ on v0.1.x. Testers on fresh installs can skip this — they never had rclone ena
 Nothing automated. Drive folders that rclone synced remain at
 drive.google.com. Delete them manually if desired — findajob will
 never look at them again.
+
+---
+
+## v0.1.2 → next: wiring `FINDAJOB_MATERIALS_BASE_URL` into an existing compose.yaml
+
+Applies to any operator whose deployed `compose.yaml` was copied from
+`ops/compose.yaml.example` on v0.1.2 or earlier. The template grew a new env
+var after that release; pulling `:latest` alone doesn't retrofit it. Without
+these edits, company cells on Dashboard / Applied / Waitlist / Rejected
+Applications stay plain text instead of hyperlinking into the materials viewer.
+
+Fresh installs that re-pulled the template on the current tag are unaffected.
+
+### Steps
+
+1. Edit `.env` to add the base URL for the viewer as reachable from the user's browser:
+   ```
+   FINDAJOB_MATERIALS_BASE_URL=http://<your-docker-host>:<FINDAJOB_MATERIALS_PORT>
+   ```
+   Typically `http://docker.lan:8090` — match the hostname and port already used for `FINDAJOB_MATERIALS_PORT`.
+
+2. Edit `compose.yaml` — add one line under `environment:` in the `scheduler` service (the `gmail-auth` service is a one-shot OAuth helper and does not need the var):
+   ```yaml
+   FINDAJOB_MATERIALS_BASE_URL: ${FINDAJOB_MATERIALS_BASE_URL:-}
+   ```
+
+3. Restart the stack so the new env reaches the container:
+   ```bash
+   docker compose up -d
+   ```
+
+4. Verify — wait for the next `sync_sheet.py` run (every 10 min via the poller, or trigger one manually) and click a company cell on the Dashboard tab. It should open the materials viewer folder for that application.
+
+   Manual trigger:
+   ```bash
+   docker compose exec scheduler python3 /app/scripts/sync_sheet.py
+   ```

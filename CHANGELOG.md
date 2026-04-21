@@ -13,6 +13,21 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 ### Added
 - `sync_sheet.py` now hyperlinks the company cell on Dashboard, Applied, Waitlist, and Rejected Applications tabs into the materials viewer when a new `FINDAJOB_MATERIALS_BASE_URL` env var is set (e.g., `http://docker.lan:8090`). Stages without folders and unset env var render as plain text (no 404s). Stale "Drive hyperlink" annotations removed from `CLAUDE.md`, `docs/google-sheets.md`, and `setup_sheets.py` (#130).
 
+### Migration required
+
+Operators whose deployed `compose.yaml` was copied from `ops/compose.yaml.example` on v0.1.2 or earlier need two edits to opt into the company-cell hyperlinks (#133). Fresh installs from the current template are unaffected.
+
+1. Add to the stack `.env`:
+   ```
+   FINDAJOB_MATERIALS_BASE_URL=http://<your-docker-host>:<FINDAJOB_MATERIALS_PORT>
+   ```
+2. Add under `environment:` in the deployed `compose.yaml` (`scheduler` service):
+   ```yaml
+   FINDAJOB_MATERIALS_BASE_URL: ${FINDAJOB_MATERIALS_BASE_URL:-}
+   ```
+
+Without both edits, the env var never reaches the container and company cells render as plain text. Full steps in [`docs/setup/state-migration.md`](docs/setup/state-migration.md).
+
 ## [0.1.2] — 2026-04-21
 
 Retires the Google Drive / rclone folder-browsing surface in favor of a local FastAPI web viewer served per stack. The container image loses the `rclone` apt package (~50 MB smaller), gains a uvicorn co-process, and publishes a new `FINDAJOB_MATERIALS_PORT` — each stack picks its own. Operators with `FINDAJOB_JOBSYNC_ENABLED=true` on v0.1.x need a one-time stack update; fresh-install testers are unaffected.
