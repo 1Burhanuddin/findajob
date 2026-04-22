@@ -53,7 +53,7 @@ exactly as written. Never duplicate or alter the name.
       immediately reframe it in terms of what the target company needs.
       Example pattern: '[Quote about being the glue]. That connective role is
       precisely what [company]'s [site/team] needs as you [scale/launch/build].'
-    - Attribute by role only (e.g., "a director in site operations"), not by name.
+    - Attribute by role only (e.g., "a former manager", "a colleague she'd worked with for years"), not by name.
     - Paraphrase or lightly edit rather than quoting verbatim.
     - Maximum one quote per letter.
 
@@ -75,7 +75,7 @@ information to work with.
 **Experience (1-2 paragraphs):**
 The single most relevant thing the candidate built, led, or delivered that maps
 to the role's core need. Go deep on one story rather than shallow across many.
-Include specific numbers (team size, MW, rack counts, program volume) woven
+Include specific numbers (team size, budget, scale metrics, program volume) woven
 into narrative sentences, not listed.
 CRITICAL: Every credential must connect to the company's need. After stating
 what the candidate did, explicitly say why it matters for this role or company.
