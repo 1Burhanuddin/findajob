@@ -89,6 +89,8 @@ cleanup() {
     if [ -d "$SCRATCH" ] && [ -f "$SCRATCH/compose.yaml" ]; then
         (cd "$SCRATCH" && docker compose down -v 2>/dev/null || true)
     fi
+    # Roles files seeded by the container may be owned by root; re-own before rm.
+    sudo chown -R "$(id -u):$(id -g)" "$SCRATCH" 2>/dev/null || true
     rm -rf "$SCRATCH"
 }
 trap cleanup EXIT
