@@ -22,11 +22,13 @@
     <td class="px-3 py-1 align-top text-sm
                {% if field == 'known_contacts' and row[field] %}cell-contact-amber{% endif %}
                {% if field == 'remote_status' %}{{ remote_cell_class(row[field]) }}{% endif %}">
+      <div class="cell-text-wrap" title="{{ row[field] if row[field] is not none else '' }}">
       {% if field == 'company' and tab == 'applied' and row.fingerprint and row.stage in folder_stages and materials_base_url %}
         <a class="underline" href="{{ materials_base_url }}/materials/{{ row.fingerprint }}">{{ row[field] }}</a>
       {% else %}
         {{ row[field] }}
       {% endif %}
+      </div>
     </td>
     {% endif %}
   {% endfor %}

@@ -42,6 +42,14 @@ _DASHBOARD_COLS = [
 _DASHBOARD_SORTABLE = {c for _, c in _DASHBOARD_COLS}
 _DASHBOARD_DEFAULT_SORT = "relevance_score"
 
+_VALID_DENSITIES = {"compact", "expanded"}
+_DEFAULT_DENSITY = "compact"
+
+
+def _normalize_density(raw: str) -> str:
+    return raw if raw in _VALID_DENSITIES else _DEFAULT_DENSITY
+
+
 _DASHBOARD_WHERE = (
     "(relevance_score >= 7 AND stage IN ('scored','manual_review'))"
     " OR stage IN ('prep_in_progress','materials_drafted')"
@@ -53,6 +61,7 @@ def dashboard(
     request: Request,
     sort: str = Query(default=""),
     desc: int = Query(default=1),
+    density: str = Query(default=_DEFAULT_DENSITY),
     db: sqlite3.Connection = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     sort_col = sort if sort in _DASHBOARD_SORTABLE else _DASHBOARD_DEFAULT_SORT
@@ -73,6 +82,7 @@ def dashboard(
             "rows": rows,
             "sort": sort_col,
             "desc": desc,
+            "density": _normalize_density(density),
             "tab": "dashboard",
             "materials_base_url": materials_base_url,
         },
@@ -101,6 +111,7 @@ def applied(
     request: Request,
     sort: str = Query(default=""),
     desc: int = Query(default=1),
+    density: str = Query(default=_DEFAULT_DENSITY),
     db: sqlite3.Connection = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     sort_col = sort if sort in _APPLIED_SORTABLE else _APPLIED_DEFAULT_SORT
@@ -135,6 +146,7 @@ def applied(
             "rows": rows,
             "sort": sort_col,
             "desc": desc,
+            "density": _normalize_density(density),
             "tab": "applied",
             "materials_base_url": materials_base_url,
         },
@@ -157,6 +169,7 @@ def review(
     request: Request,
     sort: str = Query(default=""),
     desc: int = Query(default=1),
+    density: str = Query(default=_DEFAULT_DENSITY),
     db: sqlite3.Connection = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     sort_col = sort if sort in _REVIEW_SORTABLE else _REVIEW_DEFAULT_SORT
@@ -175,6 +188,7 @@ def review(
             "rows": rows,
             "sort": sort_col,
             "desc": desc,
+            "density": _normalize_density(density),
             "tab": "review",
             "materials_base_url": materials_base_url,
         },
@@ -200,6 +214,7 @@ def waitlist(
     request: Request,
     sort: str = Query(default=""),
     desc: int = Query(default=1),
+    density: str = Query(default=_DEFAULT_DENSITY),
     db: sqlite3.Connection = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     sort_col = sort if sort in _WAITLIST_SORTABLE else _WAITLIST_DEFAULT_SORT
@@ -229,6 +244,7 @@ def waitlist(
             "rows": rows,
             "sort": sort_col,
             "desc": desc,
+            "density": _normalize_density(density),
             "tab": "waitlist",
             "materials_base_url": materials_base_url,
         },
@@ -264,6 +280,7 @@ def archive(
     request: Request,
     sort: str = Query(default=""),
     desc: int = Query(default=1),
+    density: str = Query(default=_DEFAULT_DENSITY),
     db: sqlite3.Connection = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     sort_col = sort if sort in _ARCHIVE_SORTABLE else _ARCHIVE_DEFAULT_SORT
@@ -280,6 +297,7 @@ def archive(
             "rows": rows,
             "sort": sort_col,
             "desc": desc,
+            "density": _normalize_density(density),
             "tab": "archive",
             "next_offset": _ARCHIVE_PAGE_SIZE if has_more else None,
             "materials_base_url": materials_base_url,

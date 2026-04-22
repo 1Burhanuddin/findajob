@@ -20,3 +20,21 @@
 .row-interviewing   { background-color: var(--color-interviewing); }
 .row-ghosted        { background-color: var(--color-ghosted); }
 .cell-contact-amber { background-color: var(--color-contact-amber); }
+
+/* ── Row density toggle ───────────────────────────────────────────────────
+   Compact: data cells truncate to one line with an ellipsis. Full text is
+   shown via the cell wrapper's title="" tooltip. Expanded: free wrapping,
+   matching the default browser behavior pre-14c. Control cells (status /
+   reject / notes inputs) are not wrapped in .cell-text-wrap and so are
+   unaffected.
+*/
+.density-compact .cell-text-wrap {
+  display: block;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.density-expanded .cell-text-wrap {
+  display: block;
+}
