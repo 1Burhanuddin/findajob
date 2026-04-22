@@ -10,6 +10,36 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.1.4] — 2026-04-22
+
+Bugfix patch: reliability and diagnostics fixes surfaced during the generalization beta (Alice Doe / #20). Fixes silent triage crashes, stuck prep cycles, a bad Gmail OAuth client type, and several web and sheet inconsistencies. Operators with a "TVs and Limited Input devices" OAuth client must rotate to a Desktop-type client before pulling (see Migration required below).
+
+### Fixed
+
+- Entrypoint now asserts `aichat-ng config.yaml` is readable by the runtime user before supercronic starts, exiting with a clear diagnostic if `HOME: /app` is absent from `compose.yaml`. Guards the silent failure that stranded all scoring on the Alice Doe stack (#161, #166).
+- CI smoke tests now pass `-e HOME=/app` to all `docker run` commands, matching the production compose.yaml requirement exposed by the health check above (#166).
+- `poll_flags.py` now resets any job stuck in `prep_in_progress` for >60 minutes back to `scored` at the start of each poll cycle. Recovers from container restarts that kill the prep subprocess before it can reset its own stage (#163, #168).
+- `triage.py` now wraps the `main()` call in a top-level `try/except` that logs a `pipeline_crash` event with the full traceback before re-raising. Previously a crash after `jobs_fetched` would leave no diagnostic trace in `pipeline.jsonl` (#162, #167).
+- `triage.py` now retries up to 50 `manual_review` rows with `relevance_score=NULL` per triage cycle. `notify.py health-check` subcommand split from `notify.py health` for finer-grained alerting (#147).
+- `poll_flags.py` now issues a single `sync_sheet.py` call after all prep subprocesses complete, eliminating a race condition that caused sheet drift on multi-job prep batches (#143).
+- Web dashboard filter corrected to use `relevance_score` (the triage score) instead of `fit_score` (the prep-time score); previously the dashboard showed no jobs (#142).
+- `.docx` downloads from the materials viewer now force `application/octet-stream`, fixing browser-rendered garbage (#152).
+- Markdown viewer now has prose typography via Tailwind's typography plugin; code blocks, blockquotes, and headings render correctly (#157).
+- `cover_letter_writer` role prompt no longer contains an operator-specific example; replaced with a generic placeholder (#156, #159).
+- `ops/entrypoint.sh` API-key injection now uses `eval` for portable indirect-variable expansion and defaults unset keys to empty, fixing `set -eu` failures when containers are started with some keys absent (#154, #155).
+- `gmail_auth.py` drops the device-flow code path entirely. Google's device authorization grant excludes Gmail scopes; the only working flow is the loopback (`InstalledAppFlow`) with an SSH tunnel (#115, #144).
+- Fresh-install smoke script now requires service-account credentials and asserts `sync_sheet.py` writes to the sheet, preventing the silent empty run that let v0.1.0 fresh-install bugs go undetected (#129, #146).
+
+### Migration required
+
+**Operators with a "TVs and Limited Input devices" OAuth 2.0 client must rotate to a Desktop-type client before pulling this release.** Google's device authorization grant excludes Gmail scopes; the old client type cannot authorize Gmail in any flow (#144).
+
+1. In Google Cloud Console, create a new OAuth 2.0 client → type: **Desktop app**
+2. Download new JSON → overwrite `state/config/gmail_oauth_client.json`
+3. Re-run Gmail auth using the SSH tunnel (see [`docs/setup/install-docker.md`](docs/setup/install-docker.md))
+
+Operators already on a Desktop-type client (including all fresh installs from v0.1.1+) are unaffected.
+
 ## [0.1.3] — 2026-04-21
 
 Bugfix patch: fixes a container ownership race that left `pipeline.jsonl` root-owned after a `docker exec`-as-root, causing `PermissionError` crash-loops in supercronic. Also ships the web board (five tabs), company-cell hyperlinks in the sheet, and the materials viewer top-nav refactor that were queued behind v0.1.2. No operator action needed on pull.
@@ -114,7 +144,8 @@ from GHCR and deployed via Docker Compose on a shared Docker host.
 - Documentation cleanup — removing `sigoden/aichat` references in favor of
   `blob42/aichat-ng` — is tracked in #70
 
-[Unreleased]: https://github.com/brockamer/findajob/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/brockamer/findajob/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/brockamer/findajob/releases/tag/v0.1.4
 [0.1.3]: https://github.com/brockamer/findajob/releases/tag/v0.1.3
 [0.1.2]: https://github.com/brockamer/findajob/releases/tag/v0.1.2
 [0.1.1]: https://github.com/brockamer/findajob/releases/tag/v0.1.1
