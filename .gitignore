@@ -37,6 +37,7 @@ tmp/
 docs/archive/
 .claude/
 .playwright-mcp/
+uv.lock
 scripts/clean_company.py
 data/pipeline.db-shm
 docs/master_resume.md.example
