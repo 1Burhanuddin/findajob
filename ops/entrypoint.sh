@@ -65,7 +65,7 @@ if [ -d /opt/findajob/bundled-aichat ]; then
         # aichat-ng does not perform ${VAR} substitution at load time — inject keys now.
         for _var in OPENAI_API_KEY ANTHROPIC_API_KEY GOOGLE_API_KEY \
                     OPENROUTER_API_KEY PERPLEXITY_API_KEY GROQ_API_KEY XAI_API_KEY; do
-            _val="${!_var}"
+            eval "_val=\$$_var"
             sed -i "s|\${${_var}}|${_val}|g" "$AICHAT_CFG_DIR/config.yaml"
         done
         unset _var _val
