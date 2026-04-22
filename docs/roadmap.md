@@ -64,12 +64,17 @@ Append-only. Numbers are stable references. Amend an entry in place only for fac
 
 ---
 
-## Future milestones
+## Shipped and retired milestones
 
-- [Reliable Materials](https://github.com/brockamer/findajob/milestone/1) — no due date set; narrative stays on the milestone page until it becomes active.
-- [Expanded Coverage](https://github.com/brockamer/findajob/milestone/2) — no due date set.
+- **Reliable Materials** (m1) — shipped; all acceptance criteria closed.
+- **Expanded Coverage** (m2) — retired 2026-04-18; scope pivoted into the generalization work (Alice Doe beta) now tracked under General Availability.
+- **Feedback Loop v2** (m3) — closed 2026-04-18; initial scope shipped.
 
-When one of these activates, add a `## Active milestone: <name>` section with the same shape (goal, acceptance, phase arc, decisions, scope-out). Move the outgoing milestone's section to `## Shipped milestones` below — or archive to a dated file if this page grows long.
+## Post-GA horizon
+
+**[Post-GA Hardening](https://github.com/brockamer/findajob/milestone/5)** — no due date. Captures real work not required to close GA acceptance criteria: CI smoke wiring, cost tracking, folder audit tooling, integration tests, log rotation, DB migration system, scoreboard, and similar pipeline-quality items. Activates when GA closes.
+
+When a new strategic milestone activates, add a `## Active milestone: <name>` section with the same shape (goal, acceptance, phase arc, decisions, scope-out). Move the outgoing milestone's section up to `## Shipped and retired milestones`.
 
 ---
 
