@@ -236,6 +236,8 @@ def main():
 
         # ── Regenerate: delete existing prep folder and re-run prep ──────
         if flag_val == "Regenerate":
+            if job["stage"] == "prep_in_progress":
+                continue
             folder = job["prep_folder_path"]
             if folder and os.path.isdir(folder):
                 shutil.rmtree(folder)
