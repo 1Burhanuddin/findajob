@@ -1,9 +1,11 @@
+> **ARCHIVED** — Issue #60 shipped 2026-04-21. See the [closed issue](https://github.com/brockamer/findajob/issues/60) and its merged PRs (#134, #135) for the canonical record.
+
 # Web Frontend Phase 14b — Read-Only Pipeline UI
 
 **Issue:** [#60](https://github.com/brockamer/findajob/issues/60)
 **Parent:** #14 (web frontend arc)
 **Spec date:** 2026-04-21
-**Status:** Design — awaiting user review before plan-writing.
+**Status:** ARCHIVED — shipped.
 
 ---
 
