@@ -74,7 +74,7 @@ def _launch_prep_subprocess(job: sqlite3.Row) -> None:
 _DASHBOARD_ROW_SQL = (
     "SELECT fingerprint, title, company, location, remote_status, known_contacts, "
     "comp_estimate, ai_notes, relevance_score, interview_likelihood, "
-    "stage, created_at, stage_updated FROM jobs WHERE fingerprint=?"
+    "stage, created_at, stage_updated, url FROM jobs WHERE fingerprint=?"
 )
 
 
@@ -100,6 +100,7 @@ def _render_dashboard_row(request: Request, row: sqlite3.Row) -> HTMLResponse:
 _APPLIED_ROW_SQL = """
     SELECT j.fingerprint, j.title, j.company, j.stage, j.location, j.remote_status,
            j.known_contacts, j.comp_estimate, j.ai_notes, j.user_notes, j.created_at,
+           j.url,
            al.applied_date,
            CAST((julianday('now') - julianday(al.applied_date)) AS INTEGER) AS days_since_applied
     FROM jobs j

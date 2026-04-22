@@ -16,7 +16,7 @@ def client(tmp_path: Path) -> TestClient:
     conn.execute(
         "CREATE TABLE jobs (fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
         "relevance_score INTEGER, interview_likelihood INTEGER, location TEXT, remote_status TEXT, "
-        "known_contacts TEXT, comp_estimate TEXT, ai_notes TEXT, created_at TEXT, stage_updated TEXT)"
+        "known_contacts TEXT, comp_estimate TEXT, ai_notes TEXT, url TEXT, created_at TEXT, stage_updated TEXT)"
     )
     for fp, title, company in [
         ("fp1", "NPI PM", "Meta"),

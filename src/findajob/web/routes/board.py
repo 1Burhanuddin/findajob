@@ -69,7 +69,7 @@ def dashboard(
     rows = db.execute(
         f"SELECT fingerprint, title, company, location, remote_status, known_contacts, "
         f"comp_estimate, ai_notes, relevance_score, interview_likelihood, "
-        f"stage, created_at, stage_updated FROM jobs WHERE {_DASHBOARD_WHERE} "
+        f"stage, created_at, stage_updated, url FROM jobs WHERE {_DASHBOARD_WHERE} "
         f"ORDER BY {sort_col} {order}"
     ).fetchall()
     materials_base_url = os.environ.get("FINDAJOB_MATERIALS_BASE_URL", "")
@@ -123,6 +123,7 @@ def applied(
     sql = f"""
     SELECT j.fingerprint, j.title, j.company, j.stage, j.location, j.remote_status,
            j.known_contacts, j.comp_estimate, j.ai_notes, j.user_notes, j.created_at,
+           j.url,
            al.applied_date,
            CAST((julianday('now') - julianday(al.applied_date)) AS INTEGER) AS days_since_applied
     FROM jobs j
@@ -175,7 +176,7 @@ def review(
     sort_col = sort if sort in _REVIEW_SORTABLE else _REVIEW_DEFAULT_SORT
     order = "DESC" if desc else "ASC"
     rows = db.execute(
-        f"SELECT fingerprint, title, company, score_flag_reason, source, created_at, stage "
+        f"SELECT fingerprint, title, company, score_flag_reason, source, created_at, stage, url "
         f"FROM jobs WHERE stage = 'manual_review' ORDER BY {sort_col} {order}"
     ).fetchall()
     materials_base_url = os.environ.get("FINDAJOB_MATERIALS_BASE_URL", "")
@@ -221,7 +222,7 @@ def waitlist(
     order = "DESC" if desc else "ASC"
     sql = f"""
     SELECT w.fingerprint, w.title, w.company, w.relevance_score, w.location, w.remote_status,
-           w.ai_notes, w.created_at, w.stage,
+           w.ai_notes, w.created_at, w.stage, w.url,
            (SELECT j2.title || ' (' || j2.stage || ')'
               FROM jobs j2
              WHERE j2.company = w.company
@@ -354,7 +355,7 @@ def dashboard_rows(
     rows = db.execute(
         f"SELECT fingerprint, title, company, location, remote_status, known_contacts, "
         f"comp_estimate, ai_notes, relevance_score, interview_likelihood, "
-        f"stage, created_at, stage_updated FROM jobs WHERE ({_DASHBOARD_WHERE}) {filter_sql} "
+        f"stage, created_at, stage_updated, url FROM jobs WHERE ({_DASHBOARD_WHERE}) {filter_sql} "
         f"ORDER BY {sort_col} {order}",
         params,
     ).fetchall()
@@ -387,6 +388,7 @@ def applied_rows(
     sql = f"""
     SELECT j.fingerprint, j.title, j.company, j.stage, j.location, j.remote_status,
            j.known_contacts, j.comp_estimate, j.ai_notes, j.user_notes, j.created_at,
+           j.url,
            al.applied_date,
            CAST((julianday('now') - julianday(al.applied_date)) AS INTEGER) AS days_since_applied
     FROM jobs j
@@ -426,7 +428,7 @@ def review_rows(
     order = "DESC" if desc else "ASC"
     filter_sql, params = _filter_clause(q)
     rows = db.execute(
-        f"SELECT fingerprint, title, company, score_flag_reason, source, created_at, stage "
+        f"SELECT fingerprint, title, company, score_flag_reason, source, created_at, stage, url "
         f"FROM jobs WHERE stage = 'manual_review' {filter_sql} "
         f"ORDER BY {sort_col} {order}",
         params,
@@ -459,7 +461,7 @@ def waitlist_rows(
     qualified_filter = filter_sql.replace("title", "w.title").replace("company", "w.company")
     sql = f"""
     SELECT w.fingerprint, w.title, w.company, w.relevance_score, w.location, w.remote_status,
-           w.ai_notes, w.created_at, w.stage,
+           w.ai_notes, w.created_at, w.stage, w.url,
            (SELECT j2.title || ' (' || j2.stage || ')'
               FROM jobs j2
              WHERE j2.company = w.company

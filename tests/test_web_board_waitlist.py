@@ -16,7 +16,7 @@ def client(tmp_path: Path) -> TestClient:
     conn.execute(
         "CREATE TABLE jobs (fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
         "relevance_score INTEGER, location TEXT, remote_status TEXT, ai_notes TEXT, "
-        "created_at TEXT, stage_updated TEXT)"
+        "url TEXT, created_at TEXT, stage_updated TEXT)"
     )
     # Meta has two jobs: one waitlisted, one actively applied — blocking_app should surface
     conn.execute(

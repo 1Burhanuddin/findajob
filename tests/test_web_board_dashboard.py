@@ -17,19 +17,19 @@ def client(tmp_path: Path) -> TestClient:
         "CREATE TABLE jobs (fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
         "relevance_score INTEGER, interview_likelihood INTEGER, "
         "location TEXT, remote_status TEXT, known_contacts TEXT, comp_estimate TEXT, "
-        "ai_notes TEXT, created_at TEXT, stage_updated TEXT)"
+        "ai_notes TEXT, created_at TEXT, stage_updated TEXT, url TEXT)"
     )
     conn.execute(
-        "INSERT INTO jobs (fingerprint, title, company, stage, relevance_score) "
-        "VALUES ('fp1','Senior DC Ops','Meta','scored',8)"
+        "INSERT INTO jobs (fingerprint, title, company, stage, relevance_score, url) "
+        "VALUES ('fp1','Senior DC Ops','Meta','scored',8,'https://example.com/meta-dc-ops')"
     )
     conn.execute(
-        "INSERT INTO jobs (fingerprint, title, company, stage, relevance_score) "
-        "VALUES ('fp2','NPI PM','Google','materials_drafted',9)"
+        "INSERT INTO jobs (fingerprint, title, company, stage, relevance_score, url) "
+        "VALUES ('fp2','NPI PM','Google','materials_drafted',9,'https://example.com/google-npi')"
     )
     conn.execute(
-        "INSERT INTO jobs (fingerprint, title, company, stage, relevance_score) "
-        "VALUES ('fp3','Junior','Acme','scored',3)"
+        "INSERT INTO jobs (fingerprint, title, company, stage, relevance_score, url) "
+        "VALUES ('fp3','Junior','Acme','scored',3,'https://example.com/acme-jr')"
     )
     conn.commit()
     conn.close()
@@ -78,3 +78,11 @@ def test_dashboard_rows_have_cell_text_wrapper_with_title(client: TestClient) ->
     assert "cell-text-wrap" in r.text
     # At least one cell has a title attribute populated from the row data
     assert 'title="Senior DC Ops"' in r.text
+
+
+def test_dashboard_title_links_to_job_url(client: TestClient) -> None:
+    """Title cell on each row hyperlinks to the original job URL, opens in new tab."""
+    r = client.get("/board/dashboard")
+    assert 'href="https://example.com/meta-dc-ops"' in r.text
+    assert 'target="_blank"' in r.text
+    assert 'rel="noopener noreferrer"' in r.text

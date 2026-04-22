@@ -25,7 +25,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     conn.execute(
         "CREATE TABLE jobs (id TEXT PRIMARY KEY, fingerprint TEXT, title TEXT, company TEXT, "
         "stage TEXT, location TEXT, remote_status TEXT, known_contacts TEXT, "
-        "comp_estimate TEXT, ai_notes TEXT, user_notes TEXT, "
+        "comp_estimate TEXT, ai_notes TEXT, user_notes TEXT, url TEXT, "
         "created_at TEXT, stage_updated TEXT)"
     )
     conn.execute(
