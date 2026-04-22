@@ -1,6 +1,8 @@
 # User-Facing Documentation — Design Spec
 
-**Issue:** #11 — Write user-facing documentation (setup, usage, tuning, troubleshooting)
+## Issue(s)
+#11 — Write user-facing documentation (setup, usage, tuning, troubleshooting)
+
 **Date:** 2026-04-21
 **Status:** Deferred — blocked on #61, #65, #84, #136, #148, #149. Spec is ready to execute once those ship.
 
