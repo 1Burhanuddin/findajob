@@ -20,9 +20,16 @@ def get_db() -> sqlite3.Connection:  # pragma: no cover — overridden in app fa
 
 
 def _render_markdown(text: str) -> str:
-    html = md_lib.markdown(text, extensions=["fenced_code", "tables"], output_format="html")
-    # Strip class attributes added by fenced_code (e.g. class="language-python")
-    html = re.sub(r' class="[^"]*"', "", html)
+    # Convert :::centered ... ::: fenced containers to centered divs before markdown parsing.
+    # md_in_html extension processes markdown inside block-level HTML elements.
+    text = re.sub(
+        r":::centered\n([\s\S]*?)\n:::",
+        lambda m: f'<div class="text-center" markdown="1">\n{m.group(1)}\n</div>',
+        text,
+    )
+    html = md_lib.markdown(text, extensions=["fenced_code", "tables", "md_in_html"], output_format="html")
+    # Strip language class attributes added by fenced_code (e.g. class="language-python" on <code>)
+    html = re.sub(r'(<code[^>]*?) class="language-[^"]*"', r"\1", html)
     # Neutralize raw script tags that Python-Markdown passes through unchanged
     html = re.sub(r"<(/?script)", r"&lt;\1", html, flags=re.IGNORECASE)
     return html
