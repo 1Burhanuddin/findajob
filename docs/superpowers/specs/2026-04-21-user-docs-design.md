@@ -2,7 +2,7 @@
 
 **Issue:** #11 — Write user-facing documentation (setup, usage, tuning, troubleshooting)
 **Date:** 2026-04-21
-**Status:** Approved
+**Status:** Deferred — blocked on #61, #65, #84, #136, #148, #149. Spec is ready to execute once those ship.
 
 ---
 
@@ -15,11 +15,12 @@ No user-facing docs exist beyond `CLAUDE.md` (Claude Code context, not human-rea
 ## Decisions
 
 1. **Four files, flat structure.** New files at `docs/setup/README.md`, `docs/usage.md`, `docs/tuning.md`, `docs/troubleshooting.md`. No new subdirectories.
-2. **Audience: layered.** Non-technical first (plain language, "what you'll see"), technical detail in `<details>` blocks or bottom "Reference" sections.
+2. **Audience: layered.** Non-technical first (plain language, "what you'll see", don't assume tech knowledge beyond basic PC/Macbook use), technical detail in `<details>` blocks or bottom "Reference" sections.
 3. **Web UI primary.** Usage guide treats `/board/` tabs as the primary UX. Google Sheet equivalents noted but not primary. Sheet1 not documented (being retired).
 4. **Setup guide is a cross-link index only.** `docs/setup/README.md` sequences the three existing setup files. No content duplication.
 5. **No legacy infra.** Do not document: native systemd install, rclone/Drive sync, `install-linux.md` flows, Sheet1 as active surface.
 6. **Verify before documenting.** Implementation must grep for every script and feature referenced before writing about it. If a script is gone, don't mention it.
+7. **Enable user self-education.** In sections written for non technical users, to avoid deep dives into things like how to get an API key and how it works, how to set up Docker for this use case, etc, place toggle-collapsed callouts with suggested well crafted prompts for the LLM of their choice to explain something beyond what is in scope for this documentation.
 
 ---
 
@@ -39,7 +40,7 @@ No user-facing docs exist beyond `CLAUDE.md` (Claude Code context, not human-rea
 | File | Change |
 |---|---|
 | `docs/setup/install-docker.md` | Add one line at top: "← New here? Start at `docs/setup/README.md`." |
-| `docs/operations.md` | Add one line at top pointing to `docs/usage.md`; remove or update the native-install disclaimer |
+| `docs/operations.md` | Add one line at top pointing to `docs/usage.md`; remove the native-install disclaimer |
 
 ---
 
@@ -51,9 +52,9 @@ No user-facing docs exist beyond `CLAUDE.md` (Claude Code context, not human-rea
 # Setup
 
 Numbered reading order:
-1. Prerequisites (→ prerequisites.md): API keys, Google Cloud, ntfy
+1. Prerequisites (→ prerequisites.md): API keys, ntfy
 2. Install and deploy (→ install-docker.md): Docker stack setup
-3. Configure (→ configure.md): candidate profile, search queries, target companies
+3. Configure (→ configure.md): run through the onboarding LLM prompt
 4. Verify: health-check one-liner (inline)
 5. What's next: links to usage.md and tuning.md
 ```
