@@ -35,6 +35,8 @@ aichat_ng_config_backup/sessions/
 aichat_ng_config_backup/
 tmp/
 docs/archive/
+.claude/
+.playwright-mcp/
 scripts/clean_company.py
 data/pipeline.db-shm
 docs/master_resume.md.example
