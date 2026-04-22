@@ -86,6 +86,10 @@ Active labels:
 | `open-source` | Generalization and adoption |
 | `documentation` | Docs-only change |
 | `big-idea` | Speculative far-horizon concept; not on the active roadmap. Always pair with Priority: Low. |
+| `personal` | User-specific content — not generalizable pipeline work (e.g. personal resume edits). Not part of the shared roadmap; tracked here for convenience only. |
+| `phase-4` | Belongs to Phase 4: first-tester deployment |
+| `phase-5` | Belongs to Phase 5: remaining web-frontend (STATUS/REJECT writes, JD ingest, stats) |
+| `phase-6` | Belongs to Phase 6: user-facing documentation |
 
 Legacy labels (being phased out — Priority field is canonical):
 - `priority: high`, `priority: med`, `priority: low`
