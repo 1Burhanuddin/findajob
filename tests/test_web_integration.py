@@ -112,6 +112,7 @@ def test_full_flow(world: dict) -> None:
     r = client.get("/materials/fp-active/tailored_resume.docx")
     assert r.status_code == 200
     assert "attachment" in r.headers.get("content-disposition", "")
+    assert r.headers.get("content-type", "").startswith("application/octet-stream")
 
     r = client.get("/materials/fp-applied/notes.txt")
     assert r.status_code == 200

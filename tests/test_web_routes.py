@@ -130,6 +130,7 @@ def test_file_serve_docx_as_attachment(client: TestClient, companies_root: Path,
     assert r.status_code == 200
     assert "attachment" in r.headers.get("content-disposition", "")
     assert "resume.docx" in r.headers.get("content-disposition", "")
+    assert r.headers.get("content-type", "").startswith("application/octet-stream")
 
 
 def test_file_serve_txt_inline(client: TestClient, companies_root: Path, db_path: Path) -> None:

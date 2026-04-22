@@ -125,5 +125,6 @@ def file_serve(
     return FileResponse(
         path=candidate,
         filename=candidate.name,
+        media_type="application/octet-stream",
         headers={"content-disposition": f'attachment; filename="{candidate.name}"'},
     )
