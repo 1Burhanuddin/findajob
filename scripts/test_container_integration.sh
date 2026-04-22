@@ -276,9 +276,9 @@ if [ "$HTTP_CODE" != "200" ]; then
 fi
 echo "  /healthz: 200 OK"
 
-BODY=$(curl -s "http://localhost:${VIEWER_PORT}/" || echo "FAIL")
+BODY=$(curl -s "http://localhost:${VIEWER_PORT}/materials/" || echo "FAIL")
 if ! echo "$BODY" | grep -q "In flight"; then
-    echo "ERROR: index did not contain 'In flight'" >&2
+    echo "ERROR: /materials/ did not contain 'In flight'" >&2
     exit 1
 fi
 echo "  index renders with expected sections"
