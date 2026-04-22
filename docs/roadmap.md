@@ -73,6 +73,26 @@ When one of these activates, add a `## Active milestone: <name>` section with th
 
 ---
 
+## Far-future wishlist
+
+Not on the roadmap. These become worth pursuing only after the operator has job offers in hand and the pipeline has demonstrably gotten someone hired. Captured here so they don't float around as issues.
+
+**Open-source launch**
+Public-repo polish: domain-neutral README top-to-bottom, external user install guide requiring no operator intervention, `GENERALIZATION.md` complete, config externalization audit finished, CI green for external contributors, CONTRIBUTING.md, CODE_OF_CONDUCT.md, license review.
+
+**Multi-tester scaling**
+Per-user API keys, per-user GCP project isolation, separate admin Claude sessions per instance, operator automation for new-tester provisioning. First concrete item: #71 (multi-tenancy discipline on docker.lan).
+
+**Community feedback loop**
+Issue templates for external users, triage discipline when external reports arrive, release cadence that doesn't break downstream users.
+
+**Optional: hosted variant**
+Only if demand materializes from the open-source launch. Not in scope until then.
+
+_(Content migrated from issue #88, closed 2026-04-21.)_
+
+---
+
 ## Conventions
 
 - **One active milestone at a time** gets a full `## Active milestone` section.
