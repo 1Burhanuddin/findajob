@@ -17,6 +17,7 @@ LOG_PATH: str = f"{BASE}/logs/pipeline.jsonl"
 
 def log_event(event_type: str, **kwargs: object) -> None:
     entry = {"ts": datetime.now(UTC).isoformat(), "event": event_type, **kwargs}
+    os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
     with open(LOG_PATH, "a") as f:
         f.write(json.dumps(entry) + "\n")
 

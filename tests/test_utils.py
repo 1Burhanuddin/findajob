@@ -1,7 +1,10 @@
 """Tests for pure functions in scripts/utils.py."""
 
+import json
+
 import pytest
 
+from findajob import utils as utils_mod
 from findajob.utils import (
     _clean_profile_field,
     build_outreach_filename,
@@ -10,9 +13,29 @@ from findajob.utils import (
     is_ingest_noise_title,
     is_valid_company,
     jd_is_usable,
+    log_event,
     safe_filename_part,
     strip_jd_boilerplate,
 )
+
+# ── log_event ──────────────────────────────────────────────────────────────
+
+
+class TestLogEvent:
+    def test_creates_missing_parent_dir(self, tmp_path, monkeypatch):
+        log_path = tmp_path / "nonexistent" / "pipeline.jsonl"
+        assert not log_path.parent.exists()
+        monkeypatch.setattr(utils_mod, "LOG_PATH", str(log_path))
+
+        log_event("fresh_install_smoke", source="test")
+
+        assert log_path.parent.is_dir()
+        assert log_path.exists()
+        entry = json.loads(log_path.read_text().strip())
+        assert entry["event"] == "fresh_install_smoke"
+        assert entry["source"] == "test"
+        assert "ts" in entry
+
 
 # ── jd_is_usable ───────────────────────────────────────────────────────────
 
