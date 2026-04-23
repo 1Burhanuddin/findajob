@@ -41,6 +41,11 @@ load_env()
 
 
 def find_contacts(company):
+    # connections.csv is optional — missing file means the user has no LinkedIn
+    # export configured. Return empty without logging an error. True parse/IO
+    # failures still log via the narrowed except below.
+    if not os.path.exists(CONNECTIONS):
+        return []
     contacts = []
     try:
         with open(CONNECTIONS) as f:
@@ -56,6 +61,8 @@ def find_contacts(company):
                             "url": row.get("URL", ""),
                         }
                     )
+    except FileNotFoundError:
+        return []
     except Exception as e:
         log_event("find_contacts_error", error=str(e))
     return contacts

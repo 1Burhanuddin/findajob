@@ -208,6 +208,19 @@ Add 3–5 minimum. Don't overthink the naming.
 
 ---
 
+## data/connections.csv (optional)
+
+A LinkedIn connections export used to match warm contacts at target companies and
+generate outreach drafts during prep.
+
+- **Optional.** If the file is absent, `find_contacts()` returns no matches silently
+  — no error is logged and prep runs normally without the outreach step.
+- To enable, follow the export steps in
+  [`prerequisites.md`](prerequisites.md#linkedin-connections-export-optional-but-recommended)
+  and save the file to `data/connections.csv`.
+
+---
+
 ## Pre-commit PII hook (strongly recommended)
 
 This repo is intended to be domain-agnostic and eventually public. A local pre-commit hook
