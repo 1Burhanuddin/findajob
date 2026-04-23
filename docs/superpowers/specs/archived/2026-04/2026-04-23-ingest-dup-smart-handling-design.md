@@ -1,7 +1,15 @@
+---
+**Shipped in #202 on 2026-04-23. Final decisions captured in issue body.**
+---
+
 # Spec: Smart Duplicate Handling on `/ingest/manual`
 
 **Date:** 2026-04-23
-**Status:** Approved
+**Status:** Shipped (PR #201, 2026-04-23)
+
+## Issue
+
+#202
 
 ## Problem
 

@@ -1,3 +1,7 @@
+---
+**Shipped in #29, #98, #99 on 2026-04-22. Final decisions captured in issue body.**
+---
+
 # Native GitHub Issue Dependencies Migration — Design
 
 **Date:** 2026-04-19
