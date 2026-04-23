@@ -7,6 +7,19 @@ from findajob.paths import BASE
 DB_PATH = f"{BASE}/data/pipeline.db"
 
 conn = sqlite3.connect(DB_PATH, timeout=30)
+
+# Legacy-stack migrations: CREATE TABLE IF NOT EXISTS is a no-op when the
+# table already exists, which means new columns declared below never land
+# on upgraded DBs. Handle each additive column here via ALTER TABLE so
+# subsequent index-creation statements (e.g. idx_jobs_loose_fingerprint)
+# don't reference a missing column and crash the entrypoint.
+_existing_tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+if "jobs" in _existing_tables:
+    _jobs_cols = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+    if "loose_fingerprint" not in _jobs_cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN loose_fingerprint TEXT")
+        conn.commit()
+
 conn.executescript("""
 CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
