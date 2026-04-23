@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-# ~/JobSearchPipeline/scripts/prep_application.py
+# scripts/prep_application.py
 # Args: company, title, url, job_id
-"""Generate draft application materials for a flagged job."""
+"""Generate draft application materials for a flagged job.
+
+Launched as a detached subprocess from POST /board/jobs/{fp}/prep (see
+findajob.web.routes.board_actions). On success runs sync_sheet.py at
+the end to refresh the Sheet view.
+"""
 
 import json
 import os
@@ -500,9 +505,8 @@ Generated: {date}
 
     conn.close()
 
-    # ── Step 9: Sync sheets — skipped when poll_flags orchestrates a post-prep sync ──
-    if "--no-sync" not in sys.argv:
-        subprocess.run([sys.executable, f"{BASE}/scripts/sync_sheet.py"], check=False)
+    # ── Step 9: Sync sheets ──
+    subprocess.run([sys.executable, f"{BASE}/scripts/sync_sheet.py"], check=False)
 
     print(f"PREP_COMPLETE:{outdir}")
 

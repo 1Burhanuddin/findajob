@@ -5,7 +5,7 @@ One-time setup: formats Sheet1, Dashboard, Review, and Waitlist tabs.
 Run after any sheet restructure. Safe to re-run — idempotent.
 
 Sheet1 layout (A–N):
-  A: fingerprint  (hidden — used by poll_flags.py)
+  A: fingerprint  (hidden — matches board_actions.py POST targets)
   B: APPLY_FLAG   (checkbox)
   C: relevance_score
   D: title
@@ -23,7 +23,7 @@ Sheet1 layout (A–N):
 Dashboard layout (A–N):
   A: STATUS          (dropdown: Flag for Prep / Applied / Interviewing / Offer / Withdrew)
   B: REJECT_REASON   (dropdown: 11 options)
-  C: fingerprint     (hidden — used by poll_flags.py)
+  C: fingerprint     (hidden — matches board_actions.py POST targets)
   D: fit_score       (0-100%, conditional color)
   E: probability_score (0-100%, conditional color)
   F: relevance_score
@@ -39,7 +39,7 @@ Dashboard layout (A–N):
 Review layout (A–H):
   A: STATUS          (dropdown: Promote)
   B: REJECT_REASON   (dropdown: same as Dashboard)
-  C: fingerprint     (hidden — used by poll_flags.py)
+  C: fingerprint     (hidden — matches board_actions.py POST targets)
   D: title           (HYPERLINK formula — clickable)
   E: company
   F: score_flag_reason
@@ -47,9 +47,9 @@ Review layout (A–H):
   H: date_found
 
 Applied layout (A–N):
-  A: STATUS              (dropdown: Interviewing / Offer / Ghosted / Not Selected / Withdrew)
+  A: STATUS              (dropdown: Interviewing / Offer / Not Selected / Withdrew)
   B: REJECT_REASON       (dropdown: same 11 options as Dashboard)
-  C: fingerprint         (hidden — used by poll_flags.py)
+  C: fingerprint         (hidden — matches board_actions.py POST targets)
   D: title               (HYPERLINK formula — JD)
   E: company             (HYPERLINK formula — Drive folder)
   F: applied_date
@@ -65,7 +65,7 @@ Applied layout (A–N):
 Waitlist layout (A–K):
   A: STATUS          (dropdown: Reactivate)
   B: REJECT_REASON   (dropdown: same as Dashboard)
-  C: fingerprint     (hidden — used by poll_flags.py)
+  C: fingerprint     (hidden — matches board_actions.py POST targets)
   D: title           (HYPERLINK formula — clickable)
   E: company
   F: score
@@ -1117,7 +1117,7 @@ def main():
     print("Rejected Applications row banding applied.")
 
     # ── Applied tab formatting ────────────────────────────────────────────
-    APPLIED_STATUS_OPTIONS = ["Interviewing", "Offer", "Ghosted", "Not Selected", "Withdrew"]
+    APPLIED_STATUS_OPTIONS = ["Interviewing", "Offer", "Not Selected", "Withdrew"]
 
     applied_requests = [
         {
@@ -1259,7 +1259,7 @@ def main():
         }
 
     # Insert lowest priority first. Final rule order (top-down, which is the
-    # evaluation order): Offer → Interviewing → Ghosted/stale → red → yellow → green.
+    # evaluation order): Offer → Interviewing → stale (21+ days) → red → yellow → green.
     # Day-band rules all guard on ISNUMBER($G2) so empty rows below the data
     # stay uncolored (blank cells coerce to 0 in >= comparisons otherwise).
     # 6. 0–6 days → green (fresh, default)
@@ -1268,8 +1268,8 @@ def main():
     applied_requests.append(_cf_formula("=AND(ISNUMBER($G2), $G2>=7, $G2<14)", rgb(255, 245, 178)))
     # 4. 14–20 days → red (getting stale)
     applied_requests.append(_cf_formula("=AND(ISNUMBER($G2), $G2>=14, $G2<21)", rgb(255, 198, 198)))
-    # 3. Ghosted flag OR 21+ days silent → gray
-    applied_requests.append(_cf_formula('=OR($A2="Ghosted", AND(ISNUMBER($G2), $G2>=21))', rgb(200, 200, 200)))
+    # 3. 21+ days silent → gray
+    applied_requests.append(_cf_formula("=AND(ISNUMBER($G2), $G2>=21)", rgb(200, 200, 200)))
     # 2. Interviewing → soft purple
     applied_requests.append(_cf_formula('=$A2="Interviewing"', rgb(226, 208, 245)))
     # 1. Offer → gold (highest priority — best news, top of stack)
