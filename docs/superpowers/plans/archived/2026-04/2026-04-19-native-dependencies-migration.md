@@ -1,8 +1,8 @@
+---
+**Shipped in #98 on 2026-04-19. Final decisions captured in PR body. Phase 2B (jared skill updates) shipped in `brockamer/jared` without a standalone tracking issue.**
+---
+
 # Native GitHub Issue Dependencies Migration Implementation Plan
-
-> **Archived 2026-04-22.** All three phases complete. findajob #96 (spec), #97 (Phase 1), #98 (Phase 2A), #99 (Phase 2B) closed. claude-skills PR #1 merged.
-
-
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -15,9 +15,8 @@
 ## Issues
 
 - #98 — Phase 2A (migrate to native GitHub issue dependencies) — merged 2026-04-19.
-- #99 — Phase 2B (update jared skill template, sweep, references) — open; work lives in `brockamer/claude-skills`.
 
-Phase 1 (add Blocked column, fix #29's body-text dep) landed alongside Phase 2A and has no standalone issue.
+Phase 1 (add Blocked column, fix #29's body-text dep) landed alongside Phase 2A and has no standalone issue. Phase 2B (jared skill template, sweep blocked-hygiene check, reference docs) shipped in `brockamer/jared` (formerly `claude-skills`) without a standalone tracking issue.
 
 ---
 
