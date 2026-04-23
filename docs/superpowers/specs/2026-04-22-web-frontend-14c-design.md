@@ -1,9 +1,11 @@
 # Web Frontend Phase 14c — STATUS + REJECT_REASON Write Workflows
 
+> **ARCHIVED** — Issue #61 shipped 2026-04-22 via PRs #178 (PR-A), #179 (PR-B), #180 (PR-C). See the closed issue and merged PRs for the canonical record. Follow-ups tracked in #181 (Playwright E2E), #182 (dedup cluster), #183 (.docx download).
+
 **Issue:** [#61](https://github.com/brockamer/findajob/issues/61)
 **Parent:** #14 (web frontend arc)
 **Spec date:** 2026-04-22
-**Status:** DESIGN — ready to execute via companion plan `2026-04-22-web-frontend-14c-plan.md`.
+**Status:** SHIPPED 2026-04-22.
 
 Depends on #60 (shipped 2026-04-21) — the `/board/*` read-only scaffolding, `_job_row.html` partial, and shared `web/constants.py::FOLDER_STAGES` are preconditions for every action in this spec.
 

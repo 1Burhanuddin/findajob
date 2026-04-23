@@ -1,8 +1,11 @@
 # Plan — Web Frontend 14c: STATUS + REJECT_REASON Write Workflows
 
+> **ARCHIVED** — Issue #61 shipped 2026-04-22 via PRs #178 / #179 / #180. Tasks 1-15, 17-22 completed. Task 16 (Playwright E2E) deferred to follow-up issue #181. Operator-feedback tasks 20-22 shipped as PR-C. Additional dedup bugs discovered during smoke test tracked in #182. `.docx` download block in #183.
+
 **Spec:** `docs/superpowers/specs/2026-04-22-web-frontend-14c-design.md`
 **Issue:** [#61](https://github.com/brockamer/findajob/issues/61)
 **Plan date:** 2026-04-22
+**Status:** SHIPPED 2026-04-22.
 
 ---
 
