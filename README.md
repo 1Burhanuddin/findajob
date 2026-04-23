@@ -17,7 +17,7 @@ The pipeline narrows the funnel at every step where a human would otherwise wast
 | Stage transitions (30 days) | Count |
 |---|---:|
 | Jobs scored | **10,812** |
-| Flagged for manual review | 1,955 |
+| Surfaced to operator (score ≥7) | 318 |
 | Materials drafted (resume + cover letter + briefing) | 243 |
 | Applied | **43** |
 | Interview | 3 |
