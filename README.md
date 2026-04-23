@@ -1,8 +1,10 @@
 # findajob
 
-A self-hosted pipeline that turns the daily deluge of job listings into a handful of targeted applications, with a tailored resume, cover letter, company briefing, and network-outreach drafts for each one.
+Self-hosted infrastructure for a sane job search.
 
-LinkedIn, Indeed, Greenhouse, and Gmail flow in; a local LLM scorer filters out the noise; a web UI lets you triage, prep, and track. Runs as a Docker container on any Linux host. No cloud backend, no subscription, ~$0.50–2/day in API usage.
+The modern job search grinds people down — hundreds of listings per day, most irrelevant; the same cover letter rewritten at midnight; no memory of which companies went silent weeks ago; no signal about whether the rejections mean "wrong skill," "wrong level," or "wrong field." Burnout is the default. findajob absorbs the triage, the tailoring, and the tracking so your attention goes to the few applications actually worth sending.
+
+LinkedIn, Indeed, Greenhouse, and Gmail flow in; a local LLM filters out the noise; a web UI lets you triage, prep, and track. Runs as a Docker container on any Linux host. ~$0.50–2/day in API usage.
 
 > **Status:** Pre-1.0. Used daily by the operator; one external beta tester onboarded. General availability (a second non-technical user running their own instance end-to-end) is the next milestone.
 
@@ -36,13 +38,13 @@ The pipeline narrows the funnel at every step where a human would otherwise wast
 
 **3. Prep** (on-flag) — launches `prep_application.py`, which generates a folder per job containing a tailored resume, cover letter, company briefing, and network-outreach drafts. Uses Claude Opus for writing, Perplexity for company research.
 
-**4. Apply + track** — you submit the application, mark the job *Applied* in the UI. The Applied tab color-codes by time since submission so follow-ups don't slip.
+**4. Apply + track** — you submit the application, mark the job *Applied*. The Applied tab color-codes by days-since-submission so you can see at a glance which applications have gone silent too long.
 
 ![Applied](docs/screenshots/applied.png)
 
-**5. Reject with reason** — jobs that don't work out get rejected with a reason (*Skills Mismatch*, *Too TPM-Heavy*, *Comp Too Low*, etc.). Those reasons feed back into the next day's scorer as negative examples.
+**5. Reject with reason** — jobs that don't work out get rejected with a reason (*Skills Mismatch*, *Too Senior*, *Comp Too Low*, *Geography/Onsite*, etc.). Those reasons feed back into the next day's scorer as negative examples.
 
-**6. Learn** — stats dashboards make the funnel and the rejection mix legible, so you can tell whether the scorer is drifting or whether a particular reason is spiking (a signal to tune the profile or targeting).
+**6. Learn** — stats dashboards make the funnel and the rejection mix legible, so you can tell whether the scorer is drifting or whether a particular reason is spiking — a signal to tune the profile or retarget.
 
 ![Funnel](docs/screenshots/funnel.png)
 
@@ -54,8 +56,8 @@ The pipeline narrows the funnel at every step where a human would otherwise wast
 
 ## What you get out of it
 
-- **One board, not five tabs.** Dashboard, Applied, Waitlist, Review, Rejected, Archive — each is a filtered view of the same SQLite table. Sorting, filtering, and density toggles are URL query params, so any view is bookmarkable.
-- **Materials stay with the pipeline.** Generated folders live on the Docker host; the web UI renders Markdown inline and serves `.docx` downloads. No Google Drive dance.
+- **One surface, every view.** Dashboard, Applied, Waitlist, Review, Rejected, Archive — each is a filtered view of the same SQLite table. Sorting, filtering, and density toggles are URL query params, so any view is bookmarkable.
+- **Materials live with the pipeline.** Generated folders stay on your Docker host; the web UI renders Markdown inline and serves `.docx` downloads.
 - **Feedback loop, not a black box.** Every rejection is a labeled training example for tomorrow's scorer. Every manual-review flag tells you which parts of your profile are ambiguous to the LLM.
 - **Domain-neutral.** The pipeline was built by a data center ops candidate but is designed to generalize — a social worker, teacher, or accountant profile slots in the same way. See [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md) for the current state of that work.
 - **Your data stays local.** SQLite on your Docker host. The only outbound calls are to the LLM providers you've configured; the repo contains zero personal data.
@@ -70,7 +72,7 @@ The pipeline narrows the funnel at every step where a human would otherwise wast
 | Resume + cover letter + outreach | Claude Opus / Sonnet 4.6 |
 | Company research | Perplexity Sonar Pro |
 | Embeddings (REPL RAG over your own writing) | Gemini Embedding |
-| Storage | SQLite (source of truth) + Google Sheets (synced, read-only mobile view) |
+| Storage | SQLite |
 | Job sources | RapidAPI jobs-api14, Greenhouse JSON, Gmail OAuth2 |
 | Web UI | FastAPI + HTMX + Tailwind + Chart.js |
 | Push notifications | [ntfy.sh](https://ntfy.sh) |
@@ -108,10 +110,9 @@ Full walkthrough → [`docs/setup/install-docker.md`](docs/setup/install-docker.
 | [docs/setup/prerequisites.md](docs/setup/prerequisites.md) | API keys, accounts, tools you need |
 | [docs/setup/install-docker.md](docs/setup/install-docker.md) | **Docker Compose setup (recommended)** |
 | [docs/setup/install-linux.md](docs/setup/install-linux.md) | Native fallback (Ubuntu + systemd) |
-| [docs/setup/configure.md](docs/setup/configure.md) | Profile, resume, queries, Google Sheets |
+| [docs/setup/configure.md](docs/setup/configure.md) | Profile, resume, search queries, API keys |
 | [docs/setup/state-migration.md](docs/setup/state-migration.md) | Moving an existing pipeline to a new host |
 | [docs/operations.md](docs/operations.md) | Day-to-day use, monitoring, common tasks |
-| [docs/google-sheets.md](docs/google-sheets.md) | Sheet layout, Dashboard workflow |
 | [docs/notifications.md](docs/notifications.md) | ntfy.sh setup and notification schedule |
 | [docs/GENERALIZATION.md](docs/GENERALIZATION.md) | Making the pipeline work for non-tech fields |
 | [docs/claude-code.md](docs/claude-code.md) | Using Claude Code as a pipeline operator |
