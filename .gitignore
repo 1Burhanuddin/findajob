@@ -45,3 +45,4 @@ docs/master_resume.md.example
 config/prefilter_rules.yaml
 config/in_domain_patterns.yaml
 config/companies_of_interest.txt
+.worktrees/
