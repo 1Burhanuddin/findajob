@@ -1,54 +1,89 @@
 # findajob
 
-A self-hosted, AI-powered job search pipeline. Fetches leads from LinkedIn, Indeed, Greenhouse, and Gmail, scores them with an LLM, surfaces high-quality matches in a Google Sheet, and on demand generates a full application package: tailored resume, cover letter, company briefing, and network outreach drafts.
+A self-hosted pipeline that turns the daily deluge of job listings into a handful of targeted applications, with a tailored resume, cover letter, company briefing, and network-outreach drafts for each one.
 
-Deploys as a Docker container via Compose. Native systemd install remains documented as a fallback. No cloud infrastructure. No subscription. Costs ~$0.50–2/day in API usage depending on job volume.
+LinkedIn, Indeed, Greenhouse, and Gmail flow in; a local LLM scorer filters out the noise; a web UI lets you triage, prep, and track. Runs as a Docker container on any Linux host. No cloud backend, no subscription, ~$0.50–2/day in API usage.
 
----
-
-## What It Does
-
-1. **Daily triage** — fetches 100–500 job listings from multiple sources, deduplicates, enriches with JD text, scores with an LLM against your profile, writes results to SQLite and syncs to Google Sheets
-2. **Flag → Prep** — you flag a job in the Dashboard; the pipeline generates a tailored resume, cover letter, company briefing, and LinkedIn outreach drafts
-3. **Notifications** — push notifications via ntfy.sh: daily stats, health check, apply reminders
-4. **Rejection tracking** — reject with a reason in the sheet; the pipeline logs it for pattern analysis and moves the folder to `_rejected/`
-5. **Materials viewer** — local web UI (FastAPI, port-configurable) displays prep-folder contents grouped by stage; Markdown rendered inline, `.docx` files downloadable
-6. **Manual injection** — Google Form lets you add any job (found outside the pipeline) and optionally trigger prep immediately
+> **Status:** Pre-1.0. Used daily by the operator; one external beta tester onboarded. General availability (a second non-technical user running their own instance end-to-end) is the next milestone.
 
 ---
 
-## Tech Stack
+## What it does
 
-| Component | Choice | Why |
-|---|---|---|
-| Job scoring | [aichat-ng](https://github.com/blob42/aichat-ng) + DeepSeek v3 via OpenRouter | Fast, cheap, accurate for structured JSON output |
-| Resume / cover letter | Claude Opus 4.6 (thinking mode) | Best writing quality at cost |
-| Company research | Perplexity Sonar Pro | Real-time web access |
-| Database | SQLite | Zero-config, ACID, queryable |
-| Sheet UI | Google Sheets API v4 | Familiar interface, cross-device |
-| Job sources | RapidAPI jobs-api14, Gmail OAuth2, Greenhouse JSON API | Broad coverage |
-| Notifications | ntfy.sh | Free, cross-platform push |
-| Materials viewer | FastAPI + uvicorn | Local web viewer for prep-folder contents — Markdown rendered inline, `.docx` download |
-| Scheduler | supercronic (Docker) / systemd (native) | supercronic runs the crontab inside the image; systemd is the fallback on native installs |
+The pipeline narrows the funnel at every step where a human would otherwise waste attention — LLM triage on the way in, human triage on the way to prep, prep only for jobs worth applying to. Thirty days on the operator's instance looks like this:
 
----
+| Stage transitions (30 days) | Count |
+|---|---:|
+| Jobs scored | **10,812** |
+| Flagged for manual review | 1,955 |
+| Materials drafted (resume + cover letter + briefing) | 243 |
+| Applied | **43** |
+| Interview | 3 |
+| User-rejected with feedback reason | 354 |
+| Waitlisted (deferred) | 40 |
 
-## Prerequisites
-
-- Python 3.11+
-- [aichat-ng](https://github.com/blob42/aichat-ng) (`aichat-ng` binary, not `aichat`)
-- pandoc
-- API keys: Anthropic, OpenRouter (DeepSeek), Perplexity, Google Gemini, RapidAPI
-- Google Cloud project with Sheets API and Gmail API enabled
+10,812 jobs narrowed to 43 applications in a month — triage cuts most of the noise, prep is only spent on jobs worth applying to, and the reject-with-reason flow feeds back into the scorer so its cuts keep improving. The prep step is LLM-assisted but user-gated: you never apply to a job the system chose for you.
 
 ---
 
-## Quick Start
+## How it works
 
-findajob ships as a Docker image pulled from GHCR and deployed via Docker Compose.
+**1. Daily triage** (00:00, scheduler-driven) — fetches 100–500 listings from RapidAPI (LinkedIn + Indeed), Greenhouse, and Gmail job alerts; cleans + deduplicates; enriches with JD text; scores each against your `profile.md` using an LLM. Results land in SQLite.
+
+**2. Dashboard triage** — the web UI shows every scored job that cleared the threshold, with relevance/fit/probability scores, known contacts, and AI notes. You flag the ones worth prepping.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+**3. Prep** (on-flag) — launches `prep_application.py`, which generates a folder per job containing a tailored resume, cover letter, company briefing, and network-outreach drafts. Uses Claude Opus for writing, Perplexity for company research.
+
+**4. Apply + track** — you submit the application, mark the job *Applied* in the UI. The Applied tab color-codes by time since submission so follow-ups don't slip.
+
+![Applied](docs/screenshots/applied.png)
+
+**5. Reject with reason** — jobs that don't work out get rejected with a reason (*Skills Mismatch*, *Too TPM-Heavy*, *Comp Too Low*, etc.). Those reasons feed back into the next day's scorer as negative examples.
+
+**6. Learn** — stats dashboards make the funnel and the rejection mix legible, so you can tell whether the scorer is drifting or whether a particular reason is spiking (a signal to tune the profile or targeting).
+
+![Funnel](docs/screenshots/funnel.png)
+
+![Feedback](docs/screenshots/feedback.png)
+
+*Screenshots are from a fresh-install demo database seeded with fictional jobs across data center operations, social work, and K–12 education. No real employer or candidate data.*
+
+---
+
+## What you get out of it
+
+- **One board, not five tabs.** Dashboard, Applied, Waitlist, Review, Rejected, Archive — each is a filtered view of the same SQLite table. Sorting, filtering, and density toggles are URL query params, so any view is bookmarkable.
+- **Materials stay with the pipeline.** Generated folders live on the Docker host; the web UI renders Markdown inline and serves `.docx` downloads. No Google Drive dance.
+- **Feedback loop, not a black box.** Every rejection is a labeled training example for tomorrow's scorer. Every manual-review flag tells you which parts of your profile are ambiguous to the LLM.
+- **Domain-neutral.** The pipeline was built by a data center ops candidate but is designed to generalize — a social worker, teacher, or accountant profile slots in the same way. See [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md) for the current state of that work.
+- **Your data stays local.** SQLite on your Docker host. The only outbound calls are to the LLM providers you've configured; the repo contains zero personal data.
+
+---
+
+## Stack
+
+| Component | Choice |
+|---|---|
+| Scoring | DeepSeek v3.2 via OpenRouter (through [aichat-ng](https://github.com/blob42/aichat-ng)) |
+| Resume + cover letter + outreach | Claude Opus / Sonnet 4.6 |
+| Company research | Perplexity Sonar Pro |
+| Embeddings (REPL RAG over your own writing) | Gemini Embedding |
+| Storage | SQLite (source of truth) + Google Sheets (synced, read-only mobile view) |
+| Job sources | RapidAPI jobs-api14, Greenhouse JSON, Gmail OAuth2 |
+| Web UI | FastAPI + HTMX + Tailwind + Chart.js |
+| Push notifications | [ntfy.sh](https://ntfy.sh) |
+| Scheduler | supercronic (in-container) |
+
+---
+
+## Quick start
+
+The pipeline ships as `ghcr.io/brockamer/findajob` pulled via Docker Compose.
 
 ```bash
-# On your Docker host — replace <you> with a short tag
+# On your Docker host
 sudo mkdir -p /opt/stacks/findajob-<you>/state/{data,config,candidate_context,companies,logs,aichat_ng}
 sudo chown -R $(id -u):$(id -g) /opt/stacks/findajob-<you>/
 cd /opt/stacks/findajob-<you>
@@ -56,16 +91,12 @@ cd /opt/stacks/findajob-<you>
 curl -fsSL -o compose.yaml https://raw.githubusercontent.com/brockamer/findajob/main/ops/compose.yaml.example
 curl -fsSL -o .env         https://raw.githubusercontent.com/brockamer/findajob/main/ops/stack.env.example
 
-# Populate state/ with API keys, personal config, and candidate profile —
-# see the install guide for each file's purpose and template.
+# Populate state/ with API keys, personal config, candidate profile
+# (templates + walkthrough in the install guide)
 docker compose up -d
 ```
 
-Full walkthrough (API keys, Gmail OAuth, Google Sheets) →
-[`docs/setup/install-docker.md`](docs/setup/install-docker.md).
-
-Running on a Linux host without Docker is still supported — see
-[`docs/setup/install-linux.md`](docs/setup/install-linux.md).
+Full walkthrough → [`docs/setup/install-docker.md`](docs/setup/install-docker.md). Native-host install still supported → [`docs/setup/install-linux.md`](docs/setup/install-linux.md).
 
 ---
 
@@ -76,74 +107,38 @@ Running on a Linux host without Docker is still supported — see
 | [docs/architecture.md](docs/architecture.md) | System design, data flow, component map |
 | [docs/setup/prerequisites.md](docs/setup/prerequisites.md) | API keys, accounts, tools you need |
 | [docs/setup/install-docker.md](docs/setup/install-docker.md) | **Docker Compose setup (recommended)** |
-| [docs/setup/install-linux.md](docs/setup/install-linux.md) | Ubuntu + systemd setup (native fallback) |
+| [docs/setup/install-linux.md](docs/setup/install-linux.md) | Native fallback (Ubuntu + systemd) |
 | [docs/setup/configure.md](docs/setup/configure.md) | Profile, resume, queries, Google Sheets |
-| [docs/setup/state-migration.md](docs/setup/state-migration.md) | Moving an existing pipeline to a new machine |
+| [docs/setup/state-migration.md](docs/setup/state-migration.md) | Moving an existing pipeline to a new host |
 | [docs/operations.md](docs/operations.md) | Day-to-day use, monitoring, common tasks |
-| [docs/scripts-reference.md](docs/scripts-reference.md) | Every script documented |
 | [docs/google-sheets.md](docs/google-sheets.md) | Sheet layout, Dashboard workflow |
 | [docs/notifications.md](docs/notifications.md) | ntfy.sh setup and notification schedule |
+| [docs/GENERALIZATION.md](docs/GENERALIZATION.md) | Making the pipeline work for non-tech fields |
 | [docs/claude-code.md](docs/claude-code.md) | Using Claude Code as a pipeline operator |
 
 ---
 
-## Repository Structure
+## What it costs to run
 
-```
-findajob/
-├── candidate_context/          # YOUR personal content (all gitignored)
-│   ├── profile.md              # your candidate profile
-│   ├── master_resume.md        # your master resume
-│   ├── voice_samples/          # your writing samples for CL voice calibration
-│   └── profile.md.example      # template — copy and fill in
-├── config/
-│   ├── roles/                  # aichat-ng role prompts (8 roles)
-│   ├── scoring_schema.json     # JSON schema for LLM scorer output
-│   ├── strip-bookmarks.lua     # pandoc Lua filter
-│   ├── reference.docx          # pandoc Word template
-│   ├── paths.env               # YOUR binary paths (gitignored)
-│   └── *.example               # templates for gitignored files
-├── data/
-│   ├── pipeline.db             # SQLite (gitignored)
-│   └── .env                    # API keys (gitignored)
-├── docs/                       # Documentation
-├── scripts/
-│   ├── triage.py               # daily pipeline
-│   ├── prep_application.py     # on-demand prep
-│   ├── poll_flags.py           # sheet flag poller
-│   ├── sync_sheet.py           # DB → Google Sheets
-│   ├── setup_sheets.py         # sheet formatting (run once)
-│   ├── notify.py               # ntfy push notifications
-│   ├── find_contacts.py        # LinkedIn contact matching
-│   ├── ingest_form.py          # Google Form ingestion
-│   └── diag/                   # diagnostic scripts (run manually)
-├── companies/                  # Generated prep folders (gitignored)
-├── logs/                       # Pipeline logs (gitignored)
-├── ops/                        # Docker deploy: crontab, compose example, entrypoint
-├── Dockerfile                  # findajob image build (published to ghcr.io/brockamer/findajob)
-└── CLAUDE.md                   # Claude Code session context
-```
+Real-world per-day usage on the operator's instance, ~10k jobs/month scored:
+
+| Item | Typical day |
+|---|---|
+| Scoring (DeepSeek via OpenRouter) | $0.10–0.30 |
+| Company research (Perplexity Sonar Pro) | $0.10–0.20 per prepped job |
+| Prep writing (Claude Opus) | $1.50–3.00 per prepped job |
+| Embeddings rebuild (Gemini) | ~$0.01/week |
+
+Total: ~$0.50/day when triaging only; ~$5–15 on days you prep a few applications.
 
 ---
 
-## Privacy Model
+## Privacy
 
-This repository contains no personal data. All files containing personal information (resume, profile, writing samples, search queries, API keys) are gitignored and must be created locally from `.example` templates.
-
-See [docs/claude-code.md](docs/claude-code.md) for how Claude Code integrates with this project and how to keep your personal context out of the public repo.
-
----
-
-## Cost Estimate
-
-Based on ~200 leads/day:
-- Job scoring (DeepSeek v3 via OpenRouter): ~$0.10–0.30/day
-- Prep generation per job (Claude Opus 4.6): ~$1.50–3.00 per job flagged
-- Company research (Perplexity Sonar Pro): ~$0.10–0.20 per job flagged
-- Embedding rebuild (Gemini embedding): ~$0.01/week
+The repository contains no personal data. All candidate content (resume, profile, writing samples, search queries, API keys) lives in gitignored paths populated from `.example` templates. See [`docs/claude-code.md`](docs/claude-code.md) for how to keep personal context out of Claude Code sessions touching this repo.
 
 ---
 
 ## License
 
-MIT
+MIT.
