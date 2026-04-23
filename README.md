@@ -14,17 +14,23 @@ LinkedIn, Indeed, Greenhouse, and Gmail flow in; a local LLM filters out the noi
 
 The pipeline narrows the funnel at every step where a human would otherwise waste attention — LLM triage on the way in, human triage on the way to prep, prep only for jobs worth applying to. Thirty days on the operator's instance looks like this:
 
-| Stage transitions (30 days) | Count |
-|---|---:|
-| Jobs scored | **10,812** |
-| Surfaced to operator (score ≥7) | 318 |
-| Materials drafted (resume + cover letter + briefing) | 243 |
-| Applied | **43** |
-| Interview | 3 |
-| User-rejected with feedback reason | 354 |
-| Waitlisted (deferred) | 40 |
+| Stage (30 days) | Count | Pass rate |
+|---|---:|---:|
+| Listings ingested | **11,551** | — |
+| Scored ≥7 (surfaced to operator) | 318 | 2.8% of ingested |
+| Prepped (resume + cover letter + briefing) | 139 | 44% of surfaced |
+| Applications sent | **44** | 32% of prepped |
+| Interviews | 3 | 7% of applied |
 
-10,812 jobs narrowed to 43 applications in a month — triage cuts most of the noise, prep is only spent on jobs worth applying to, and the reject-with-reason flow feeds back into the scorer so its cuts keep improving. The prep step is LLM-assisted but user-gated: you never apply to a job the system chose for you.
+```
+Pass rate at each step:
+Surfaced   ▓░░░░░░░░░░░░░░░░░░░░░░░░   2.8%   ← LLM triage does the heaviest cut
+Prepped    ▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░   44%
+Applied    ▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░   32%
+Interview  ▓▓░░░░░░░░░░░░░░░░░░░░░░░   7%
+```
+
+11,551 listings narrowed to 44 applications — triage cuts the noise so attention goes to the few worth sending. The reject-with-reason flow (265 rejected with feedback, 39 waitlisted in the same 30 days) feeds back into the scorer so its cuts keep improving. Prep is LLM-assisted but user-gated: you never apply to a job the system chose for you.
 
 ---
 
