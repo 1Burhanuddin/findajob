@@ -146,10 +146,11 @@ An issue without Priority will sort into the "no-field" bucket at the bottom of 
 
 ## Apply gate
 
-Per `CLAUDE.md`: **no new features or elective improvements until the user applies to at least one job that day.** Bug fixes are exempt. This means:
+**No new features or elective improvements until the user applies to at least three jobs on the current calendar day (Pacific time).** Bug fixes are exempt. Threshold raised from 1 → 3 on 2026-04-23. This means:
 
 - When In Progress is empty and the apply gate hasn't cleared, don't pull new Medium/Low work in. Clear the gate first.
 - High-priority bug fixes and blockers to applying (e.g., damaged prep materials) are always fair game.
+- Claude checks the gate by querying `audit_log` on docker.lan for today's `stage→applied` transitions; do not ask the user whether they've applied.
 
 ## Common inconsistencies to watch for
 
