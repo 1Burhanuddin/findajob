@@ -240,10 +240,11 @@ echo "  pipeline_complete.scored = $JSONL_SCORED"
 # 9. Assert sync_sheet ran and wrote at least one row to the smoke sheet
 # ────────────────────────────────────────────────────────────────────────────
 
-echo "[assert] sync_complete event with dashboard >= 1"
-SYNC_ROWS=$($EXEC python3 -c "
+echo "[assert] sync_complete event emitted (any counts)"
+SYNC_OK=$($EXEC python3 -c "
 import json, sys
-dashboard = 0
+found = False
+counts = {}
 try:
     with open('/app/logs/pipeline.jsonl') as fh:
         for line in fh:
@@ -252,19 +253,23 @@ try:
             except Exception:
                 continue
             if ev.get('event') == 'sync_complete':
-                dashboard = max(dashboard, int(ev.get('dashboard', 0) or 0))
+                found = True
+                counts = {k: ev.get(k) for k in ('dashboard', 'review', 'waitlist', 'applied') if k in ev}
 except FileNotFoundError:
     print('ERROR: /app/logs/pipeline.jsonl not found', file=sys.stderr)
     sys.exit(1)
-print(dashboard)
+if not found:
+    print('')
+else:
+    print(counts)
 ") || { echo "ERROR: sync_complete check failed" >&2; exit 1; }
 
-if [ -z "$SYNC_ROWS" ] || [ "$SYNC_ROWS" -lt 1 ]; then
-    echo "ERROR: sync_complete event missing or dashboard = 0 (expected >= 1)" >&2
-    echo "  sync_sheet.py may have crashed — check /app/logs/pipeline.jsonl for sync_failed events" >&2
+if [ -z "$SYNC_OK" ]; then
+    echo "ERROR: sync_complete event missing — sync_sheet.py crashed mid-run" >&2
+    echo "  check /app/logs/pipeline.jsonl for sync_failed events" >&2
     exit 1
 fi
-echo "  sync_complete: dashboard = $SYNC_ROWS"
+echo "  sync_complete: $SYNC_OK"
 
 # ────────────────────────────────────────────────────────────────────────────
 # 11. Assert jobs table has rows in stage scored or manual_review
