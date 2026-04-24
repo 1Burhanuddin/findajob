@@ -1,3 +1,7 @@
+---
+**Funnel slice shipped in #63 via PR #198 on 2026-04-23. Infrastructure + funnel live; deferred dashboards (#196, #197) reference this archived spec.**
+---
+
 # Web Frontend Phase 14e — Stats, Trends & History Dashboards
 
 **Issue:** [#63](https://github.com/brockamer/findajob/issues/63)

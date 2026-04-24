@@ -1,3 +1,7 @@
+---
+**Shipped in #148 via PR #213 on 2026-04-23. Final decisions captured in issue body.**
+---
+
 # Onboarding NUX + Interview → Config Injection — Design Spec
 
 ## Issue(s)
