@@ -1,5 +1,7 @@
 # Docker Install
 
+> **New here?** Start at [`README.md`](README.md) — it sequences prerequisites → install → configure in order.
+
 This is the install + operations guide for external users running findajob from the prebuilt `ghcr.io/brockamer/findajob` image via Docker Compose. Claude's release orchestration runbook lives separately at [`docs/release-process.md`](../release-process.md).
 
 ## Who this is for
