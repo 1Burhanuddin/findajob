@@ -1,5 +1,32 @@
 # Project Board — How It Works
 
+<!-- Machine-readable metadata — jared scripts parse this. Do not reorder or
+     rename the fields below. Narrative prose after the end marker is for
+     humans. Re-run `scripts/bootstrap-project.py` (from the jared plugin)
+     after any schema change to keep this block in sync with the board. -->
+
+- Project URL: https://github.com/users/brockamer/projects/1
+- Project number: 1
+- Project ID: PVT_kwHOAgGulc4BUtxZ
+- Owner: brockamer
+- Repo: brockamer/findajob
+
+### Status
+- Field ID: PVTSSF_lAHOAgGulc4BUtxZzhCOoMM
+- Backlog: 59bd4809
+- Up Next: f94b6c8d
+- In Progress: 87411b49
+- Blocked: e0fccf99
+- Done: 1b523c26
+
+### Priority
+- Field ID: PVTSSF_lAHOAgGulc4BUtxZzhCWZ08
+- High: f0a4404c
+- Medium: 4e8ef0ac
+- Low: 79925e2f
+
+<!-- End machine-readable block — narrative docs follow. -->
+
 The GitHub Projects v2 board at [findajob Pipeline](https://github.com/users/brockamer/projects/1) is the **single source of truth for execution state** — what is being worked on, by whom, what state. Phase-level narrative and cross-issue decisions live in [`roadmap.md`](roadmap.md). If it isn't on the board or in the roadmap, it isn't on the plan.
 
 This document describes the conventions so anyone (human or Claude session) can triage, prioritize, and move work consistently.
