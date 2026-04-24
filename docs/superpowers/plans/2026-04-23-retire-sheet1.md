@@ -474,32 +474,16 @@ grep -nE "Sheet1|sheet1" docs/architecture.md
 
 Expected: zero matches.
 
-- [ ] **Step 3: Reshape `docs/google-sheets.md`**
+- [ ] **Step 3: Delete the Sheet1 section from `docs/google-sheets.md`**
 
-Current state: top-of-file section documents Sheet1. File is 304 lines. Two options:
+Per the lean-docs principle: delete outright, not preserve in `<details>`. Two users exist (operator + Alice); no external audience for historical breadcrumbs.
 
-**Option A (recommended):** Move the Sheet1 section to an `<details>` "Historical: Sheet1 (retired #136)" block at the bottom. Adds context for users who had Sheet1 on pre-#136 installs, keeps the file centered on the active tabs.
+Remove:
+- The `### Sheet1 — Full Archive` section (line 16 onward until the next `###`)
+- The `**Sheet1:**` block around line 268
+- Line 63 column-mapping entry: simplify "plain text on Sheet1; hyperlinks on Dashboard/Applied/…" to just "hyperlinks into the materials viewer on Dashboard/Applied/Waitlist/Rejected Applications when `FINDAJOB_MATERIALS_BASE_URL` is set" (drop the Sheet1 clause)
 
-**Option B:** Delete the Sheet1 section outright.
-
-Pick Option A. Add at the top of the file, immediately after the H1:
-```markdown
-> Sheet1 (the full archive tab) was retired in #136. The archival view is now at `/board/archive` in the web UI. Historical Sheet1 layout documentation is kept in the `<details>` block at the bottom of this page for reference; no code writes to it any more.
-```
-
-- [ ] **Step 4: Move the Sheet1 section into `<details>`**
-
-Wrap the existing `### Sheet1 — Full Archive` section (and the column mapping at line 63 if Sheet1-specific) in:
-```markdown
-<details>
-<summary>Historical: Sheet1 layout (retired in #136)</summary>
-
-<!-- existing Sheet1 content unchanged -->
-
-</details>
-```
-
-For the line-63 column-mapping table: the entry says "plain text on Sheet1; hyperlinks on Dashboard/Applied/…". Simplify to just describe the hyperlink behavior (which still applies to Dashboard/Applied/etc.): drop the Sheet1 clause.
+Do **not** add a migration note at the top of the file — the CHANGELOG entry is the single migration surface.
 
 - [ ] **Step 5: Sanity check**
 
@@ -524,40 +508,25 @@ git commit -m "docs: move Sheet1 references to historical blocks (#136)"
 - Modify: `docs/usage.md:164, 216`
 - Modify: `docs/troubleshooting.md:111, 170`
 
-- [ ] **Step 1: Update `docs/usage.md`**
+- [ ] **Step 1: Update `docs/usage.md` — delete Sheet1 mentions**
 
-Line 164: `Archive replaces the old Sheet1 archive view.`
-Rewrite: `Archive replaced the old Sheet1 archive view in #136.`
+Line 164: `Archive replaces the old Sheet1 archive view.` → **delete this line entirely**. The Archive tab stands on its own; no need to name the thing it replaced.
 
-Line 216 is inside the `<details>` advanced block:
-```
-… sync_sheet.py every 15 min — a glance-at-your-phone view, not a write surface. Sheet1 is being retired (#136); the web Archive tab replaces it.
-```
-Rewrite:
-```
-… sync_sheet.py every 15 min — a glance-at-your-phone view, not a write surface. The Sheet1 tab was retired in #136; the web Archive tab replaced it.
-```
+Line 216 (inside `<details>` advanced block): the sentence "Sheet1 is being retired (#136); the web Archive tab replaces it." → **delete this sentence**. The remaining sentence about the other Sheet tabs continuing until #14 stays.
 
-- [ ] **Step 2: Update `docs/troubleshooting.md`**
+- [ ] **Step 2: Update `docs/troubleshooting.md` — delete Sheet1 mentions**
 
-Line 111 (inside "Google Sheet isn't updating"):
-```
-Note: Sheet1 (the full archive tab) is being retired (#136) — use `/board/archive` in the web UI instead. The Dashboard / Applied / Review / Waitlist / Rejected Applications tabs continue until #14.
-```
-Rewrite:
-```
-Note: Sheet1 (the full archive tab) was retired in #136 — use `/board/archive` in the web UI. The Dashboard / Applied / Review / Waitlist / Rejected Applications tabs continue until #14.
-```
+Line 111 (inside "Google Sheet isn't updating"): the "Note: Sheet1 (the full archive tab) is being retired..." paragraph → **delete the entire note paragraph**. The preceding sync_sheet troubleshooting content stays.
 
-Line 170 — the Sheet1 alert row in the health-check table — **delete the entire row** (the alert no longer fires).
+Line 170 — the Sheet1 alert row in the health-check table → **delete the entire row**.
 
-- [ ] **Step 3: Verify internal refs are all past-tense or removed**
+- [ ] **Step 3: Verify no surviving Sheet1 references in user docs**
 
 ```bash
-grep -nE "Sheet1|being retired|will be retired" docs/usage.md docs/troubleshooting.md
+grep -nE "Sheet1|sheet1" docs/usage.md docs/troubleshooting.md docs/setup/README.md
 ```
 
-Expected: remaining matches say "was retired" or are historical context; no "is being retired" / "will be retired".
+Expected: zero matches.
 
 - [ ] **Step 4: Commit**
 
@@ -617,9 +586,8 @@ grep -rnE "Sheet1|sheet1|sync_sheet1|SHEET1_ROW_WARN" --include="*.py" --include
 
 Expected survivors:
 - `tests/test_notify_dejargon.py:30` — `"Sheet1"` in `USER_FACING_JARGON` (correct — still tests that this internal term stays out of user-facing strings)
-- `docs/google-sheets.md` — mentions inside the `<details>` historical block
 - `docs/superpowers/plans/2026-04-23-retire-sheet1.md` — this file
-- Possibly `CHANGELOG.md` — the entry just added
+- `CHANGELOG.md` — the entry just added
 
 Any other survivor = a reference the plan missed. Stop and fix it before proceeding.
 
