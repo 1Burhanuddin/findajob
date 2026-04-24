@@ -1,3 +1,7 @@
+---
+**Shipped in #22 on 2026-04-24. Final decisions captured in issue body.**
+---
+
 # OpenRouter Phase 1 Investigation — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -7,6 +11,10 @@
 **Architecture:** Pure investigation — no pipeline code changes. Each task produces a concrete finding captured in a scratch notebook file. The deliverable is a single structured comment appended to GitHub issue #22. Tests run on the laptop's `aichat-ng` (OpenRouter client already configured) against current production models; findings apply to the container because OR behavior is server-side.
 
 **Tech Stack:** `aichat-ng` (laptop install, OpenRouter client already configured), OpenRouter API (REST), direct Anthropic / Perplexity / Gemini clients (already configured in `~/.config/aichat_ng/config.yaml`) for baseline comparison, `curl` + `jq` + `python3` for catalog parsing, `gh issue comment` for publishing the verdict.
+
+## Issue
+
+#22 — closed 2026-04-24 with written verdict + per-role recommendation. Follow-up work tracked on the project board (search for "OpenRouter Phase 2" / "audit + prune" / "v4-flash" / "plaintext keys").
 
 ---
 
