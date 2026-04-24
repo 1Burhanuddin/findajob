@@ -187,7 +187,7 @@ Personal context for Claude Code sessions. Created from `CLAUDE.local.md.example
 Include:
 - Your name and a brief bio
 - Platform-specific tool paths (so Claude Code doesn't give you wrong commands)
-- Your ntfy topic and Google Form URL
+- Your ntfy topic and Google Form URL (legacy — Form retired in #62, URL kept for drain compatibility)
 - Any project-specific abbreviations that Claude might misinterpret
 - Your personal target company list
 
@@ -225,7 +225,7 @@ generate outreach drafts during prep.
 
 This repo is intended to be domain-agnostic and eventually public. A local pre-commit hook
 blocks accidental commits of personal identifiers (your name, employer history, ntfy topic,
-Google Form URL, etc.).
+Google Form URL (legacy — retired in #62), etc.).
 
 The hook lives at `.git/hooks/pre-commit` — **not tracked by git**, so each clone of the
 repo must install its own.
@@ -242,7 +242,7 @@ identifiers. Categories to add:
 - Email username (the part before `@`)
 - Phone number (if ever a risk of leaking)
 - Employer names from your career history
-- Personal service handles (ntfy topic, Google Form short URLs)
+- Personal service handles (ntfy topic, Google Form short URLs (legacy))
 - systemd unit label prefixes
 
 **Test:** Create a dummy file with one of your patterns, stage it, and attempt a commit.
