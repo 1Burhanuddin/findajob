@@ -153,6 +153,26 @@ A `## Depends on` body section, when present, is **human prose** explaining *why
 
 A `blockedBy` edge does **not** automatically move an issue to the Blocked column. Items move to Blocked only when actively stuck during In Progress.
 
+## Epics (umbrella issues)
+
+For thematic groupings spanning multiple issues, use **native GitHub sub-issue relationships**, not labels or milestones. The `Parent issue` / `Sub-issues progress` fields on the Projects board surface the hierarchy automatically.
+
+Convention:
+
+- Epic title prefix: `[Epic] <short theme>` — e.g. `[Epic] Cost observability: per-job tracking, dashboards, operator alerts`.
+- Epic body has a **one-sentence deliverable** — the same discipline as a milestone. If you can't write it, the epic doesn't exist yet.
+- Epic is `enhancement`-labeled, Medium priority by default. Children carry their own priorities.
+- Wire parent-child via `addSubIssue` mutation:
+  ```bash
+  PARENT=$(gh issue view <parent#> --repo brockamer/findajob --json id --jq '.id')
+  CHILD=$(gh issue view <child#> --repo brockamer/findajob --json id --jq '.id')
+  gh api graphql -f query='mutation($p: ID!, $c: ID!) { addSubIssue(input:{issueId:$p, subIssueId:$c}) { issue { number } } }' -F p="$PARENT" -F c="$CHILD"
+  ```
+- An epic may span milestones. A child may be in a different milestone than its epic parent (not recommended, but allowed — the epic is thematic, the milestone is temporal).
+- Epics can themselves close. Close when every child is closed and the deliverable sentence is true.
+
+Epics are *not* a replacement for milestones. Milestones are release boundaries ("what ships together by date X"); epics are thematic ("all the work related to Y, whenever it ships").
+
 ## Triage checklist — new issue
 
 When a new issue is filed (by the user, by Claude, or by auto-add):

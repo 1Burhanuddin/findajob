@@ -54,6 +54,8 @@ Append-only. Numbers are stable references. Amend an entry in place only for fac
 11. **Onboarding interview — Phase 4 prerequisite.** Hand-curating a second tester's candidate config is untenable; the interview is critical path to Phase 4.
 12. **v0.1.0 dogfood gate discipline:** during the 48h observation on `:latest`, any merge to `main` restarts the clock. Phase 3 + Phase 4 work happens on unmerged branches.
 13. **User-facing documentation — split planned.** The umbrella scope is too broad for one issue. Plan: three focused issues, each paired with the shipping work that makes the doc concrete — (a) day-1 Dashboard usage guide paired with Phase 4 tester deploy, (b) tuning guide paired with first feedback-calibration cycle, (c) troubleshooting guide paired with first real tester failure.
+14. **Post-GA milestone split (2026-04-24).** Post-GA Hardening grab-bag replaced with four dated release milestones (v1.1 / v1.2 / v1.3 / v1.4 — see "Post-GA horizon" below). Driven by a structural review: the single grab-bag milestone couldn't pass the one-sentence-deliverable test, and the Roadmap view showed no visible arc past GA. v1.4 (Funnel + Triage UX) precedes v1.2/v1.3 because active-operator triage friction is the binding constraint on the daily job-search loop.
+15. **Umbrella-epic convention (2026-04-24).** GitHub's native sub-issue field is the canonical parent-child relationship for grouping related work (example: #228 tuning loop → #229/#230/#231; #239 credentials hygiene → #67/#225; #240 cost observability → #48/#87). Epics are `enhancement`-labeled, Medium priority, and live on the board like any other issue — not labels, not milestones. Milestones are release boundaries; epics are thematic groupings that may span milestones.
 
 ### Scope out (explicit)
 
@@ -72,9 +74,14 @@ Append-only. Numbers are stable references. Amend an entry in place only for fac
 
 ## Post-GA horizon
 
-**[Post-GA Hardening](https://github.com/brockamer/findajob/milestone/5)** — no due date. Captures real work not required to close GA acceptance criteria: CI smoke wiring, cost tracking, folder audit tooling, integration tests, log rotation, DB migration system, scoreboard, and similar pipeline-quality items. Activates when GA closes.
+Post-GA Hardening was a single undated grab-bag milestone through 2026-04-24; a structural review that day split it into four dated release milestones so the Roadmap view renders past GA. Deliverable sentences are authoritative — if a proposed issue doesn't fit exactly one, it belongs in NO_MILESTONE (big-idea) or in a new milestone, not wedged into an existing one.
 
-When a new strategic milestone activates, add a `## Active milestone: <name>` section with the same shape (goal, acceptance, phase arc, decisions, scope-out). Move the outgoing milestone's section up to `## Shipped and retired milestones`.
+- **[v1.1 — Cost + Credentials Hardening](https://github.com/brockamer/findajob/milestone/6)** (due 2026-07-31) — "The user sees per-job and per-week LLM spend in-app, and no plaintext API key lives on disk." Anchored by umbrella epics #239 (credentials hygiene) and #240 (cost observability).
+- **[v1.4 — Funnel + Triage UX](https://github.com/brockamer/findajob/milestone/9)** (due 2026-08-31) — "The operator's daily triage loop (Dashboard, Waitlist, Archive, manual JD ingest) makes every candidate row actionable in one click, with prior-application context inline." Scheduled ahead of v1.2/v1.3 because funnel/UX friction is the active-operator pain.
+- **[v1.2 — Tuning Loop + Stats](https://github.com/brockamer/findajob/milestone/7)** (due 2026-09-30) — "The pipeline recommends scorer tunes from user-behavior metrics, and /stats/* dashboards show precision, outcome, recall, and cost trends over time." Anchored by epic #228 (data-driven tuning loop) with C.0/C.1/C.2 children.
+- **[v1.3 — Ops Hardening](https://github.com/brockamer/findajob/milestone/8)** (due 2026-10-31) — "Fresh-install smoke is CI-gated, pipeline.jsonl rotates, DB schema migrates cleanly, and folder/DB drift is detectable on demand." Can ship in parallel with v1.2; date is outside-in.
+
+When a new strategic milestone activates (e.g., v1.1 after GA closes), add a `## Active milestone: <name>` section with the same shape (goal, acceptance, phase arc, decisions, scope-out). Move the outgoing milestone's section up to `## Shipped and retired milestones`.
 
 ---
 
