@@ -1,10 +1,8 @@
 # Operations
 
-> **Docker users:** This document describes the native-install workflow.
-> Prefix pipeline commands with `docker compose exec scheduler` to run them
-> inside a Compose stack (e.g., `docker compose exec scheduler python3 scripts/triage.py`).
-> Docker-specific rewrite tracked in #76.
->
+> **New to findajob?** Start at [`usage.md`](usage.md). This page is the operator reference for running the stack by hand — triage, sync, prep, notifications — from a shell. Full Docker-specific rewrite tracked in #76.
+
+Prefix every pipeline command below with `docker compose exec scheduler` to run it inside a Compose stack (e.g., `docker compose exec scheduler python3 scripts/triage.py`).
 
 Day-to-day use of the pipeline.
 
@@ -52,7 +50,11 @@ Or use `manual_prep.py` with a text file:
 python3 scripts/manual_prep.py
 ```
 
-### Inject a job manually (bypasses Google Form)
+### Inject a job manually
+
+Preferred: use the `/ingest/` web form at `http://<your-host>:${FINDAJOB_MATERIALS_PORT}/ingest/` to paste a URL + JD. The old Google Form + `ingest_form.py` path is retired (#62); the script remains in the image only to drain Form stragglers from pre-v0.2.0 installs.
+
+CLI fallback (same underlying code path as the web form):
 ```bash
 python3 scripts/manual_prep.py /path/to/job.txt
 ```
