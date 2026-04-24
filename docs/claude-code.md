@@ -18,7 +18,7 @@ At the bottom of `CLAUDE.md` is:
 @CLAUDE.local.md
 ```
 
-This directive causes Claude Code to also load `CLAUDE.local.md` (gitignored), which contains your personal identifiers: name, target companies, ntfy topic, platform-specific paths, Google Form URL.
+This directive causes Claude Code to also load `CLAUDE.local.md` (gitignored), which contains your personal identifiers: name, target companies, ntfy topic, platform-specific paths, Google Form URL (legacy — Form retired in #62).
 
 This split means the public repo's `CLAUDE.md` is fully generic, while your session still has full context.
 
@@ -60,7 +60,7 @@ Claude Code is NOT used to:
 `CLAUDE.local.md` should be updated when:
 - Your target company list changes
 - You migrate to a new machine (update binary paths if they differ)
-- Your ntfy topic or Google Form URL changes
+- Your ntfy topic or Google Form URL (legacy) changes
 
 ---
 
