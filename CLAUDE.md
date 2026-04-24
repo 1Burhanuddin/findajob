@@ -147,9 +147,10 @@ When the pipeline runs inside the `ghcr.io/brockamer/findajob` image, paths shif
 <repo>/src/findajob/web/routes/onboarding.py # GET /onboarding/, GET /onboarding/prompt, POST /onboarding/inject (#148)
 <repo>/src/findajob/onboarding/parser.py    # parse interview emission into files to inject (#148)
 <repo>/src/findajob/onboarding/injector.py  # atomic write + backup + Tier-1 derivation + sentinel (#148)
-<repo>/src/findajob/web/routes.py            # /healthz, /folders/<stage>/<name>/*, /files/* routes
-<repo>/src/findajob/web/folder_resolver.py   # resolves stage→filesystem path, path-traversal guards
-<repo>/src/findajob/web/templates/           # Jinja2 templates (index.html, folder.html, viewer.html)
+<repo>/src/findajob/web/routes/healthz.py    # GET /healthz
+<repo>/src/findajob/web/routes/materials.py  # GET /materials/ — candidate materials viewer (uses folder_resolver)
+<repo>/src/findajob/web/folder_resolver.py   # stage→filesystem resolver with path-traversal guards
+<repo>/src/findajob/web/templates/           # Jinja2 templates — base.html + one subdir per route group + shared _*.html partials
 
 # ── Entry point scripts (called by systemd / CLI) ──────────────────────────
 <repo>/scripts/triage.py                    # daily ingest → score → DB
@@ -192,7 +193,7 @@ When the pipeline runs inside the `ghcr.io/brockamer/findajob` image, paths shif
 
 # ── Quality ─────────────────────────────────────────────────────────────────
 <repo>/pyproject.toml                       # deps, pytest, ruff, mypy config
-<repo>/tests/                               # 430 unit tests (pytest)
+<repo>/tests/                               # ~900 unit tests (pytest)
 <repo>/.github/workflows/ci.yml            # CI: ruff + mypy + pytest on every push
 ```
 
