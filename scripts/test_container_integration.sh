@@ -240,10 +240,10 @@ echo "  pipeline_complete.scored = $JSONL_SCORED"
 # 9. Assert sync_sheet ran and wrote at least one row to the smoke sheet
 # ────────────────────────────────────────────────────────────────────────────
 
-echo "[assert] sync_complete event with sheet1 >= 1 or dashboard >= 1"
+echo "[assert] sync_complete event with dashboard >= 1"
 SYNC_ROWS=$($EXEC python3 -c "
 import json, sys
-sheet1 = dashboard = 0
+dashboard = 0
 try:
     with open('/app/logs/pipeline.jsonl') as fh:
         for line in fh:
@@ -252,20 +252,19 @@ try:
             except Exception:
                 continue
             if ev.get('event') == 'sync_complete':
-                sheet1 = max(sheet1, int(ev.get('sheet1', 0) or 0))
                 dashboard = max(dashboard, int(ev.get('dashboard', 0) or 0))
 except FileNotFoundError:
     print('ERROR: /app/logs/pipeline.jsonl not found', file=sys.stderr)
     sys.exit(1)
-print(max(sheet1, dashboard))
+print(dashboard)
 ") || { echo "ERROR: sync_complete check failed" >&2; exit 1; }
 
 if [ -z "$SYNC_ROWS" ] || [ "$SYNC_ROWS" -lt 1 ]; then
-    echo "ERROR: sync_complete event missing or sheet1/dashboard = 0 (expected >= 1)" >&2
+    echo "ERROR: sync_complete event missing or dashboard = 0 (expected >= 1)" >&2
     echo "  sync_sheet.py may have crashed — check /app/logs/pipeline.jsonl for sync_failed events" >&2
     exit 1
 fi
-echo "  sync_complete: max(sheet1, dashboard) = $SYNC_ROWS"
+echo "  sync_complete: dashboard = $SYNC_ROWS"
 
 # ────────────────────────────────────────────────────────────────────────────
 # 11. Assert jobs table has rows in stage scored or manual_review
