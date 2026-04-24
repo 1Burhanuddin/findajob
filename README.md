@@ -104,7 +104,7 @@ curl -fsSL -o .env         https://raw.githubusercontent.com/brockamer/findajob/
 docker compose up -d
 ```
 
-Full walkthrough → [`docs/setup/install-docker.md`](docs/setup/install-docker.md). Native-host install still supported → [`docs/setup/install-linux.md`](docs/setup/install-linux.md).
+Full walkthrough → [`docs/setup/install-docker.md`](docs/setup/install-docker.md) (or start at [`docs/setup/README.md`](docs/setup/README.md) for the guided sequence). Native-host install remains as a legacy fallback → [`docs/setup/install-linux.md`](docs/setup/install-linux.md).
 
 ---
 
@@ -112,13 +112,16 @@ Full walkthrough → [`docs/setup/install-docker.md`](docs/setup/install-docker.
 
 | Doc | Contents |
 |---|---|
+| [docs/setup/README.md](docs/setup/README.md) | **Setup — start here** |
+| [docs/usage.md](docs/usage.md) | Daily workflow: web UI tab by tab |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom index + log reading + health alerts |
 | [docs/architecture.md](docs/architecture.md) | System design, data flow, component map |
 | [docs/setup/prerequisites.md](docs/setup/prerequisites.md) | API keys, accounts, tools you need |
 | [docs/setup/install-docker.md](docs/setup/install-docker.md) | **Docker Compose setup (recommended)** |
-| [docs/setup/install-linux.md](docs/setup/install-linux.md) | Native fallback (Ubuntu + systemd) |
+| [docs/setup/install-linux.md](docs/setup/install-linux.md) | Legacy native install (Ubuntu + systemd — Docker is the supported path) |
 | [docs/setup/configure.md](docs/setup/configure.md) | Profile, resume, search queries, API keys |
 | [docs/setup/state-migration.md](docs/setup/state-migration.md) | Moving an existing pipeline to a new host |
-| [docs/operations.md](docs/operations.md) | Day-to-day use, monitoring, common tasks |
+| [docs/operations.md](docs/operations.md) | Operator reference: manual commands, monitoring |
 | [docs/notifications.md](docs/notifications.md) | ntfy.sh setup and notification schedule |
 | [docs/GENERALIZATION.md](docs/GENERALIZATION.md) | Making the pipeline work for non-tech fields |
 | [docs/claude-code.md](docs/claude-code.md) | Using Claude Code as a pipeline operator |
