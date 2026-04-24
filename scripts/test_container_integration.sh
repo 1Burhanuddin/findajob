@@ -133,6 +133,11 @@ cp "$FIXTURES/smoke_companies_of_interest.txt" "$SCRATCH/state/config/companies_
 # Empty feed_urls.txt — smoke test drives jobs via RapidAPI queries only
 : > "$SCRATCH/state/config/feed_urls.txt"
 
+# Pre-mark onboarding complete (#148) so /board/, /materials/, /stats/ don't
+# 307-redirect to /onboarding/. The smoke seeds all seven config files by hand
+# above; the interview-driven onboarding path is tested elsewhere.
+: > "$SCRATCH/state/data/.onboarding-complete"
+
 # ────────────────────────────────────────────────────────────────────────────
 # 5. Write compose.yaml — mirrors ops/compose.yaml.example, overrides image
 # ────────────────────────────────────────────────────────────────────────────
