@@ -1,3 +1,7 @@
+---
+**Shipped in #273, #273 on 2026-04-25. Final decisions captured in issue body.**
+---
+
 # Board Filter+Sort Framework Design
 
 **Date:** 2026-04-25

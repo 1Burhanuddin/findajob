@@ -1,3 +1,7 @@
+---
+**Shipped in #250 on 2026-04-25. Final decisions captured in issue body.**
+---
+
 # OpenRouter Phase 2 — cutover 10 roles + Opus 4.7 upgrade — design
 
 **Issue:** #250
