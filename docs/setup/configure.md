@@ -254,3 +254,27 @@ it defeats the whole purpose.
 
 See also `docs/GENERALIZATION.md` for the broader tracking of domain-specific content that
 should not land in tracked files.
+
+## Rotating API keys on a deployed stack
+
+With Phase 2 of the OpenRouter cutover, 10 of 11 roles depend on
+`OPENROUTER_API_KEY`. Rotating it cleanly on a running stack:
+
+1. Generate a new key in the OpenRouter dashboard and note both the
+   old and new values.
+2. Edit your stack's env file (`/opt/stacks/findajob-<you>/state/data/.env`
+   or wherever you keep credentials — check your compose file's
+   `env_file:` directive) and replace the `OPENROUTER_API_KEY=…` line.
+3. Recreate the container so aichat-ng picks up the new value:
+   `docker compose up -d --force-recreate` from the stack directory.
+4. Verify with a smoke call: `docker compose exec scheduler aichat-ng --model openrouter:google/gemini-3-flash-preview "say hello"`.
+   If the call succeeds, revoke the old key in the OpenRouter dashboard.
+
+`GOOGLE_API_KEY` remains live after Phase 2 — it still powers the
+Gemini embedding client (`gemini-embed:gemini-embedding-001`) that
+the RAG index uses. Rotate it the same way. `ANTHROPIC_API_KEY` and
+`PERPLEXITY_API_KEY` are still declared in the aichat-ng config but
+no live role routes to them after the cutover; they are retirement
+candidates rather than fallbacks. Keep rotations staggered — don't
+revoke the old key until the new one has served at least one live
+pipeline run without error.
