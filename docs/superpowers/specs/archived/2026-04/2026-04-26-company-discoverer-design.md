@@ -1,3 +1,7 @@
+---
+**Shipped in #284 on 2026-04-26. Final decisions captured in issue body.**
+---
+
 # Dynamic Company Discoverer — Design Spec
 
 **Date:** 2026-04-26
