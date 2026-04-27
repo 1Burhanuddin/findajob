@@ -2,11 +2,11 @@
 
 Self-hosted infrastructure for a sane job search.
 
-The modern job search grinds people down — hundreds of listings per day, most irrelevant; the same cover letter rewritten at midnight; no memory of which companies went silent weeks ago; no signal about whether the rejections mean "wrong skill," "wrong level," or "wrong field." Burnout is the default. findajob absorbs the triage, the tailoring, and the tracking so your attention goes to the few applications actually worth sending.
+The modern job search grinds people down — hundreds of listings per day, most irrelevant; the same cover letter rewritten at midnight; no memory of which companies went silent weeks ago; no signal about whether the rejections mean "wrong skill," "wrong level," or "wrong field."
+
+Burnout is the default. findajob absorbs the triage, the tailoring, and the tracking so your attention goes to the few applications actually worth sending. It's a pre-1.0 personal project — used daily by one operator and one beta tester, not a polished product yet.
 
 LinkedIn, Indeed, Greenhouse, and Gmail flow in; a local LLM filters out the noise; a web UI lets you triage, prep, and track. Runs as a Docker container on any Linux host. ~$0.50–2/day in API usage.
-
-> **Status:** Pre-1.0. Used daily by the operator; one external beta tester onboarded. General availability (a second non-technical user running their own instance end-to-end) is the next milestone.
 
 ---
 
@@ -31,6 +31,30 @@ Interview  ▓▓░░░░░░░░░░░░░░░░░░░░░
 ```
 
 11,551 listings narrowed to 44 applications — triage cuts the noise so attention goes to the few worth sending. The reject-with-reason flow (265 rejected with feedback, 39 waitlisted in the same 30 days) feeds back into the scorer so its cuts keep improving. Prep is LLM-assisted but user-gated: you never apply to a job the system chose for you.
+
+---
+
+## Is this for you?
+
+- **If your search feels like 11pm cover letters, spreadsheet sprawl, and bot-rejection silence** — this is built for exactly that.
+- **If you want polished consumer SaaS** — not yet. It's self-hosted, rough at the edges, opinionated, and used daily by the operator.
+- **If you're technical and want to read the code** — see [docs/architecture.md](docs/architecture.md).
+
+---
+
+## Roadmap
+
+Live status of every issue and milestone is on the **[project board](https://github.com/users/brockamer/projects/1)** — issues move through Backlog → Up Next → In Progress → Done as work happens. The summary below is a snapshot.
+
+| Milestone | What it means | Status | Target |
+|---|---|---|---|
+| **General Availability** | A second non-technical user runs their own instance end-to-end. Config layer fully externalized, user docs written, onboarding flow exists. | 35 closed / 13 open | 2026-05-31 |
+| **v1.1 — Cost + Credentials Hardening** | You see per-job and per-week LLM spend in-app, and no plaintext API key lives on disk. | 0 closed / 7 open | 2026-07-30 |
+| **v1.2 — Tuning Loop + Stats** | The pipeline recommends scorer tunes from your behavior, and `/stats/*` dashboards show precision, outcome, recall, and cost trends over time. | 0 closed / 19 open | 2026-09-29 |
+| **v1.3 — Ops Hardening** | Fresh-install smoke is CI-gated, log rotation works, DB migrates cleanly across versions. | 1 closed / 10 open | 2026-10-30 |
+| **v1.4 — Funnel + Triage UX** | Every candidate row in the daily triage loop is actionable in one click, with prior-application context inline. | 7 closed / 13 open | 2026-08-30 |
+
+*Counts above are approximate snapshots — for the live state, follow the [project board](https://github.com/users/brockamer/projects/1).*
 
 ---
 
@@ -62,10 +86,10 @@ Interview  ▓▓░░░░░░░░░░░░░░░░░░░░░
 
 ## What you get out of it
 
-- **One surface, every view.** Dashboard, Applied, Waitlist, Review, Rejected, Archive — each is a filtered view of the same SQLite table. Sorting, filtering, and density toggles are URL query params, so any view is bookmarkable.
-- **Materials live with the pipeline.** Generated folders stay on your Docker host; the web UI renders Markdown inline and serves `.docx` downloads.
-- **Feedback loop, not a black box.** Every rejection is a labeled training example for tomorrow's scorer. Every manual-review flag tells you which parts of your profile are ambiguous to the LLM.
-- **Domain-neutral.** The pipeline was built by a data center ops candidate but is designed to generalize — a social worker, teacher, or accountant profile slots in the same way. See [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md) for the current state of that work.
+- **No more switching between Linear, Notion, Gmail, and three browser tabs.** Dashboard, Applied, Waitlist, Review, Rejected, Archive are all filtered views of the same SQLite table. Sort, filter, density toggles are URL query params — any view is bookmarkable and shareable.
+- **Your tailored resumes and cover letters stay yours.** Generated folders sit on your Docker host as plain `.docx` and `.md` files; the web UI renders Markdown inline and serves the docs as downloads. Nothing is locked behind a vendor login.
+- **When you reject a job, you tell it why — and tomorrow's scorer remembers.** Every rejection is a labeled training example. Every manual-review flag points at the part of your profile the LLM found ambiguous, so you know exactly where to tune.
+- **Built by a data center ops candidate; designed to work for a social worker, teacher, accountant, or trades professional too.** Same pipeline, same setup — only `profile.md` changes. See [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md) for the state of the field-agnostic work.
 - **Your data stays local.** SQLite on your Docker host. The only outbound calls are to the LLM providers you've configured; the repo contains zero personal data.
 
 ---
@@ -110,21 +134,33 @@ Full walkthrough → [`docs/setup/install-docker.md`](docs/setup/install-docker.
 
 ## Documentation
 
+Start here:
+
+- **[Setup](docs/setup/README.md)** — guided sequence for getting your stack running
+- **[Daily workflow](docs/usage.md)** — what to do each day, tab by tab in the web UI
+- **[Troubleshooting](docs/troubleshooting.md)** — symptom index, log reading, health alerts
+- **[Architecture](docs/architecture.md)** — system design, data flow, component map (for operators who want to read the code)
+
+<details>
+<summary>All documentation (click to expand)</summary>
+
 | Doc | Contents |
 |---|---|
-| [docs/setup/README.md](docs/setup/README.md) | **Setup — start here** |
+| [docs/setup/README.md](docs/setup/README.md) | Setup — start here |
 | [docs/usage.md](docs/usage.md) | Daily workflow: web UI tab by tab |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom index + log reading + health alerts |
 | [docs/architecture.md](docs/architecture.md) | System design, data flow, component map |
 | [docs/setup/prerequisites.md](docs/setup/prerequisites.md) | API keys, accounts, tools you need |
-| [docs/setup/install-docker.md](docs/setup/install-docker.md) | **Docker Compose setup (recommended)** |
-| [docs/setup/install-linux.md](docs/setup/install-linux.md) | Legacy native install (Ubuntu + systemd — Docker is the supported path) |
+| [docs/setup/install-docker.md](docs/setup/install-docker.md) | Docker Compose setup (recommended) |
+| [docs/setup/install-linux.md](docs/setup/install-linux.md) | Legacy native install (Ubuntu + systemd) |
 | [docs/setup/configure.md](docs/setup/configure.md) | Profile, resume, search queries, API keys |
 | [docs/setup/state-migration.md](docs/setup/state-migration.md) | Moving an existing pipeline to a new host |
 | [docs/operations.md](docs/operations.md) | Operator reference: manual commands, monitoring |
 | [docs/notifications.md](docs/notifications.md) | ntfy.sh setup and notification schedule |
 | [docs/GENERALIZATION.md](docs/GENERALIZATION.md) | Making the pipeline work for non-tech fields |
 | [docs/claude-code.md](docs/claude-code.md) | Using Claude Code as a pipeline operator |
+
+</details>
 
 ---
 
@@ -146,6 +182,17 @@ Total: ~$0.50/day when triaging only; ~$5–15 on days you prep a few applicatio
 ## Privacy
 
 The repository contains no personal data. All candidate content (resume, profile, writing samples, search queries, API keys) lives in gitignored paths populated from `.example` templates. See [`docs/claude-code.md`](docs/claude-code.md) for how to keep personal context out of Claude Code sessions touching this repo.
+
+---
+
+## Stay in touch / contribute
+
+- **[Project board](https://github.com/users/brockamer/projects/1)** — what's being worked on, what's blocked, what's on the roadmap. The single source of truth for active work.
+- **[Issues](https://github.com/brockamer/findajob/issues)** — file a bug, request a feature, or browse the open ones. New issues land in the board's Backlog and get triaged with a Priority field.
+- **In-app feedback widget** — if you're running an instance, the floating "Feedback" button on every page files a GitHub issue directly from the web UI (configure with a fine-grained PAT per `docs/setup/configure.md`).
+- **[Discussions](https://github.com/brockamer/findajob/discussions)** — for "how do I..." or "have you considered..." threads that aren't bug reports yet.
+
+This is a personal project, but contributions are welcome. The code is opinionated, the docs are written for an external reader trying it for the first time, and the pre-commit hook will block any PII you accidentally try to commit.
 
 ---
 
