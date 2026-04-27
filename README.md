@@ -51,7 +51,7 @@ Live status of every issue and milestone is on the **[project board](https://git
 | **General Availability** | A second non-technical user runs their own instance end-to-end. Config layer fully externalized, user docs written, onboarding flow exists. | 35 closed / 13 open | 2026-05-31 |
 | **v1.1 — Cost + Credentials Hardening** | You see per-job and per-week LLM spend in-app, and no plaintext API key lives on disk. | 0 closed / 7 open | 2026-07-30 |
 | **v1.2 — Tuning Loop + Stats** | The pipeline recommends scorer tunes from your behavior, and `/stats/*` dashboards show precision, outcome, recall, and cost trends over time. | 0 closed / 19 open | 2026-09-29 |
-| **v1.3 — Ops Hardening** | Fresh-install smoke is CI-gated, log rotation works, DB migrates cleanly across versions. | 1 closed / 10 open | 2026-10-30 |
+| **v1.3 — Ops Hardening** | Fresh-install smoke is CI-gated, log rotation works, DB migrates cleanly across versions. | 1 closed / 12 open | 2026-10-30 |
 | **v1.4 — Funnel + Triage UX** | Every candidate row in the daily triage loop is actionable in one click, with prior-application context inline. | 7 closed / 13 open | 2026-08-30 |
 
 *Counts above are approximate snapshots — for the live state, follow the [project board](https://github.com/users/brockamer/projects/1).*
