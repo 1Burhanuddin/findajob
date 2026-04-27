@@ -1,5 +1,8 @@
 # Scorer Role-Shape Mismatch Reduction — Implementation Plan
 
+## Issue(s)
+- #276 — Penalize role-shape mismatches (seniority, IC-vs-manager) against profile
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Reduce false-positive rate in the scorer's 5–6 band by ≥60% on the operator's hand-graded pool, without dropping any previously-applied job below the apply threshold (≥7) or any operator-marked legit-shape sample below 6.

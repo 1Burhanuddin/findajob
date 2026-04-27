@@ -1,7 +1,9 @@
 # Scorer Role-Shape Mismatch Reduction — Design Spec
 
+## Issue(s)
+- #276 — Penalize role-shape mismatches (seniority, IC-vs-manager) against profile
+
 **Date:** 2026-04-25
-**Issue:** #276 (`feat(scorer): penalize role-shape mismatches (seniority, IC-vs-manager) against profile`)
 **Status:** Design approved via brainstorming session; ready for implementation-plan pass
 **Related work:** #65 (prior scorer prompt neutralization), #84 (excluded_employers — same locus-split pattern), #150 (future guided tuning UI), #228 (data-driven tuning loop)
 

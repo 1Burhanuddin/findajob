@@ -1,5 +1,8 @@
 # Metric Layer C.0 — Implementation Plan
 
+## Issue(s)
+- #229 — Metric Layer C.0: schema + cost instrumentation + config-drift detector
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship the schema, instrumentation, and config-change detection prerequisites that make the Metric Layer view layer (C.1) possible — no user-visible UI shipped in this phase.

@@ -1,7 +1,12 @@
 # Metric Layer — Design Spec
 
+## Issue(s)
+- #229 — C.0: schema + cost instrumentation + config-drift detector (in-flight via plan `2026-04-24-metric-layer-c0.md`)
+- #230 — C.1: view-layer dashboards (depends on #229)
+- #231 — C.2: stratified analysis surfaces (depends on #230)
+
 **Date:** 2026-04-24
-**Parent epic:** Data-driven tuning loop (to be filed on brainstorm completion)
+**Parent epic:** #228 — Data-driven tuning loop (subsystem C of A–H decomposition)
 **Subsystem:** C — Metric Layer (read-only measurement foundation)
 **Status:** Design approved via brainstorming session; ready for implementation-plan pass
 

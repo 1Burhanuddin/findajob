@@ -1,7 +1,7 @@
 # User-Facing Documentation — Design Spec
 
 ## Issue(s)
-#11 — Write user-facing documentation (setup, usage, tuning, troubleshooting)
+- #11 — Write user-facing documentation (setup, usage, tuning, troubleshooting)
 
 **Date:** 2026-04-21 (updated 2026-04-23 — scope split)
 **Status:** Partially executable. Three files (`setup/README.md`, `usage.md`, `troubleshooting.md`) now in scope of #11, blockers cleared. `tuning.md` carved out to #219, still blocked on #65 and #84. Original blocker list (#61, #149, #148) shipped; #136 does not block the remaining three files because Sheet1 was already out-of-scope per decision #3.

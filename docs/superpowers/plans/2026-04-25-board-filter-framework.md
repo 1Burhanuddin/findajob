@@ -1,5 +1,8 @@
 # Board Filter+Sort Framework Implementation Plan
 
+## Issue(s)
+- #273 — Per-column filter + sort framework for all board tabs (column-visibility persistence deferred to #277)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a generic per-column filter+sort framework on `findajob.web.filters` that powers all 6 board tabs (dashboard, applied, review, waitlist, rejected, archive) — replacing today's hand-coded one-off WHERE clauses and single `?q=` text input with type-aware filters (TEXT / SCORE / INTEGER / ENUM / DATE), sort that's independent of filter, URL-querystring state with `hx-push-url`, and a per-tab Copy-link button.
