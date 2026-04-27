@@ -54,14 +54,9 @@ _REJECT_REASON_VALUES = (
 # ─── Dashboard ────────────────────────────────────────────────────────────────
 DASHBOARD_COLUMNS: tuple[ColumnSpec, ...] = (
     ColumnSpec(name="relevance_score", label="Rel", kind=Kind.SCORE),
-    ColumnSpec(name="fit_score", label="Fit", kind=Kind.SCORE),
-    ColumnSpec(
-        name="probability_score",
-        label="Prob",
-        kind=Kind.SCORE,
-        default_visible=False,
-    ),
     ColumnSpec(name="interview_likelihood", label="Likelihood", kind=Kind.SCORE),
+    ColumnSpec(name="fit_score", label="Fit", kind=Kind.SCORE),
+    ColumnSpec(name="probability_score", label="Prob", kind=Kind.SCORE),
     ColumnSpec(name="title", label="Title", kind=Kind.TEXT),
     ColumnSpec(name="company", label="Company", kind=Kind.TEXT),
     ColumnSpec(
@@ -185,19 +180,18 @@ WAITLIST_COLUMNS: tuple[ColumnSpec, ...] = (
         kind=Kind.SCORE,
         db_expr="w.relevance_score",
     ),
+    ColumnSpec(
+        name="interview_likelihood",
+        label="Likelihood",
+        kind=Kind.SCORE,
+        db_expr="w.interview_likelihood",
+    ),
     ColumnSpec(name="fit_score", label="Fit", kind=Kind.SCORE, db_expr="w.fit_score"),
     ColumnSpec(
         name="probability_score",
         label="Prob",
         kind=Kind.SCORE,
         db_expr="w.probability_score",
-        default_visible=False,
-    ),
-    ColumnSpec(
-        name="interview_likelihood",
-        label="Likelihood",
-        kind=Kind.SCORE,
-        db_expr="w.interview_likelihood",
     ),
     ColumnSpec(name="location", label="Location", kind=Kind.TEXT, db_expr="w.location"),
     ColumnSpec(

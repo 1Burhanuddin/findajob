@@ -100,10 +100,13 @@ def test_dashboard_visibility_defaults() -> None:
     visible = {s.name for s in registry.DASHBOARD_COLUMNS if s.default_visible}
     hidden = {s.name for s in registry.DASHBOARD_COLUMNS if not s.default_visible}
 
-    # AI notes + Likelihood visible, Prob hidden, Stage hidden — per spec.
+    # All four score columns visible by default per #302 (Rel, Likelihood, Fit, Prob).
+    # AI notes also visible; Stage hidden.
     assert "ai_notes" in visible
+    assert "relevance_score" in visible
     assert "interview_likelihood" in visible
-    assert "probability_score" in hidden
+    assert "fit_score" in visible
+    assert "probability_score" in visible
     assert "stage" in hidden
 
 
