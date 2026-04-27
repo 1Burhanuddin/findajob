@@ -12,6 +12,8 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ### Fixed
 
+- **probability_score column visible by default + canonical score-column order on Dashboard and Waitlist (#302).** The `probability_score` column had `default_visible=False` in the per-column filter framework's registry (`src/findajob/web/filters/registry.py`), so the operator never saw the briefing-derived probability average on triage views. The column declarations also had `interview_likelihood` after `probability_score`, so even when toggled on via `?cols=`, the rendered order didn't match expectations. Both fixed: `probability_score` is now `default_visible=True`, and the four score columns now render in the canonical order `relevance_score → interview_likelihood → fit_score → probability_score` — putting compositional/relative signals on the left and derived briefing scores on the right. Two parametrized regression tests in `tests/test_filter_score_columns.py` pin both invariants for every tab declaring all four scores.
+
 - **Archive tab no longer shifts horizontally relative to other board tabs (#280).** Root cause: the `html` element didn't reserve the vertical-scrollbar gutter, so tabs whose content overflowed vertically (Archive with thousands of historical jobs) rendered ~15px narrower than tabs that fit on screen (Dashboard with a handful of pre-application rows). Switching between them via hx-boost made the content area "shift right" because the scrollbar appeared on Archive but not on Dashboard. Fix: one CSS rule, `html { scrollbar-gutter: stable; }`, in `static/app.css`. Reserves the gutter on every page regardless of content height; layout is now consistent across all six board tabs and all other routes that extend `base.html`.
 
 ### Added
