@@ -16,21 +16,23 @@ The pipeline narrows the funnel at every step where a human would otherwise wast
 
 | Stage (30 days) | Count | Pass rate |
 |---|---:|---:|
-| Listings ingested | **11,551** | — |
-| Scored ≥7 (surfaced to operator) | 318 | 2.8% of ingested |
-| Prepped (resume + cover letter + briefing) | 139 | 44% of surfaced |
-| Applications sent | **44** | 32% of prepped |
-| Interviews | 3 | 7% of applied |
+| Listings ingested | **12,565** | — |
+| Scored ≥7 (surfaced to operator) | 388 | 3.1% of ingested |
+| Prepped (resume + cover letter + briefing) | 157 | 40% of surfaced |
+| Applications sent | **58** | 37% of prepped |
+| Interviews (lifetime) | 5 | 9% of applied |
 
 ```
 Pass rate at each step:
-Surfaced   ▓░░░░░░░░░░░░░░░░░░░░░░░░   2.8%   ← LLM triage does the heaviest cut
-Prepped    ▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░   44%
-Applied    ▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░   32%
-Interview  ▓▓░░░░░░░░░░░░░░░░░░░░░░░   7%
+Surfaced   ▓░░░░░░░░░░░░░░░░░░░░░░░░   3.1%   ← LLM triage does the heaviest cut
+Prepped    ▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░   40%
+Applied    ▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░   37%
+Interview  ▓▓░░░░░░░░░░░░░░░░░░░░░░░   9%
 ```
 
-11,551 listings narrowed to 44 applications — triage cuts the noise so attention goes to the few worth sending. The reject-with-reason flow (265 rejected with feedback, 39 waitlisted in the same 30 days) feeds back into the scorer so its cuts keep improving. Prep is LLM-assisted but user-gated: you never apply to a job the system chose for you.
+12,565 listings narrowed to 58 applications — triage cuts the noise so attention goes to the few worth sending. The reject-with-reason flow (448 rejected with feedback, 40 waitlisted in the same 30 days) feeds back into the scorer so its cuts keep improving. Prep is LLM-assisted but user-gated: you never apply to a job the system chose for you.
+
+*The Interviews row counts every job that has ever advanced to an interview stage on this instance — the count doesn't decrement if a process later ends in withdrawal, a pass, or a not-selected outcome. Every other row is a 30-day window.*
 
 ---
 
