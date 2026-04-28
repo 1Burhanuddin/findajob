@@ -19,6 +19,9 @@ if "jobs" in _existing_tables:
     if "loose_fingerprint" not in _jobs_cols:
         conn.execute("ALTER TABLE jobs ADD COLUMN loose_fingerprint TEXT")
         conn.commit()
+    if "synthetic" not in _jobs_cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN synthetic INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
 
 conn.executescript("""
 CREATE TABLE IF NOT EXISTS jobs (
@@ -64,7 +67,8 @@ CREATE TABLE IF NOT EXISTS jobs (
 
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
-    dupe_of TEXT DEFAULT ''
+    dupe_of TEXT DEFAULT '',
+    synthetic INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_fingerprint ON jobs(fingerprint);
@@ -116,6 +120,29 @@ CREATE TABLE IF NOT EXISTS duplicate_groups (
     detected_at TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (canonical_fingerprint, duplicate_job_id)
 );
+
+CREATE TABLE IF NOT EXISTS speculative_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company TEXT NOT NULL,
+    hint TEXT,
+    personal_notes TEXT,
+    status TEXT NOT NULL DEFAULT 'researching' CHECK(status IN (
+        'researching', 'ready_for_review', 'approved', 'trashed', 'failed'
+    )),
+    error_message TEXT,
+    briefing_md TEXT,
+    role_cards_json TEXT,
+    briefing_folder TEXT,
+    submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
+    research_completed_at TEXT,
+    approved_at TEXT,
+    approved_role_count INTEGER,
+    briefing_prompt_version TEXT,
+    synth_prompt_version TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_speculative_status ON speculative_requests(status);
+CREATE INDEX IF NOT EXISTS idx_speculative_company_submitted ON speculative_requests(company, submitted_at);
 """)
 conn.close()
 print("Database initialized:", DB_PATH)
