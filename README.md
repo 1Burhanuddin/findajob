@@ -32,7 +32,6 @@ Interview  ▓▓░░░░░░░░░░░░░░░░░░░░░
 
 12,565 listings narrowed to 58 applications — triage cuts the noise so attention goes to the few worth sending. The reject-with-reason flow (448 rejected with feedback, 40 waitlisted in the same 30 days) feeds back into the scorer so its cuts keep improving. Prep is LLM-assisted but user-gated: you never apply to a job the system chose for you.
 
-*The Interviews row counts every job that has ever advanced to an interview stage on this instance — the count doesn't decrement if a process later ends in withdrawal, a pass, or a not-selected outcome. Every other row is a 30-day window.*
 
 ---
 
