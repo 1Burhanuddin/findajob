@@ -16,21 +16,21 @@ The pipeline narrows the funnel at every step where a human would otherwise wast
 
 | Stage (30 days) | Count | Pass rate |
 |---|---:|---:|
-| Listings ingested | **12,565** | — |
-| Scored ≥7 (surfaced to operator) | 388 | 3.1% of ingested |
-| Prepped (resume + cover letter + briefing) | 157 | 40% of surfaced |
-| Applications sent | **58** | 37% of prepped |
-| Interviews (lifetime) | 5 | 9% of applied |
+| Listings ingested | **12,824** | — |
+| Scored ≥7 (surfaced to operator) | 393 | 3.1% of ingested |
+| Prepped (resume + cover letter + briefing) | 160 | 41% of surfaced |
+| Applications sent | **60** | 38% of prepped |
+| Interviews (lifetime) | 6 | 10% of applied |
 
 ```
 Pass rate at each step:
 Surfaced   ▓░░░░░░░░░░░░░░░░░░░░░░░░   3.1%   ← LLM triage does the heaviest cut
-Prepped    ▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░   40%
-Applied    ▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░   37%
-Interview  ▓▓░░░░░░░░░░░░░░░░░░░░░░░   9%
+Prepped    ▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░   41%
+Applied    ▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░   38%
+Interview  ▓▓░░░░░░░░░░░░░░░░░░░░░░░   10%
 ```
 
-12,565 listings narrowed to 58 applications — triage cuts the noise so attention goes to the few worth sending. The reject-with-reason flow (448 rejected with feedback, 40 waitlisted in the same 30 days) feeds back into the scorer so its cuts keep improving. Prep is LLM-assisted but user-gated: you never apply to a job the system chose for you.
+12,824 listings narrowed to 60 applications — triage cuts the noise so attention goes to the few worth sending. The reject-with-reason flow (323 rejected with feedback, 54 waitlisted in the same 30 days) feeds back into the scorer so its cuts keep improving. Prep is LLM-assisted but user-gated: you never apply to a job the system chose for you.
 
 
 ---
