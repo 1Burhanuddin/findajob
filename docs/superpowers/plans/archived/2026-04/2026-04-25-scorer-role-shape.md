@@ -1,3 +1,7 @@
+---
+**Shipped in #276 on 2026-04-27. Final decisions captured in issue body.**
+---
+
 # Scorer Role-Shape Mismatch Reduction — Implementation Plan
 
 ## Issue(s)
