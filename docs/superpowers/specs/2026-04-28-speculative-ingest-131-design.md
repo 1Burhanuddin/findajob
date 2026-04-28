@@ -185,7 +185,7 @@ src/findajob/actions.py                   # handle_rejection, handle_not_selecte
 src/findajob/scoring.py                   # feedback loader: WHERE synthetic=0
 src/findajob/web/routes/board.py          # button-label flip on speculative applied-stage rows
 src/findajob/web/templates/board/_job_row.html  # render [SPEC] badge + speculative-aware action button
-src/findajob/web/routes/board_actions.py  # POST /board/jobs/{fp}/sent-outreach (alias to apply, but for synthetic rows; or reuse /apply with detection — see below)
+src/findajob/web/routes/board_actions.py  # POST /board/jobs/{fp}/apply gets a synthetic-aware branch: looks up jobs.synthetic, writes changed_by='outreach_button' for synthetic=1, else existing changed_by
 config/roles/cover_letter_writer.md       # speculative-aware variant block; controlled via prompt-template branching at prep time
 config/roles/outreach_drafter.md          # same — speculative-aware variant
 scripts/prep_application.py               # detect synthetic=1 jobs and feed the speculative variant into cover-letter and outreach
@@ -197,12 +197,23 @@ docs/usage.md                             # speculative submission walkthrough
 
 ### "Sent Outreach" vs "Applied" — Concrete Mechanics
 
-Per Decision 1, both buttons hit the same handler and both result in `stage='applied'`. The differentiation is purely in render:
+Per Decision 1, both buttons result in `stage='applied'`. The differentiation lives entirely server-side, derived from `jobs.synthetic`:
 
-- Real row (`synthetic=0`): button text "Applied", endpoint `POST /board/jobs/{fp}/apply`
-- Speculative row (`synthetic=1`): button text "Sent Outreach", endpoint `POST /board/jobs/{fp}/sent-outreach` (thin alias that calls the same internal `findajob.actions.handle_apply` helper but writes a distinct `audit_log.changed_by='outreach_button'` for traceability)
+- **Single endpoint:** `POST /board/jobs/{fp}/apply` — no alias, no second route.
+- Handler reads `jobs WHERE fingerprint={fp}`, validates the stage transition, then:
+  - If `jobs.synthetic=1`: writes `audit_log` row with `changed_by='outreach_button'`; emits log line `applied_via_outreach fp={fp}` to `pipeline.jsonl`.
+  - If `jobs.synthetic=0`: writes `audit_log` row with the existing real-apply `changed_by` convention (whatever the current handler uses); log line unchanged.
+- **Template branch** on `_job_row.html`: button text reads "Sent Outreach" when `row.synthetic=1`, otherwise "Applied". Button URL is the same `/apply` endpoint in both cases.
+- Both paths emit identical `stage` audit_log entries (`old_value='materials_drafted'`, `new_value='applied'`), so the apply-gate query stays a single-predicate query against `field_changed='stage' AND new_value='applied'`.
 
-Both endpoints emit identical `stage` audit_log entries (`old_value=materials_drafted, new_value=applied`), so the apply-gate query stays a single-predicate query against `field_changed='stage' AND new_value='applied'`. The `changed_by` column lets stats slice "applied via ATS" vs "applied via cold outreach" without changing the gate logic.
+**Why server-derived rather than two endpoints:**
+
+1. Every signal the system actually needs (apply-gate count, ATS-vs-outreach attribution, feedback_log skip, button label) is already derivable from `jobs.synthetic`. A separate endpoint adds no new signal.
+2. Server-derived `changed_by` cannot be tampered with — a malicious client cannot call `/sent-outreach` on a non-synthetic row to falsify the audit trail, because the synthetic check happens after the row read.
+3. One route is one less route to register, test, document, and maintain.
+4. The handler already reads the `jobs` row to validate the transition, so the synthetic check is a free column lookup.
+
+The `changed_by='outreach_button'` value is kept for direct stats queryability — `SELECT COUNT FROM audit_log WHERE changed_by='outreach_button'` answers "how many cold-outreach applies this month?" without joining to `jobs`.
 
 ### Async Submission Pattern (Mirrors `prep_application.py`)
 
@@ -274,7 +285,7 @@ PRs B1→B4 are sequenced — each builds on the prior. B1 has no dependencies; 
 | Surface | Change | When (which phase) |
 |---|---|---|
 | `CLAUDE.md` Pipeline Context Table | Add `candidate_led_briefing` row (sonar-deep-research, async, 1–5 min latency) and `speculative_roles_synth` row (claude sonnet) | B2 |
-| `CLAUDE.md` "Web is the Write Surface" section | Add the new endpoints (`POST /ingest/speculative`, `GET /speculative/status/{id}`, `GET /speculative/review/{id}`, `POST /speculative/{approve,regenerate,trash}/{id}`, `POST /board/jobs/{fp}/sent-outreach`); note the new detached-subprocess pattern (`run_speculative_research.py`) alongside `prep_application.py` and `interview_prep.py` | B3, B4 |
+| `CLAUDE.md` "Web is the Write Surface" section | Add the new endpoints (`POST /ingest/speculative`, `GET /speculative/status/{id}`, `GET /speculative/review/{id}`, `POST /speculative/{approve,regenerate,trash}/{id}`); note that `POST /board/jobs/{fp}/apply` becomes synthetic-aware in handler logic (no new route); note the new detached-subprocess pattern (`run_speculative_research.py`) alongside `prep_application.py` and `interview_prep.py` | B3, B4 |
 | `CLAUDE.md` "Hard Rejects are Code" / new "Synthetic Jobs Convention" section | Document: (1) `synthetic=1` invariants — never written to `feedback_log`, never read by scorer feedback loader, never sheet-synced; (2) `[SPEC]` title prefix is render-time decoration, not data; (3) `source='web_speculative'`; (4) `applied` stage is reused with row-attribute distinction | B1 (intro stub), B4 (full section) |
 | `CLAUDE.md` "Output Folder Format" | Add the speculative variant: `{Company}_SPECULATIVE_{YYYY-MM-DD}_{HHMMSS}/briefing.md` | B2 |
 | `CHANGELOG.md` `[Unreleased]` | One entry per PR with the conventional-commits prefix; B1 entry calls out `migration-required` | B1, B2, B3, B4 |
@@ -311,7 +322,7 @@ Distinct from per-task tests. After B4 merges, this is the green-light check:
 - **B1 (4 unit tests):** synthetic guard on `handle_rejection`; on `handle_not_selected`; scorer feedback loader exclusion; migration default.
 - **B2 (3 tests):** runner integration with mocked aichat-ng (asserts row state transitions); parser handles edge-case role counts (0, 1, 5, 6 → cap at 5); approver writes correct number of `jobs` rows.
 - **B3 (4 tests):** form POST creates request row + spawns subprocess (mocked); status page renders status correctly; review page renders briefing + role cards; approve writes jobs rows + redirects; trash sets status without writing rows.
-- **B4 (3 tests):** cover-letter variant injection (prompt template renders the speculative block when `synthetic=1`); outreach-drafter variant; `POST /board/jobs/{fp}/sent-outreach` writes the correct audit_log row with `changed_by='outreach_button'` and the expected stage transition.
+- **B4 (3 tests):** cover-letter variant injection (prompt template renders the speculative block when `synthetic=1`); outreach-drafter variant; `POST /board/jobs/{fp}/apply` writes `changed_by='outreach_button'` when `jobs.synthetic=1` and the existing real-apply `changed_by` value when `synthetic=0` (single endpoint, server-derived branch).
 
 ---
 
@@ -319,7 +330,7 @@ Distinct from per-task tests. After B4 merges, this is the green-light check:
 
 | Spec section | Implementing PR | Implementing task(s) within PR |
 |---|---|---|
-| Decision 1 (apply-gate via row attributes) | B4 | "Sent Outreach" button + alias endpoint |
+| Decision 1 (apply-gate via row attributes) | B4 | "Sent Outreach" button label flip + single `/apply` endpoint with server-derived `changed_by` branch |
 | Decision 2 (no dedup) | (no implementation needed — absence) | n/a |
 | Decision 3 (soft-warn rate limit) | B3 | Form pre-render queries today's submission count, renders inline warning |
 | Decision 4 (speculative_requests table) | B1 | Schema migration |
@@ -346,7 +357,7 @@ Distinct from per-task tests. After B4 merges, this is the green-light check:
 | Soft-warn rate limit | B3 | Form pre-render query |
 | Cover-letter variant | B4 | `config/roles/cover_letter_writer.md` template branch + `prep_application.py` invocation |
 | Outreach variant | B4 | Same shape as cover letter |
-| "Sent Outreach" button | B4 | `templates/board/_job_row.html` + `routes/board_actions.py` alias endpoint |
+| "Sent Outreach" button | B4 | `templates/board/_job_row.html` button-label branch on `synthetic` + `routes/board_actions.py` `/apply` handler synthetic-aware branch (no new route) |
 | Watchdog branch for stuck speculative requests | B4 | `scripts/watchdog.py` extension |
 | CLAUDE.md updates | B1 (stub) + B4 (full) | Inline in same commits as the code |
 | CHANGELOG.md updates | Each PR | Conventional-commits entry |
