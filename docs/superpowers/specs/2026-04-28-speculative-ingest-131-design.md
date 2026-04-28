@@ -299,6 +299,10 @@ PRs B1→B4 are sequenced — each builds on the prior. B1 has no dependencies; 
 
 ## Testing Strategy
 
+### Watchdog timing calibration (B4 verification step)
+
+Before declaring B4 done: submit at least 2 real speculative requests through the live form, time each Deep Research run end-to-end (`status='researching'` → `status='ready_for_review'`), and confirm the **slowest** observed run is comfortably below the 10-minute watchdog cutoff. If any real run approaches 10 min, raise the cutoff (e.g., to 15 min) before merging — operator-attributable timeouts are worse than slightly slower failure detection. Record the observed range in the B4 PR description.
+
 ### Whole-feature verification gate
 
 Distinct from per-task tests. After B4 merges, this is the green-light check:
