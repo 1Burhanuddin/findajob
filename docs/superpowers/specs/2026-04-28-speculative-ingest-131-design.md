@@ -2,7 +2,7 @@
 
 Issue: [#131](https://github.com/brockamer/findajob/issues/131)
 Date: 2026-04-28
-Status: Approved (pending operator review of this doc)
+Status: Implemented — B1 PR #315, B2 PR #316, B3 PR #317, B4 PR #318
 
 ---
 
