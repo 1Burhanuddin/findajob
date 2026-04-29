@@ -2,7 +2,7 @@
 
 ## Issue
 
-#288
+Implements #288.
 
 ## Status
 
