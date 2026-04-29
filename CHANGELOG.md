@@ -10,6 +10,20 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.7.3] — 2026-04-29
+
+Patch bump. Materials folder page redesigned for clarity: prep folders had 11 files in a flat alphabetical list with identical link styling for `.md` (preview) and `.docx` (download), and the variable part of each 60+ char filename (Briefing/Cover/Resume) was buried in the middle. Three coupled improvements address it.
+
+### Changed
+
+- **Grouped folder view by document type, ordered by workflow (commit `70dbb60`).** Files now group into labeled cards — JD → Briefing → Resume → Resume Changes → Cover Letter → Outreach → Recruiter Critique → Review Checklist → Other. Within each group, `.md` sorts before `.docx` so the in-browser preview is the first option presented. New `_group_files()` helper in `routes/materials.py` keys on document-type substrings (e.g., ` Briefing - `) rather than the leading display_name, so the classifier survives display_name changes (#335) across testers. Speculative submission folders' bare `briefing.md` gets its own "Briefing (speculative)" bucket. 17 new unit tests lock the workflow ordering and the Resume-vs-Resume-Changes disambiguation discipline.
+- **Distinct View vs. Download affordances on every file card (commit `70dbb60`).** Each card now shows an MD/DOCX/TXT colored badge, a human-readable description ("Markdown — preview in browser, or copy + paste into Google Docs" / "Word document — best for applications; drag to Google Drive to open in Docs"), file size + UTC mtime, and a colored action button — green "View →" for `.md`/`.txt`, blue "↓ Download" for `.docx` and other binaries.
+- **Copy-MD button on every `.md` card + Google Docs workflow helper banner (commit `0b0aa00`).** New `?raw=1` query option on the existing `/materials/{fp}/{filename}` route returns the `.md`/`.txt` source bytes as `text/plain`. The Copy-MD button on each `.md` card fetches that endpoint and pipes the response into `navigator.clipboard.writeText()` — what lands on the clipboard is byte-identical to the file on disk, same as if the user selected the source view text and hit Ctrl+C. Pasting into a fresh Google Doc preserves the markdown formatting (headings, lists, bold/italic) via Google Docs' auto-detection. A dismissible helper banner at the top of the folder page explains both workflows: Copy-MD for fast paste-into-Docs, .docx → Google Drive for the resume + cover letter where formatting matters for applications. Uses Alpine.js (already loaded). 3 new tests lock the byte-identical guarantee + the `.docx` fall-through behavior.
+
+### Fixed
+
+- **`.docx` files now reliably trigger Save instead of rendering as binary in the browser (commit `70dbb60`).** Server-side already set `Content-Disposition: attachment`, but some reverse-proxy configurations and browser combinations could render the response inline. The Download button now also carries the HTML5 `download` attribute as belt-and-suspenders, forcing browser-side save regardless of upstream header rewriting.
+
 ## [0.7.2] — 2026-04-29
 
 Patch bump. Two non-functional shipments: docs catch-up on the structural reshape that landed mid-day (Decision 18 — milestone date compression to ~30-day window + version-codename convention) and copy improvements to the onboarding interviewer prompt that smooth out four observed friction points before the next tester onboards.
