@@ -1,6 +1,12 @@
 # Surfacing discovered_companies.md to the operator (#288 — Sections A + B)
 
-**Status:** Design — pre-implementation. Authoritative scope for the merge of #288's Section A (success-path ntfy) and Section B (Dashboard widget). Sections C (weekly diff) and D (promote-to-target) remain split-out follow-ups; not covered here.
+## Issue
+
+#288
+
+## Status
+
+Design — pre-implementation. Authoritative scope for the merge of #288's Section A (success-path ntfy) and Section B (Dashboard widget). Sections C (weekly diff) and D (promote-to-target) remain split-out follow-ups; not covered here.
 
 **Why this spec exists:** The discoverer ships novel-company suggestions weekly to `candidate_context/discovered_companies.md`. The operator currently has no path to seeing them — no notification on cron completion, no Dashboard mention, no link from anywhere natural. The discoverer is producing value-quality output and no one is looking at it. This spec wires both surfaces in one merge so operators on `:latest` get the file and the visibility on the same release.
 
