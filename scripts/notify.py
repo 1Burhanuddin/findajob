@@ -345,7 +345,9 @@ def cmd_health_check():
     # ── Duplicate company folders ────────────────────────────────────────────
     companies_dir = os.path.join(BASE, "companies")
     folder_names = [
-        d for d in os.listdir(companies_dir) if not d.startswith("_") and os.path.isdir(os.path.join(companies_dir, d))
+        d
+        for d in os.listdir(companies_dir)
+        if not d.startswith(("_", ".")) and os.path.isdir(os.path.join(companies_dir, d))
     ]
     # Strip timestamp suffix to find duplicates (same company_title_date, different HHMMSS)
     from collections import Counter

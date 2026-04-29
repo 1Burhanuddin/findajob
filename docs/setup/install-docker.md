@@ -46,6 +46,25 @@ Edit `.env` to taste — at minimum set `FINDAJOB_TZ`, `FINDAJOB_MATERIALS_PORT`
 - `state/config/*.yaml|.txt|.json` — personal config files. See [configure.md](configure.md) for each file's purpose.
 - `state/candidate_context/profile.md` + `master_resume.md` — your candidate profile. See [`candidate_context/profile.md.example`](https://github.com/brockamer/findajob/blob/main/candidate_context/profile.md.example).
 
+> **First-time deployers can stop here.** The remaining `state/` files
+> (`profile.md`, `master_resume.md`, `target_companies.md`,
+> `prefilter_rules.yaml`, etc.) are produced by the first-run onboarding
+> interview in step 7 below — you don't write them by hand.
+
+### HTTP Basic Auth (required for internet-exposed instances)
+
+If your stack is reachable from the public internet (any non-VPN deployment),
+add these to `state/data/.env` to gate the entire web UI behind HTTP Basic
+Auth (#327):
+
+```
+FINDAJOB_AUTH_USER=<your username>
+FINDAJOB_AUTH_PASS=<a strong password>
+```
+
+Wireguard-only / LAN-only instances can skip this — the perimeter is the gate.
+See [`internet-exposure.md`](internet-exposure.md) for the full threat model.
+
 ### What the entrypoint does automatically
 
 As of `:v0.1.1`, the container image's entrypoint handles these on every
@@ -147,15 +166,57 @@ Token is saved to `state/config/gmail_token.json` (chmod 600). Close the SSH tun
 
 Via Dockge: click **Deploy**. Via CLI: `docker compose up -d`.
 
-## 6. Verify
+## 6. Verify the stack is reachable
 
 ```bash
 docker compose logs -f scheduler
 # You should see supercronic print its crontab and wait.
 
+curl http://<docker-host>:<FINDAJOB_MATERIALS_PORT>/healthz
+# Expected: ok
+```
+
+If `/healthz` returns `ok`, the container is up. The pipeline isn't
+producing notifications yet — that needs step 7.
+
+## 7. First-run onboarding interview
+
+The first time you open the web UI you'll be redirected to `/onboarding/`
+(#148). This page hosts the paste-back step that turns an LLM-conducted
+interview into the ten config files findajob needs to run your pipeline.
+
+1. Open the `/onboarding/` page in a browser. It will display a button labelled
+   "Copy Onboarding Prompt" and instructions.
+2. Click the button to copy the interviewer prompt, paste it into your
+   preferred LLM (Claude.ai with Opus 4.7 + Extended Thinking is the
+   recommended default; ChatGPT and Gemini also work — see the prompt for
+   per-platform upload instructions). Attach your resume + any
+   performance reviews / 360s / writing samples you have.
+3. Run the interview end-to-end (~90 min). When done, copy the entire
+   emitted block of text the LLM gives you.
+4. Back on `/onboarding/`, paste the block into the main text box.
+5. Paste your **OpenRouter API key** (sign up at https://openrouter.ai and
+   prepay $10–$20 — covers a long time of use) into the dedicated key
+   field. Each user funds their own OpenRouter usage.
+6. Click submit. The injector validates the emission, runs a 1-token
+   smoke check against OpenRouter to verify the key, atomically writes
+   the ten config files plus a derived `companies_of_interest.txt`, and
+   marks onboarding complete. Any errors are surfaced verbatim — fix and
+   resubmit.
+
+After paste-back lands, the next scheduled triage run (00:00 in your
+configured `TZ`) ingests its first batch of jobs.
+
+## 8. Send a test notification
+
+```bash
 docker compose exec scheduler python3 /app/scripts/notify.py health-check
 # Sanity check: ntfy notification should land on your phone.
 ```
+
+This requires `NTFY_TOPIC` in `state/data/.env`, which the onboarding
+injector populates from your interview emission. Skip this step if you
+ran it before step 7 — it would silently no-op.
 
 ## Driving the pipeline
 

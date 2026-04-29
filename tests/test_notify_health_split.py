@@ -5,6 +5,7 @@ notify.py cmd_health_check must distinguish:
   - real-flag manual_review: relevance_score IS NOT NULL (LLM flagged for human review)
 """
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -70,3 +71,27 @@ def test_null_score_only_warns_when_present(tmp_db):
     assert real_count == 1, "1 real-flag row inserted"
     # The two counts are different — health-check can surface them as separate warnings.
     assert null_count != real_count
+
+
+def test_orphan_filter_skips_underscore_and_dot_prefixed_dirs(tmp_path):
+    """Mirrors notify.py:cmd_health_check orphan-folder filter.
+
+    Real prep folders match `Company_Title_Date_Time` shape. Special meta dirs
+    use `_`-prefix (`_applied/`, `_rejected/`, `_waitlisted/`) or `.`-prefix
+    (`.stale/`). Both prefix classes must be excluded from the orphan-folder
+    warning. Regression test for #343 — `.stale/` was being flagged on every
+    health-check run because the filter skipped only `_`-prefix.
+    """
+    (tmp_path / "_applied").mkdir()
+    (tmp_path / "_rejected").mkdir()
+    (tmp_path / ".stale").mkdir()
+    (tmp_path / "Acme_Senior_Engineer_2026-04-29_120000").mkdir()
+
+    folder_names = [
+        d for d in os.listdir(tmp_path) if not d.startswith(("_", ".")) and os.path.isdir(os.path.join(tmp_path, d))
+    ]
+
+    assert folder_names == ["Acme_Senior_Engineer_2026-04-29_120000"]
+    assert ".stale" not in folder_names
+    assert "_applied" not in folder_names
+    assert "_rejected" not in folder_names
