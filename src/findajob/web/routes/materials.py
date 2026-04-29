@@ -222,6 +222,7 @@ def file_serve(
     filename: str,
     request: Request,
     db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+    raw: int = 0,
 ):
     root: Path = request.app.state.companies_root
     folder = resolve_folder(fingerprint, db, root)
@@ -235,6 +236,12 @@ def file_serve(
     if not candidate.is_file():
         raise HTTPException(status_code=404, detail="file not found")
     ext = candidate.suffix.lower()
+    # ?raw=1 returns the .md / .txt source bytes verbatim — used by the
+    # "Copy MD" button on the folder page so what lands on the clipboard
+    # is byte-identical to the file on disk (no markdown→HTML→back-to-text
+    # round-trip via the rendered prose view).
+    if raw and ext in (".md", ".txt"):
+        return PlainTextResponse(content=candidate.read_text(encoding="utf-8", errors="replace"))
     if ext == ".md":
         body = candidate.read_text(encoding="utf-8", errors="replace")
         templates = request.app.state.templates

@@ -119,6 +119,76 @@ def test_file_serve_markdown_rendered_inline(client: TestClient, companies_root:
     assert "<code>print" in r.text
 
 
+def test_file_serve_md_raw_returns_byte_identical_source(
+    client: TestClient, companies_root: Path, db_path: Path
+) -> None:
+    """The Copy MD button on the folder page fetches ?raw=1 and pipes the
+    response into navigator.clipboard.writeText(). The user's promise is:
+    what lands on the clipboard is byte-identical to the file on disk —
+    no markdown→HTML→back-to-text round-trip via the rendered prose view.
+    Test that ?raw=1 returns the exact source bytes."""
+    folder = companies_root / "Company_RAW_2026-04-29_120000"
+    folder.mkdir()
+    source = "# Heading\n\n- bullet **bold**\n\n```python\nprint('hi')\n```\n"
+    (folder / "doc.md").write_text(source, encoding="utf-8")
+
+    conn = sqlite3.connect(db_path)
+    _insert_job(conn, "fp-raw-md", prep_folder_path=str(folder), stage="materials_drafted")
+    conn.commit()
+    conn.close()
+
+    r = client.get("/materials/fp-raw-md/doc.md?raw=1")
+    assert r.status_code == 200
+    # Source bytes verbatim — no rendered HTML, no transformation.
+    assert r.text == source
+    # Plain-text content type so the browser doesn't try to render markdown.
+    assert r.headers["content-type"].startswith("text/plain")
+    # The default (no ?raw) still returns the rendered HTML view.
+    r2 = client.get("/materials/fp-raw-md/doc.md")
+    assert r2.headers["content-type"].startswith("text/html")
+    assert "<h1>Heading</h1>" in r2.text
+
+
+def test_file_serve_txt_raw_returns_byte_identical_source(
+    client: TestClient, companies_root: Path, db_path: Path
+) -> None:
+    """?raw=1 also covers .txt for completeness (outreach drafts use .txt)."""
+    folder = companies_root / "Company_RAW_TXT_2026-04-29_120000"
+    folder.mkdir()
+    source = "Subject: x\n\nBody line 1\nBody line 2\n"
+    (folder / "out.txt").write_text(source, encoding="utf-8")
+
+    conn = sqlite3.connect(db_path)
+    _insert_job(conn, "fp-raw-txt", prep_folder_path=str(folder), stage="materials_drafted")
+    conn.commit()
+    conn.close()
+
+    r = client.get("/materials/fp-raw-txt/out.txt?raw=1")
+    assert r.status_code == 200
+    assert r.text == source
+
+
+def test_file_serve_raw_ignored_for_non_text_extensions(
+    client: TestClient, companies_root: Path, db_path: Path
+) -> None:
+    """?raw=1 is a no-op on .docx — falls through to the FileResponse
+    download path. Prevents accidentally serving binary .docx as plain text
+    (which would corrupt the bytes via UTF-8 errors='replace')."""
+    folder = companies_root / "Company_RAW_DOCX_2026-04-29_120000"
+    folder.mkdir()
+    (folder / "doc.docx").write_bytes(b"PK\x03\x04binary")
+
+    conn = sqlite3.connect(db_path)
+    _insert_job(conn, "fp-raw-docx", prep_folder_path=str(folder), stage="materials_drafted")
+    conn.commit()
+    conn.close()
+
+    r = client.get("/materials/fp-raw-docx/doc.docx?raw=1")
+    assert r.status_code == 200
+    # Still served as attachment; ?raw=1 does NOT bypass the binary download path.
+    assert "attachment" in r.headers.get("content-disposition", "")
+
+
 def test_file_serve_docx_as_attachment(client: TestClient, companies_root: Path, db_path: Path) -> None:
     folder = companies_root / "Company_Y_2026-04-20_140000"
     folder.mkdir()
