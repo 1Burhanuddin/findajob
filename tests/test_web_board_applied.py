@@ -74,8 +74,8 @@ def test_applied_shows_row_with_age_class(client: TestClient) -> None:
     assert "Anthropic" in r.text
     # 10-day-old applied row → row-applied-week (yellow bucket)
     assert "row-applied-week" in r.text
-    # materials hyperlink uses FINDAJOB_MATERIALS_BASE_URL + fingerprint
-    assert 'href="http://test:8090/materials/fp-app"' in r.text
+    # materials hyperlink is same-origin relative (works behind any reverse proxy)
+    assert 'href="/materials/fp-app"' in r.text
 
 
 def test_applied_recruiter_flow_captures_interview_as_applied_date(client: TestClient) -> None:

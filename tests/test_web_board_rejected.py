@@ -94,8 +94,8 @@ def test_rejected_company_hyperlinks_to_materials(client: TestClient) -> None:
     # Both rejected and not_selected are in FOLDER_STAGES, so company cells
     # hyperlink to /materials/{fingerprint}. The materials viewer then resolves
     # the folder on disk (_rejected/ for user, _applied/+marker for company).
-    assert 'href="http://test:8090/materials/fp-rej"' in r.text
-    assert 'href="http://test:8090/materials/fp-ns"' in r.text
+    assert 'href="/materials/fp-rej"' in r.text
+    assert 'href="/materials/fp-ns"' in r.text
 
 
 def test_rejected_rows_filter_endpoint(client: TestClient) -> None:

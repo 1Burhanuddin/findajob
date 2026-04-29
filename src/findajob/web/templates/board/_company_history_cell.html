@@ -25,8 +25,8 @@
     <ul class="mt-1 text-xs">
       {% for e in h.entries %}
       <li>
-        {% if e.prep_folder_path and materials_base_url %}
-          <a class="underline" href="{{ materials_base_url }}/materials/{{ e.fingerprint }}">{{ e.title }}</a>
+        {% if e.prep_folder_path %}
+          <a class="underline" href="/materials/{{ e.fingerprint }}">{{ e.title }}</a>
         {% else %}
           {{ e.title }}
         {% endif %}
