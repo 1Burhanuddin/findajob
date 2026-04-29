@@ -122,7 +122,7 @@ gosu "$PUID:$PGID" python3 /app/scripts/seed_companies_of_interest.py >/dev/null
 # Supercronic stays PID 1 for compose restart tracking. Uvicorn runs as a
 # child process. If it crashes, supercronic keeps running — /healthz is the
 # outside signal. Operator restarts the container if needed.
-gosu "$PUID:$PGID" python3 -m uvicorn findajob.web.app:default_app --factory --host 0.0.0.0 --port 8090 --log-level info &
+gosu "$PUID:$PGID" python3 -m uvicorn findajob.web.app:default_app --factory --host 0.0.0.0 --port 8090 --log-level info --proxy-headers --forwarded-allow-ips='*' &
 UVICORN_PID=$!
 
 # Forward SIGTERM / SIGINT to uvicorn so docker compose down shuts it down cleanly.
