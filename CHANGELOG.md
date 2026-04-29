@@ -10,6 +10,16 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-04-29
+
+Patch bump. One critical bugfix for internet-exposed tester deployments: in-app materials links now use same-origin relative URLs instead of an absolute `http://docker.lan:8090` prefix, so testers reaching their stack via `findajob-{handle}.<operator-domain>` no longer get dead links back into the operator's LAN. One small notify-side fix carried from earlier today (#343).
+
+### Fixed
+
+- **In-app materials links now use same-origin relative URLs (commit `74935d5`).** Two Jinja templates (`_job_row.html`, `_company_history_cell.html`) prefixed company-cell hyperlinks with `FINDAJOB_MATERIALS_BASE_URL`, which defaulted to `http://docker.lan:8090` per stack. For testers reaching their stack at `https://findajob-{handle}.<operator-domain>`, every "click company" link rendered as `http://docker.lan:8090/materials/{fp}` — unreachable from outside the operator's LAN. Materials are served by the same FastAPI app at `/materials/{fp}`, so the link is correctly same-origin relative — works through Wireguard, internet exposure, and reverse proxies identically. The env var (`FINDAJOB_MATERIALS_BASE_URL`) remains correct in `sync_sheet.py` (Sheet hyperlinks render outside FastAPI) and `notify.py` (ntfy notifications render in the user's notification client) — both are external surfaces that need absolute URLs. Vestigial `materials_base_url` reads in `routes/board.py` are harmless and a follow-up cleanup can remove them. Tests previously asserted the buggy absolute-URL form; now assert relative `/materials/{fp}`.
+
+- **Orphan-folder health check now skips dotfile dirs (#343, commit `d85d84e`).** `notify.py orphan-folder-check` was flagging `.stale/` and other dot-prefixed bookkeeping dirs as orphan companies, polluting the daily health-check ntfy. The check now skips any directory whose name starts with `.`.
+
 ## [0.7.0] — 2026-04-29
 
 Minor bump. Three substantive shipments unblock the v0.9 multi-tenancy push: per-tester onboarding now collects each tester's own credentials and identity (#328), the web UI can be gated behind opt-in HTTP Basic Auth for internet-exposed deployments (#327), and the speculative-ingest path reuses its deep-research briefing at prep time instead of regenerating it (#320). One critical proxy-headers bugfix (commit `e6de82d`) that any operator running findajob behind an HTTPS reverse proxy needs — without it, FastAPI's auto trailing-slash redirect leaks the request out of HTTPS into bare HTTP. One soft schema migration carried by #320 (idempotent column add — runs automatically on `docker compose pull && up -d`).
