@@ -1,12 +1,86 @@
 {% extends "base.html" %}
 {% block title %}{{ company }} — {{ title }}{% endblock %}
 {% block content %}
-<p><a href="/materials/">← back to index</a></p>
-<h1>{{ company }} — {{ title }}</h1>
-<p class="meta">{{ folder_name }} · <span class="stage">{{ stage }}</span></p>
-<ul>
-  {% for name in files %}
-    <li><a href="/materials/{{ fingerprint }}/{{ name }}">{{ name }}</a></li>
+
+{# Stage → badge color mapping. Mirrors the board's stage-row classes. #}
+{% set stage_class = {
+  'scored': 'bg-slate-100 text-slate-700',
+  'manual_review': 'bg-amber-100 text-amber-800',
+  'prep_in_progress': 'bg-sky-100 text-sky-800',
+  'materials_drafted': 'bg-indigo-100 text-indigo-800',
+  'applied': 'bg-emerald-100 text-emerald-800',
+  'interview': 'bg-purple-100 text-purple-800',
+  'offer': 'bg-yellow-100 text-yellow-900',
+  'waitlisted': 'bg-slate-200 text-slate-700',
+  'rejected': 'bg-rose-100 text-rose-800',
+  'not_selected': 'bg-rose-100 text-rose-800'
+}.get(stage, 'bg-slate-100 text-slate-700') %}
+
+<nav class="text-sm text-slate-500 mb-3">
+  <a class="underline hover:text-slate-900" href="/materials/">← all materials</a>
+</nav>
+
+<header class="mb-6">
+  <h1 class="text-2xl font-semibold text-slate-900">{{ company }}</h1>
+  <p class="text-lg text-slate-600 mt-1">{{ title }}</p>
+  <div class="flex items-center gap-2 mt-3 text-xs">
+    <span class="inline-block px-2 py-0.5 rounded font-medium uppercase tracking-wide {{ stage_class }}">{{ stage or 'unknown' }}</span>
+    <span class="text-slate-400 font-mono truncate">{{ folder_name }}</span>
+  </div>
+</header>
+
+{# Document-type groups in workflow order: JD → Briefing → Resume → Resume Changes → Cover → Outreach → Critique → Review → Other #}
+<div class="space-y-5">
+  {% for g in groups %}
+  <section class="border border-slate-200 rounded-lg bg-white overflow-hidden">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-700 bg-slate-50 px-4 py-2 border-b border-slate-200">
+      {{ g.label }}
+    </h2>
+    <ul class="divide-y divide-slate-100">
+      {% for f in g.files %}
+      <li class="flex items-center justify-between px-4 py-3 hover:bg-slate-50">
+        <div class="min-w-0 flex-1 mr-4">
+          <div class="flex items-center gap-2">
+            {% if f.ext == 'md' %}
+              <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800">MD</span>
+              <span class="text-sm text-slate-700">Markdown — preview in browser</span>
+            {% elif f.ext == 'docx' %}
+              <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-800">DOCX</span>
+              <span class="text-sm text-slate-700">Word document — saves to Downloads</span>
+            {% elif f.ext == 'txt' %}
+              <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-700">TXT</span>
+              <span class="text-sm text-slate-700">
+                {% if f.recipient %}Outreach to {{ f.recipient }}{% else %}Plain text — preview in browser{% endif %}
+              </span>
+            {% else %}
+              <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-700">{{ f.ext|upper or 'FILE' }}</span>
+              <span class="text-sm text-slate-700">{{ f.name }}</span>
+            {% endif %}
+          </div>
+          <div class="text-xs text-slate-400 mt-0.5">
+            {% if f.size %}{{ f.size }}{% endif %}{% if f.size and f.mtime %} · {% endif %}{% if f.mtime %}{{ f.mtime }}{% endif %}
+          </div>
+        </div>
+        {# View vs. Download affordance — distinct styling AND HTML5 `download` attr on binaries to force save through any reverse-proxy header rewriting #}
+        {% if f.is_view %}
+          <a class="shrink-0 inline-flex items-center px-3 py-1.5 rounded text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white"
+             href="/materials/{{ fingerprint }}/{{ f.name }}">
+            View →
+          </a>
+        {% else %}
+          <a class="shrink-0 inline-flex items-center px-3 py-1.5 rounded text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white"
+             href="/materials/{{ fingerprint }}/{{ f.name }}"
+             download="{{ f.name }}">
+            ↓ Download
+          </a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% else %}
+  <p class="text-slate-500">No files in this folder yet.</p>
   {% endfor %}
-</ul>
+</div>
+
 {% endblock %}
