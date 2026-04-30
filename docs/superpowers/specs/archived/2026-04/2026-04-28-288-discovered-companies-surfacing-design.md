@@ -1,3 +1,7 @@
+---
+**Shipped in #288 on 2026-04-30. Final decisions captured in issue body.**
+---
+
 # Surfacing discovered_companies.md to the operator (#288 — Sections A + B)
 
 ## Issue
