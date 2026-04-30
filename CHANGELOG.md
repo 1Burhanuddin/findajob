@@ -10,6 +10,18 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.7.4] — 2026-04-30
+
+Patch bump. Two material-viewer follow-ups land together: (1) per-doc plain-language descriptions that name the role + employer for submission artifacts and flag internal-prep docs as "for your eyes only," and (2) a robust `.docx` download path that survives reverse-proxy header mangling on internet-exposed instances.
+
+### Changed
+
+- **Per-group descriptions explaining what each artifact is + when to use it (PR #347, commit `151be87`).** Each materials group now carries a plain-language description rendered in the group header. Resume / Cover Letter interpolate the actual `{title}` and `{company}` from the database (e.g., "Your resume tailored to Senior Field Applications Engineer at Supermicro. The .docx is what you submit with the application."). Internal-only docs — Briefing, Resume Changes, Recruiter Critique — explicitly read "for your eyes only" so testers don't accidentally paste them into applications. Per-file rows show a format-specific hint (Outreach `.txt` → "paste into LinkedIn DM or email"; Briefing `.docx` → "printable copy") replacing the generic "best for applications" copy from 0.7.3 that incorrectly appeared on every `.docx` including non-submission artifacts. 6 regression tests lock the discipline (descriptions interpolate; briefing must NOT mention "submit"; internal-prep docs must contain "for your eyes only"; outreach hint names paste destination).
+
+### Fixed
+
+- **`.docx` download now reliably saves the file instead of rendering bytes as text (PRs #348 + #349, commits `764293c` + `3030637`).** On internet-exposed instances behind a Synology reverse proxy, the proxy was stripping or rewriting the `Content-Disposition: attachment` / `Content-Type: application/octet-stream` headers on `.docx` responses, so browsers rendered the binary bytes as on-screen text. Server-side headers had been correct since #152; the proxy was the missing link. The Download control is now a `<button>` (not an `<a download>`) that fetches the file via JS, builds a Blob locally, and triggers a download from a same-origin object URL. The browser's only signal is the synthetic `<a download>` click on a Blob it created itself, so reverse-proxy response headers are bypassed entirely. The first attempt (#348) used an `<a>` with `@click.prevent` and produced a race where both the native navigation and the JS download fired together; #349 replaced the anchor with a button to remove the native default behavior cleanly.
+
 ## [0.7.3] — 2026-04-29
 
 Patch bump. Materials folder page redesigned for clarity: prep folders had 11 files in a flat alphabetical list with identical link styling for `.md` (preview) and `.docx` (download), and the variable part of each 60+ char filename (Briefing/Cover/Resume) was buried in the middle. Three coupled improvements address it.
@@ -462,7 +474,11 @@ from GHCR and deployed via Docker Compose on a shared Docker host.
 - Documentation cleanup — removing `sigoden/aichat` references in favor of
   `blob42/aichat-ng` — is tracked in #70
 
-[Unreleased]: https://github.com/brockamer/findajob/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/brockamer/findajob/compare/v0.7.4...HEAD
+[0.7.4]: https://github.com/brockamer/findajob/releases/tag/v0.7.4
+[0.7.3]: https://github.com/brockamer/findajob/releases/tag/v0.7.3
+[0.7.2]: https://github.com/brockamer/findajob/releases/tag/v0.7.2
+[0.7.1]: https://github.com/brockamer/findajob/releases/tag/v0.7.1
 [0.7.0]: https://github.com/brockamer/findajob/releases/tag/v0.7.0
 [0.6.1]: https://github.com/brockamer/findajob/releases/tag/v0.6.1
 [0.6.0]: https://github.com/brockamer/findajob/releases/tag/v0.6.0
