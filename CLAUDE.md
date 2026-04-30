@@ -9,15 +9,10 @@ Personal identifiers (name, targets, API topic, form URLs) live in `CLAUDE.local
 
 Before writing any command, path, binary call, or file location:
 
-- [ ] Python: use `sys.executable` in scripts; check `config/paths.env` for the platform path
-- [ ] aichat-ng: get path from `AICHAT` in `findajob.paths` — never hardcode, never call bare `aichat`
-- [ ] pandoc: get path from `PANDOC` in `findajob.paths`
-- [ ] aichat-ng config dir: `~/.config/aichat_ng/`
-- [ ] Roles dir: `<repo>/config/roles/` — `.md` files only, never `.yaml`
-- [ ] Master resume: `candidate_context/master_resume.md` — never `config/master_resume.md` or `rag_sources/master_resume.md`
-- [ ] Anthropic client in aichat-ng config: `type: claude` — never `type: anthropic`; prefix `claude:` not `anthropic:`
-- [ ] RAG never passed to scorer, cover letter writer, or outreach drafter
-- [ ] All binary paths come from `findajob.paths` (`src/findajob/paths.py`) — never hardcode platform paths in scripts
+- [ ] All binary paths come from `findajob.paths` — `AICHAT`, `PANDOC`, `BASE`. Never hardcode, never call bare `aichat`.
+- [ ] For subprocess calls to other pipeline scripts, use `sys.executable` (never a hardcoded Python path).
+- [ ] Anthropic client in aichat-ng config: `type: claude` — never `type: anthropic`; prefix `claude:` not `anthropic:`.
+- [ ] RAG never passed to scorer, cover letter writer, or outreach drafter.
 
 **If uncertain about any value: say so. Do not guess.**
 
@@ -84,10 +79,10 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 | `fit_analyst` | `openrouter:perplexity/sonar-reasoning-pro` — appended to company briefing |
 | `resume_change_reviewer` / `network_analyst` | `openrouter:google/gemini-3-flash-preview` |
 | `recruiter_critic` | `openrouter:anthropic/claude-opus-4.7`, `max_tokens: 1024` — sees company, title, JD, tailored resume, cover; NOT profile/briefing/fit |
-| `interview_prep` | `openrouter:anthropic/claude-opus-4.7`, `max_tokens: 4096` — generated on `applied → interview` board transition (not at apply time). Reads existing prep folder (briefing, tailored resume, cover, optional critique) and EXPANDS briefing's `❓ Likely Interview Questions` + `💡 Stories from Your Background` sections rather than re-deriving. Five-section output: lead-with-this opener, elevator pitch, STAR expansions, tough Qs, questions to ask. |
-| `candidate_led_briefing` | `openrouter:perplexity/sonar-deep-research` — async, 1–5 min latency. Drives the speculative briefing pass for `/ingest/?mode=speculative`. Spawned as detached subprocess via `scripts/run_speculative_research.py`. |
-| `speculative_roles_synth` | `openrouter:anthropic/claude-sonnet-4-6`, `max_tokens: 4096` — synthesizes 1–5 candidate-tailored role cards from the briefing + candidate context. JSON-array output validated by `findajob.speculative.parser`. Cover letter and outreach drafts get a `<<SPECULATIVE_MODE>>` marker for synthetic rows; both role files branch on it for cold-outreach framing. |
-| Job ingestion | jobs-api14 (RapidAPI) — LinkedIn only (`datePosted: 'day'`; Indeed slot dropped #274 due to 0.08% application rate); direct Greenhouse/Ashby/Lever JSON; Gmail OAuth2 (LinkedIn + Indeed alerts) |
+| `interview_prep` | `openrouter:anthropic/claude-opus-4.7`, `max_tokens: 4096` — fires on `applied → interview` transition; expands briefing's interview-questions + stories sections. |
+| `candidate_led_briefing` | `openrouter:perplexity/sonar-deep-research` — async (1–5 min); drives the speculative briefing pass via `scripts/run_speculative_research.py`. |
+| `speculative_roles_synth` | `openrouter:anthropic/claude-sonnet-4-6`, `max_tokens: 4096` — synthesizes 1–5 candidate-tailored role cards from the briefing. |
+| Job ingestion | jobs-api14 (RapidAPI) — LinkedIn only (`datePosted: 'day'`); direct Greenhouse/Ashby/Lever JSON; Gmail OAuth2 (LinkedIn + Indeed alerts) |
 | Package manager | `uv sync` for dev deps; `uv run` prefix for pytest/ruff/mypy/uvicorn |
 | Path resolution | `src/findajob/paths.py` — reads `config/paths.env`; BASE derived from `__file__` |
 | Roles dir | `config/roles/` |
@@ -98,7 +93,7 @@ file. If you're refactoring an old hardcoded section, add a note to `docs/GENERA
 | Board writes | `src/findajob/web/routes/board_actions.py` — every STATUS / REJECT_REASON transition is a POST handler calling `findajob.actions`. Sheet is read-only. |
 | Watchdog | `scripts/watchdog.py` every 10 min — resets jobs stuck in `prep_in_progress` > 60 min. No Sheet reads. |
 | RAG index | `job_search_rag` — never passed to scorer/CL/outreach |
-| Scheduler | supercronic in-container (see Container Context table below; native systemd path is legacy) |
+| Scheduler | supercronic in-container (see Container Context table below) |
 | ntfy topic | in `data/.env` as `NTFY_TOPIC`; also in `CLAUDE.local.md` |
 | Google Form | URL and response sheet ID in `CLAUDE.local.md` and `config/form_responses_sheet_id.txt` |
 
@@ -117,8 +112,8 @@ When the pipeline runs inside the `ghcr.io/brockamer/findajob` image, paths shif
 | `candidate_context/` | `<repo>/candidate_context/` | `/app/candidate_context/` (bind-mount) |
 | `discovered_companies.md/.json` | `<repo>/candidate_context/discovered_companies.{md,json}` (gitignored, generated) | `/app/candidate_context/discovered_companies.{md,json}` (generated into bind-mount) |
 | `companies/` | `<repo>/companies/` | `/app/companies/` (bind-mount) |
-| Onboarding sentinel | `<repo>/data/.onboarding-complete` (new in #148) | `/app/data/.onboarding-complete` (bind-mount from `./state/data/`) |
-| Onboarding backups | `<repo>/.backups/{UTC-stamp}/` (new in #148) | `/app/.backups/` (bind-mount from `./state/.backups/`) |
+| Onboarding sentinel | `<repo>/data/.onboarding-complete` | `/app/data/.onboarding-complete` (bind-mount from `./state/data/`) |
+| Onboarding backups | `<repo>/.backups/{UTC-stamp}/` | `/app/.backups/` (bind-mount from `./state/.backups/`) |
 | `aichat-ng` | `/usr/local/bin/aichat-ng` | `/usr/local/bin/aichat-ng` (blob42/aichat-ng prebuilt) |
 | aichat-ng config dir | `~/.config/aichat_ng/` | `/app/.config/aichat_ng/` (bind-mount from `./state/aichat_ng/`) |
 | Scheduler | systemd user services | supercronic inside the container |
@@ -138,21 +133,21 @@ When the pipeline runs inside the `ghcr.io/brockamer/findajob` image, paths shif
 <repo>/src/findajob/paths.py                # central path resolver — from findajob.paths import BASE, AICHAT, PANDOC
 <repo>/src/findajob/utils.py                # shared utilities: log_event(), write_audit(), load_env()
 <repo>/src/findajob/cleaning.py             # normalize, fingerprint, clean_title, clean_company
-<repo>/src/findajob/ingest.py               # ingest_manual_job() — shared entry point for the /ingest/ web form (#62)
+<repo>/src/findajob/ingest.py               # ingest_manual_job() — shared entry point for the /ingest/ web form
 <repo>/src/findajob/fetchers.py             # Greenhouse, RapidAPI, Gmail job fetching
 <repo>/src/findajob/scoring.py              # score_job(), _build_feedback_block()
 <repo>/src/findajob/scorer_prefilter.py     # deterministic pre-filter (Stage 1 + 2)
 <repo>/src/findajob/web/app.py               # FastAPI app factory (create_app)
 <repo>/src/findajob/web/routes/ingest.py     # GET /ingest/ form + POST /ingest/manual handler
-<repo>/src/findajob/web/routes/config.py     # GET /config/, GET/POST /config/files/{path} — in-browser config editor (#149)
-<repo>/src/findajob/web/routes/tools.py      # GET /tools/ — stub linking to /config/ (#149)
-<repo>/src/findajob/web/routes/docs.py       # GET /docs/ index + GET /docs/{slug} — user docs viewer (#224)
+<repo>/src/findajob/web/routes/config.py     # GET /config/, GET/POST /config/files/{path} — in-browser config editor
+<repo>/src/findajob/web/routes/tools.py      # GET /tools/ — stub linking to /config/
+<repo>/src/findajob/web/routes/docs.py       # GET /docs/ index + GET /docs/{slug} — user docs viewer
 <repo>/src/findajob/web/markdown.py          # render_markdown() — shared MD→HTML helper for materials + docs viewers
-<repo>/src/findajob/web/config_files.py      # allowlist + resolve_editable() for /config/ editor (#149)
-<repo>/src/findajob/web/onboarding_guard.py # NUX guard dependency — 307s /board,/materials,/stats to /onboarding when sentinel missing (#148)
-<repo>/src/findajob/web/routes/onboarding.py # GET /onboarding/, GET /onboarding/prompt, POST /onboarding/inject (#148)
-<repo>/src/findajob/onboarding/parser.py    # parse interview emission into files to inject (#148)
-<repo>/src/findajob/onboarding/injector.py  # atomic write + backup + Tier-1 derivation + sentinel (#148)
+<repo>/src/findajob/web/config_files.py      # allowlist + resolve_editable() for /config/ editor
+<repo>/src/findajob/web/onboarding_guard.py # NUX guard dependency — 307s /board,/materials,/stats to /onboarding when sentinel missing
+<repo>/src/findajob/web/routes/onboarding.py # GET /onboarding/, GET /onboarding/prompt, POST /onboarding/inject
+<repo>/src/findajob/onboarding/parser.py    # parse interview emission into files to inject
+<repo>/src/findajob/onboarding/injector.py  # atomic write + backup + Tier-1 derivation + sentinel
 <repo>/src/findajob/discoverer/                # company discovery library — prompt, parser, runner, writer
 <repo>/src/findajob/web/routes/healthz.py    # GET /healthz
 <repo>/src/findajob/web/routes/materials.py  # GET /materials/ — candidate materials viewer (uses folder_resolver)
@@ -166,7 +161,7 @@ When the pipeline runs inside the `ghcr.io/brockamer/findajob` image, paths shif
 <repo>/scripts/setup_sheets.py             # one-time sheet formatting (idempotent)
 <repo>/scripts/prep_application.py          # on-demand LLM material generation
 <repo>/scripts/find_contacts.py             # LinkedIn contact matching + outreach drafts
-<repo>/scripts/ingest_form.py               # Google Form → DB ingestion (retired: timer disabled in #62; kept for manual runs)
+<repo>/scripts/ingest_form.py               # Google Form → DB ingestion (retired; kept for manual drains)
 <repo>/scripts/notify.py                    # ntfy push notifications (8 subcommands incl. send-raw, scoreboard)
 <repo>/scripts/rename_folders.py            # rename company folders to new format (idempotent)
 <repo>/scripts/discover_companies.py            # weekly company discovery cron entry
@@ -216,88 +211,19 @@ Foundational decisions (from `docs/superpowers/specs/2026-04-21-web-frontend-14b
 - URL query params for UI state (not cookies/localStorage)
 - Alpine.js added only when ephemeral client state is needed
 
-`/config/` is the in-browser editor for the pipeline's editable config files (profile,
-master resume, prefilter rules, search queries, feed URLs, role prompts) with an
-explicit allowlist. There is no per-user authorization inside findajob — anyone the
-perimeter lets in can edit pipeline config. The default perimeter is Wireguard-only;
-internet-exposed per-tester instances additionally gate the entire web UI behind HTTP
-Basic Auth via the `FINDAJOB_AUTH_USER` / `FINDAJOB_AUTH_PASS` env vars (see
-`findajob.web.auth` and `docs/setup/internet-exposure.md` (#327)). See
-`findajob.web.config_files` for the `/config/` allowlist definition (#149).
+**`/config/`** — in-browser editor for editable pipeline config; allowlist in `findajob.web.config_files`. No per-user authorization inside findajob — perimeter is the boundary. Default perimeter is Wireguard; internet-exposed instances additionally require HTTP Basic Auth via `FINDAJOB_AUTH_USER` / `FINDAJOB_AUTH_PASS` (see `findajob.web.auth` and `docs/setup/internet-exposure.md`).
 
-`/onboarding/` is the first-run NUX + paste-back injector for the interview
-emitted by `config/roles/onboarding_interviewer.md`. A FastAPI dependency on
-the `/board/*`, `/materials/*`, and `/stats/*` router includes redirects to
-`/onboarding/` when `{base_root}/data/.onboarding-complete` is missing. The
-paste-back injector writes ten canonical config files (under
-`candidate_context/`, `config/`, and `data/`) plus a derived
-`config/companies_of_interest.txt`, and backs up any existing destinations
-to `{base_root}/.backups/{UTC-stamp}/` first. Re-triggerable from `/tools/`
-via `/onboarding/?mode=rerun`. See
-`findajob.onboarding.parser`/`findajob.onboarding.injector`/
-`findajob.web.onboarding_guard` for the implementation boundaries (#148).
+**`/onboarding/`** — first-run NUX + paste-back injector for the interview emitted by `config/roles/onboarding_interviewer.md`. The `findajob.web.onboarding_guard` dependency redirects `/board/*`, `/materials/*`, `/stats/*` to `/onboarding/` when `data/.onboarding-complete` is missing. Re-triggerable via `/onboarding/?mode=rerun`. The injector parses the interview blob, atomically writes ~10 canonical files under `candidate_context/`/`config/`/`data/`, backs up existing destinations to `.backups/{UTC-stamp}/`, optionally processes pasted `voice-samples.md` (markdown-strip + PII-generalization), verifies the operator's OpenRouter key with a 1-token live call, and only then writes the sentinel. See `findajob.onboarding.{parser,injector,voice_processor,openrouter_smoke}` for boundaries.
 
-The original seven were profile.md, master_resume.md, target_companies.md,
-business_sector_employers_reference.md, jsearch_queries.txt,
-prefilter_rules.yaml, in_domain_patterns.yaml. #328 added three more:
-`candidate_context/display_name.txt` (for deterministic materials-filename
-prefix derivation), `data/timezone` (single-line IANA tz; operator must
-reflect in `compose.yaml`'s `TZ` env var to take effect), and a parsed
-`ntfy_topic.txt` whose value is merged into `data/.env` as `NTFY_TOPIC=...`
-(merge preserves any unrelated keys like `RAPIDAPI_KEY` / `GOOGLE_API_KEY`
-across the write). Plus the user's **OpenRouter API key**, collected via a
-dedicated form field on the `/onboarding/` page rather than the emission
-blob (kept out of the user's chat-LLM logs by design); merged into
-`data/.env` as `OPENROUTER_API_KEY=...`. Before writing the sentinel, the
-injector verifies the key with a 1-token completion against
-`google/gemini-3-flash-preview` via OpenRouter
-(`findajob.onboarding.openrouter_smoke.verify_openrouter_key`); failure
-raises `OnboardingSmokeCheckFailed`, and the route renders the error
-verbatim — files are committed but the sentinel is NOT written, so the
-next paste-back overwrites cleanly with a corrected key.
-
-The interview also accepts an **optional eighth file** — `voice-samples.md`
-— containing the user's pasted long-form prose for cover-letter and outreach
-voice calibration. When provided, the injector runs the body through
-`findajob.onboarding.voice_processor.process_voice_samples` (deterministic
-markdown-strip pass + Opus 4.7 PII-generalization pass) before atomically
-writing to `candidate_context/voice_samples/voice-samples.md`. Absent or
-empty voice samples → the file is never created and the pipeline falls
-back to resume-based voice calibration with no error (#262).
-
-`/docs/` renders the user-facing guides (`docs/usage.md`,
-`docs/troubleshooting.md`, `docs/setup/README.md` + setup sub-pages) inline
-in the web UI so operators don't have to leave the app for help. Slug → file
-allowlist in `findajob.web.routes.docs`; Markdown rendering is the shared
-`render_markdown()` helper in `findajob.web.markdown`, which also handles
-`.md` cross-link rewriting (`[usage.md](usage.md)` → `/docs/usage`) and
-`target="_blank"` on external links. The markdown files on disk under `docs/`
-remain the source of truth; GitHub rendering is unchanged (#224).
+**`/docs/`** — renders `docs/usage.md`, `docs/troubleshooting.md`, `docs/setup/*` inline in the web UI. Slug allowlist in `findajob.web.routes.docs`; rendering via `findajob.web.markdown.render_markdown()` (handles `.md` cross-link rewriting + `target="_blank"` on external links).
 
 ### Per-column filter framework
 
-All board tabs use a single declarative filter framework under
-`findajob.web.filters`. Each tab declares a `tuple[ColumnSpec, ...]`
-in `findajob.web.filters.registry`; the framework parses URL params
-into `ParsedFilters`, builds parameterized SQL clauses via
-`build_filter_clauses()`, and renders header inputs + popovers via
-shared partials (`_table_header.html`, `_active_filters.html`).
+Declarative framework at `findajob.web.filters`. Each board tab declares a `tuple[ColumnSpec, ...]` in `findajob.web.filters.registry`; framework parses URL params, builds parameterized SQL clauses, and renders header inputs via shared partials.
 
-URL contract is flat with type-suffixed param names:
-- TEXT: `?col=substring` (case-insensitive contains)
-- SCORE / INTEGER: `?col_min=&col_max=`
-- ENUM: `?col=a,b,c` (multi-select via comma)
-- DATE: `?col_from=&col_to=`
-- Sort: `?sort=col&desc=1` (existing convention preserved)
-- Visibility: `?cols=a,b,c` (explicit replacement set; default per spec)
+URL contract — flat, type-suffixed param names: `?col=sub` (TEXT), `?col_min=&col_max=` (SCORE/INTEGER), `?col=a,b,c` (ENUM), `?col_from=&col_to=` (DATE), `?sort=col&desc=1`, `?cols=a,b,c` (visibility).
 
-State cascade: URL querystring > ColumnSpec.default_visible. Persisted
-per-tab prefs are #277 — the cascade has the layer hook.
-
-When adding a new board tab, declare its ColumnSpec list in
-`registry.py`, add a base WHERE constant + `_<tab>_query()` builder
-in `routes/board.py`, and create the tab template that includes
-`_filters.html` + `_table_header.html`. No per-tab filter code needed.
+Adding a new tab: declare ColumnSpec list in `registry.py`, add base WHERE + `_<tab>_query()` in `routes/board.py`, include `_filters.html` + `_table_header.html` in the template.
 
 ---
 
@@ -314,7 +240,7 @@ handler + a new `findajob.actions` helper.
 Some transitions also spawn detached generator subprocesses:
 - `POST /board/jobs/{fp}/prep` and `/regenerate` → `scripts/prep_application.py` (briefing, tailored resume, cover, recruiter critique, outreach drafts)
 - `POST /board/jobs/{fp}/interview` → `scripts/interview_prep.py` (interview prep artifact). Always (re)launches on each click — re-clicking is the regenerate mechanism after a recruiter sends panel info; a sentinel file `.interview_prep_in_progress` in the prep folder guards against concurrent runs.
-- `POST /ingest/speculative` and `POST /speculative/regenerate/{id}` → `scripts/run_speculative_research.py` (briefing + role-synth pipeline). Async — status page polls `/speculative/status/{id}/poll` every 5s until `status='ready_for_review'`. See #131 / `findajob.web.routes.speculative` for the full route surface (POST `/ingest/speculative`, GET `/speculative/status/{id}` + `/poll`, GET `/speculative/review/{id}`, POST `/speculative/{approve,regenerate,trash}/{id}`).
+- `POST /ingest/speculative` and `POST /speculative/regenerate/{id}` → `scripts/run_speculative_research.py` (briefing + role-synth pipeline). Async — status page polls `/speculative/status/{id}/poll` every 5s until `status='ready_for_review'`. Full route surface in `findajob.web.routes.speculative` (POST `/ingest/speculative`, GET `/speculative/status/{id}` + `/poll`, GET `/speculative/review/{id}`, POST `/speculative/{approve,regenerate,trash}/{id}`).
 - `POST /board/jobs/{fp}/apply` is synthetic-aware: reads `jobs.synthetic` and writes `audit_log.changed_by='outreach_button'` for synthetic rows (label flips to "Sent Outreach" on the dashboard); otherwise the existing `'user'` value. No separate route — single endpoint, server-derived signal.
 
 ### Path Resolution
@@ -337,54 +263,18 @@ Never rely on LLM prompt instructions alone for boolean classification tasks.
 
 ### Synthetic Jobs Convention (Speculative Cold-Outreach)
 
-Some `jobs` rows are *synthetic* — produced by the speculative ingest path
-(`/ingest/` "Speculative" tab, see #131) for cold-outreach to companies
-that aren't currently posting a matching opening. Two new role files drive
-synthesis: `candidate_led_briefing` (Perplexity Sonar Deep Research) for
-the briefing, and `speculative_roles_synth` (Claude Sonnet 4.6) for the
-1–5 candidate-tailored role cards. Pre-approval state lives in
-`speculative_requests`; only on operator approve do `jobs` rows get
-written by `findajob.speculative.approver`.
+Some `jobs` rows are *synthetic* — produced by the speculative ingest path (`/ingest/` "Speculative" tab) for cold-outreach to companies not currently posting a matching opening. Pre-approval state in `speculative_requests`; on approve, `findajob.speculative.approver` writes the `jobs` row.
 
-**Marker on jobs row:** `synthetic=1` (canonical) + `source='web_speculative'` +
-`[SPEC] ` title prefix. The `[SPEC] ` prefix is two-layer defense (literal
-in `jobs.title` so it flows through every render path; render-time SPEC
-badge in `_job_row.html` for visual differentiation); the `synthetic` flag
-is the canonical data-layer signal.
+**Canonical signal:** `jobs.synthetic=1` + `source='web_speculative'` + `[SPEC] ` title prefix (literal in title for universal render coverage; render-time badge in `_job_row.html`).
 
-**Lifecycle invariants enforced in code:**
-- `findajob.actions.handle_rejection` SKIPS `feedback_log` writes when
-  `jobs.synthetic=1`. Synthetic rejections must never feed the scorer.
-  (`handle_not_selected` already does not write to `feedback_log`.)
-- `findajob.scoring._build_feedback_block` LEFT JOINs to `jobs` and
-  excludes `synthetic=1` rows from the scorer prompt's rejection history.
-- Speculative rows reuse the `applied` stage (no new enum value). The
-  `/board/jobs/{fp}/apply` handler reads `jobs.synthetic` and writes
-  `audit_log.changed_by='outreach_button'` for synthetic rows; otherwise
-  `'user'`. Apply-gate query is unchanged
-  (`field_changed='stage' AND new_value='applied'`) — cold-outreach counts.
-- `scripts/prep_application.py` and `scripts/find_contacts.py` prepend a
-  `<<SPECULATIVE_MODE>>` marker to the cover-letter and outreach prompts
-  when `jobs.synthetic=1`; both role files branch on the marker for
-  cold-outreach framing.
-- `scripts/watchdog.py` `fail_stuck_speculative()` flips any
-  `speculative_requests` row stuck in `status='researching'` for >10 min
-  to `status='failed'`. Covers the silent-subprocess-death case.
-- `scripts/prep_application.py` reuses the deep-research briefing from
-  `companies/{folder}/briefing.md` when `jobs.speculative_briefing_folder`
-  is set — skips `company_researcher` + `briefing_writer` entirely (#320).
-  Falls back to the regular `briefing_writer` flow if the column is unset,
-  the folder is missing, or briefing.md is empty/whitespace-only. The
-  approver (`findajob.speculative.approver`) populates the column from
-  `speculative_requests.briefing_folder` at approve time so each per-role
-  prep folder references the same submission-time briefing.
+**Invariants — assume code enforces these; do not duplicate logic that breaks them:**
+- Synthetic rejections never feed the scorer (`handle_rejection` skips `feedback_log`; `_build_feedback_block` excludes `synthetic=1` rows).
+- Synthetic rows reuse the `applied` stage; `/board/jobs/{fp}/apply` writes `audit_log.changed_by='outreach_button'` for them.
+- `prep_application.py` and `find_contacts.py` prepend `<<SPECULATIVE_MODE>>` to cover-letter / outreach prompts when `jobs.synthetic=1`; both role files branch on it.
+- `prep_application.py` reuses `companies/{folder}/briefing.md` (set via `jobs.speculative_briefing_folder`) and skips `company_researcher` + `briefing_writer`.
+- `watchdog.fail_stuck_speculative()` fails any `speculative_requests` stuck in `researching` > 10 min.
 
-**Folder layout:**
-- Briefing folder: `companies/{Company}_SPECULATIVE_{YYYY-MM-DD}_{HHMMSS}/briefing.md`
-- Per-role prep folder (created on flag-for-prep): same convention as
-  real prep folders.
-
-**Endpoints:** see "Web Is The Write Surface" below.
+**Folder layout:** `companies/{Company}_SPECULATIVE_{YYYY-MM-DD}_{HHMMSS}/briefing.md`; per-role prep folders use the regular convention.
 
 Full spec: `docs/superpowers/specs/2026-04-28-speculative-ingest-131-design.md`.
 
@@ -394,14 +284,7 @@ spelled out explicitly in role prompts and CLAUDE.local.md. LLMs will misinterpr
 abbreviations if context is not given. See CLAUDE.local.md for this installation's specifics.
 
 ### Company Discovery is a Parallel Signal
-`config/roles/company_discoverer.md` runs weekly via supercronic and after
-onboarding completion. It emits `candidate_context/discovered_companies.md`
-+ `.json` (gitignored). Both are read by #285's scorer rewire and #283's
-Greenhouse-slug derivation as INPUTS, not floors. The static
-`## Target Companies / Organizations` section in profile.md remains as a
-strategic-preference signal — orthogonal to the competency-fit signal the
-discoverer produces. Do not delete the static list to "consolidate" — they
-serve different purposes.
+`config/roles/company_discoverer.md` runs weekly via supercronic and after onboarding completion. It emits `candidate_context/discovered_companies.md` + `.json` (gitignored), read by the scorer and Greenhouse-slug derivation as INPUTS, not floors. The static `## Target Companies / Organizations` section in profile.md remains as a strategic-preference signal — orthogonal to the competency-fit signal the discoverer produces. Do not delete the static list to "consolidate"; they serve different purposes.
 
 ### Output Folder Format
 `{Company}_{AbbrevTitle}_{YYYY-MM-DD}_{HHMMSS}` — title abbreviated to first 3 words, underscored.
@@ -446,12 +329,7 @@ return zero LinkedIn results. Validate each query manually before committing.
 
 ### Google Sheet Architecture
 
-> **Web UI is the write surface.** As of #61 PR-B, `sync_sheet.py` writes DB
-> state to the Sheet one-way and never reads from it. Operators drive every
-> STATUS + REJECT_REASON transition through `/board/*`. As of #62 (14d), the
-> `/ingest/` web form replaces the Google Form + `ingest_form.py` poll loop.
-> The Sheet remains a read-only synced view for mobile/glance use until
-> `sync_sheet.py` itself is retired — the remaining step under the parent #14.
+The Sheet is a read-only one-way mirror of DB state for mobile/glance use; `sync_sheet.py` never reads from it. All transitions go through `/board/*` POST handlers.
 
 **Dashboard** — pre-application queue (A–N), filter: `(score>=7 AND stage IN (scored,manual_review))` OR `stage IN (prep_in_progress, materials_drafted)`. Row columns:
 `STATUS(dropdown) | REJECT_REASON(dropdown) | fingerprint(hidden) | fit_score | probability_score | relevance_score | title(hyperlink) | company | location | remote | contacts | comp | notes | date`
@@ -564,12 +442,11 @@ When in doubt — does this change affect what users see when they pull `:latest
 
 ## Working Style
 
-- Terse. User reports completion of each step before asking what's next.
 - Read file contents before proposing changes. Never assume files match prior discussion.
 - Diagnose root cause before fixing. No shotgun solutions.
-- Copy-pasteable commands only. No placeholders. Use paths from `scripts/paths.py`. Platform-aware.
-- Never confuse `aichat` with `aichat-ng`. Different binaries.
-- Goal: working features first, polish later.
+- Use paths from `findajob.paths`. Platform-aware. No placeholders in commands.
+- Never confuse `aichat` with `aichat-ng` — different binaries.
 - Preserve the scheduler-driven daily run in all changes.
+- Working features first, polish later.
 
 @CLAUDE.local.md
