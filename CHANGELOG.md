@@ -10,6 +10,14 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.9.1] — 2026-05-01
+
+Patch bump. Widens the Gmail IMAP cold-start window from 7 to 30 days. Mirrors the v0.8.4 datePosted recall fix: a brand-new tester authorizing fresh on a long-lived inbox needs more than a 7-day window to seed the board with useful signal, especially when the inbox has years of LinkedIn / Indeed / ZipRecruiter alerts. Steady-state UID-incremental fetch is unchanged.
+
+### Fixed
+
+- **Gmail IMAP cold-start window widened from 7 to 30 days (#370).** New module-level constant `_COLDSTART_WINDOW_DAYS = 30` in `src/findajob/gmail_imap.py`. Cold-start path (UIDVALIDITY mismatch — first authorize or server-side mailbox reset) now emits `SEARCH (SINCE <30-days-ago> FROM "<sender>")` per allowlisted sender. Two new tests pin the window length and assert that steady-state SEARCH never includes a `SINCE` clause (regression guard against the wider cold-start window leaking into normal operation). No migration: existing operators who already cold-started under v0.9.0 with 7 days are now in steady-state UID-incremental and unaffected; only fresh authorizations going forward see the wider window.
+
 ## [0.9.0] — 2026-05-01
 
 Minor bump. Replaces the Gmail OAuth integration with an IMAP + app-password path, configured per-stack at `/config/gmail/`. Opens the multi-tenant foundations milestone — every tester stack can now wire up its own Gmail ingestion without operator intervention or GCP-project provisioning. Migration required for stacks that were on the OAuth integration.
