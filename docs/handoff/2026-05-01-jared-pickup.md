@@ -5,8 +5,8 @@ Pick up from the structural review. Use this doc + `docs/roadmap.md` Decision 19
 ## Where the board is right now
 
 - **Active milestone: General Availability.** Due 2026-05-12. Scope-tightened today from 10 → 5 issues.
-- **Status convention retired** (`Up Next` / `In Progress` columns gone). All open issues live in Backlog; Priority + Milestone drive ordering.
 - **Milestones renamed** (no more `v0.9 / v1.1 / v1.4 / v1.2 / v1.3` prefixes).
+- **Status flow:** canonical jared 5-column model — `Backlog → Up Next → In Progress → Blocked → Done` — Priority + Milestone govern *what* to pull next; column position governs *flow*.
 - **Apply gate today: 1/3 PT.** Every operating session checks `audit_log` for the day's `stage→applied` transitions before pulling new Medium/Low scope.
 
 ## What needs to ship to close GA
@@ -75,6 +75,6 @@ Promote `Multi-Tenancy Foundations` to active milestone. Move the GA section in 
 ## Pointers
 
 - `docs/roadmap.md` Decision 19 — full record of today's reshape.
-- `docs/project-board.md` — current board conventions (Status flow now Backlog → Done).
+- `docs/project-board.md` — current board conventions (canonical 5-column flow).
 - Epic #338 Session note (2026-05-01) — Multi-Tenancy Foundations resume path.
 - `docs/superpowers/specs/2026-05-01-362-rejection-detection-design.md` — fresh spec, untracked, awaiting commit decision.
