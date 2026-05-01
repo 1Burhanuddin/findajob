@@ -10,6 +10,14 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Added
+
+- **Gmail integration replaced with IMAP/app-password (#330).** Gmail ingestion now uses an app password + IMAP, configured per-stack at `/config/gmail/`. The previous OAuth integration (`config/gmail_oauth_client.json` + `config/gmail_token.json`, plus the loopback OAuth helper service in `compose.yaml.example`) is removed. New onboarders generate a 16-character app password from their Google Account and paste it in — no GCP project, no consent screen, no OAuth verification. The `/config/gmail/` page carries an audit-link-pinned transparency banner specifying exactly what the integration touches in the user's mailbox; the disclosure claims are codified as executable assertions in `tests/test_transparency_invariants.py`.
+
+### Migration required
+
+- **Gmail integration (#330).** If you were using the OAuth integration: configure the new path at `/config/gmail/` and delete `config/gmail_oauth_client.json` + `config/gmail_token.json` from your bind mount. The pipeline silently no-ops Gmail ingestion until configured. Operators with no Gmail integration: nothing to do.
+
 ## [0.8.4] — 2026-05-01
 
 Patch bump. Fixes the empty-board NUX cliff for brand-new tester stacks: jobs-api14's LinkedIn `datePosted='day'` filter yields ~7 jobs/day, and the Dashboard's score≥7 default floor filtered most of those out. Live example surfaced this session: papa's stack on day 1 returned 7 jobs total (max score 4) — board read as broken. The fix widens the recency window for stacks in their first 30 days post-onboarding; steady-state behavior unchanged.
