@@ -21,21 +21,36 @@ If a roadmap fact drifts between this doc and an issue, *this doc wins*.
 3. Web frontend has retired Sheets reads (Dashboard/Applied/Review/Waitlist), writes (STATUS/REJECT_REASON), manual JD ingest, and Google Drive materials viewing.
 4. Apply-gate stayed met on average during the arc (daily applies ≥ 1/day averaged across any 7-day window).
 
-### Phase arc
+### Remaining scope
+
+Phase labels were retired in Decision 17 (2026-04-29) — work is now organized by milestone with deliverable sentences, not by phase. The phase-arc that got GA to its current near-shippable state is preserved in shipped-and-retired form below for historical context.
+
+Currently open in GA: a stripped-down sprint focused on tester-onboarding correctness. Most polish/follow-up was reassigned to other milestones in the 2026-05-01 structural review (see Decision 19).
+
+```
+GA sprint scope (post-2026-05-01 reshape):
+  - #345  Discoverer regex matches onboarding profile.md schema (real bug)
+  - #84   excluded_employers config + prefilter enforcement
+  - #76   Docs refresh for Docker deploy
+  - #275  gmail_linkedin docs expansion
+  - #373  Tracking: dave/judy/tango onboarding (acceptance proof)
+```
+
+### Shipped phases (historical)
 
 ```
 Phase 1 (shipped)          Config externalization + frontend evaluation
 Phase 2 (shipped)          Docker migration + release management
-Phase 2.5                  v0.1.0 tag cut (48h dogfood gate)
-Phase 3                    Web materials viewer (retires rclone + Drive)
-Phase 4                    First-tester deployment (needs onboarding interview)
-Phase 5                    Remaining web-frontend sub-phases:
-                             read-only views → STATUS/REJECT workflows →
-                             manual JD ingest → stats/trends
-Phase 6 (parallel w/ 5)    User-facing documentation (split per area)
+Phase 2.5 (shipped)        v0.1.0 tag cut (48h dogfood gate)
+Phase 3 (shipped)          Web materials viewer (retired rclone + Drive)
+Phase 4 (shipped)          First-tester deployment (alice 2026-04-30; papa 2026-04-29)
+Phase 5 (shipped)          Web-frontend sub-phases: read-only views,
+                           STATUS/REJECT workflows, manual JD ingest, stats/trends
+Phase 6 (in-flight)        User-facing documentation — partially shipped via /docs/;
+                           remaining sweep tracked under #76 + #275
 ```
 
-Phase ordering is deliberate — see Decisions 8 (Phase 3 before Phase 4) and 11 (onboarding interview critical path to Phase 4).
+Phase ordering rationale preserved in Decisions 8 (Phase 3 before Phase 4) and 11 (onboarding interview critical path to Phase 4).
 
 ### Decisions
 
@@ -60,6 +75,8 @@ Append-only. Numbers are stable references. Amend an entry in place only for fac
 17. **Multi-tenancy promoted from wishlist to v0.9 milestone, post-GA dates compressed, phase labels retired (2026-04-29).** Structural review on 2026-04-29 made four changes. (a) Multi-tenancy was reframed from "far-future wishlist" to urgent — operator has multiple testers ready to onboard but the platform isn't quite there yet. New milestone v0.9 — Multi-Tenancy Foundations (between GA and v1.1) anchored by [Epic] #338, parenting #330 / #333 / #336 / #339. (b) All post-GA milestone dates compressed 2-3x to reflect actual ~80-issue/week shipping pace observed in the prior 14 days. (Dates further compressed in Decision 18 the same day — see below.) (c) Phase labels (`phase-4` / `phase-5` / `phase-6`) retired entirely — vestigial after Decision 14's milestone-based reorganization; stripped from all open issues and deleted from the repo. (d) PII drift cleanup: GA milestone description previously named the operator's first beta tester; redacted to generic "the first external tester" per the lowercase-handle convention adopted 2026-04-28 in CLAUDE.local.md. Six closed-but-stuck items (#15, #16, #86, #88, #252, #303) bulk-moved to Done; #228 renamed with `[Epic]` prefix per Decision 15.
 18. **Second date compression + version-codename convention recorded (2026-04-29 — same day as #17).** Structural review later 2026-04-29 made four changes. (a) Dates compressed again, this time pulled into a single ~30-day window targeting last milestone (v1.3) at 2026-05-29. New dates: GA 2026-05-12; v0.9 2026-05-18; v1.1 2026-05-22; v1.4 2026-05-25; v1.2 2026-05-27; v1.3 2026-05-29. Justification: the previous compression in #17 was still conservative relative to actual shipping cadence; #17's dates were anchored on calendar-month feel rather than throughput. (b) Version-numbering convention recorded: chronological release order is GA → v0.9 → v1.1 → v1.4 → v1.2 → v1.3 — v1.4 ships before v1.2 / v1.3 per Decision 14's "funnel-first" framing. **Versions are codenames, not semver** — readers should not assume v1.2 ships after v1.1. (c) Bundle of mechanical drift fixes and milestone moves applied: #186 (TLS+auth proxy) removed from GA — Decision 16 already shipped Basic Auth as the practical answer, remaining scope is far-future big-idea no-milestone. #344 (multi-tenant scheduler stagger) moved v1.3→v0.9 (it's multi-tenant work). #211 / #212 / #215 (onboarding paste-back polish) moved v1.4→v0.9 (strengthens v0.9's onboarding deliverable). #275 (gmail_linkedin docs) moved v1.4→GA (paired with tester onboarding). #345 (discoverer regex bug) given GA milestone (real bug affecting tester onboarding output). #150 (`/tools/` page) lost vestigial `big-idea` label (concrete Phase 1 implementation already in CLAUDE.md). (d) v1.4 deliverable rewritten to span both halves: "More job sources flow into the funnel, and the operator's daily triage loop makes every candidate row actionable in one click with prior-application context inline." Title was already "Funnel + Triage UX" but description was triage-only.
 
+19. **Structural review (2026-05-01): retire WIP-kanban convention, rename milestones, scope-tighten GA, file future arc.** Six changes. (a) `Up Next` and `In Progress` Status columns retired — observed reality is all 71 open issues in `Backlog`, all closed in `Done`, and the WIP-limit convention was a fiction the solo+AI loop never used. New flow: `Backlog → Done`, with `Blocked` on-demand. `docs/project-board.md` updated. (b) Milestones renamed to drop `v0.9 / v1.1 / v1.2 / v1.3 / v1.4` codename prefixes after v0.9.x release tags began shipping work from the v0.9 milestone — the codename-vs-semver collision called out in Decision 18 had become an actual naming bug. New names: `Multi-Tenancy Foundations`, `Cost + Credentials Hardening`, `Funnel + Triage UX`, `Tuning Loop + Stats`, `Ops Hardening`. Semver release tags continue floating on the release-process schedule independently. (c) GA scope-tightened from 10 issues to 5 (#345, #84, #76, #275, #373). Six polish/follow-up issues moved to other milestones: #181/#126/#301 → Ops Hardening; #283/#287 → Multi-Tenancy Foundations; #85 → Funnel + Triage UX. GA acceptance criteria already largely met by alice (deployed 2026-04-30) + papa (2026-04-29). (d) Five real-work milestone-orphans assigned: #358 → Funnel + Triage UX; #359/#360 → Ops Hardening; #362 → Funnel + Triage UX (has fresh design spec from today); #372 → Multi-Tenancy Foundations. #373 promoted from `tracking`-labeled to `enhancement,open-source` and assigned to GA — getting dave/judy/tango onboarded IS the GA acceptance test. (e) Phase 5/6 framing in GA Active milestone section retired per Decision 17; replaced with "Remaining scope" + "Shipped phases (historical)" subsections. (f) Future arc filed as three big-idea issues on the board: #377 (Open-source launch readiness epic), #378 (Outcome-driven self-tuning), #379 (Cross-user signal opt-in telemetry). Far-future wishlist section refreshed to point at issue numbers and to acknowledge that "Multi-tester scaling" was promoted out of wishlist on 2026-04-29.
+
 ### Scope out (explicit)
 
 - Per-user identity / RBAC inside findajob — Decision 16 added shared-secret auth, not identity.
@@ -77,37 +94,35 @@ Append-only. Numbers are stable references. Amend an entry in place only for fac
 
 ## Post-GA horizon
 
-Post-GA Hardening was a single undated grab-bag milestone through 2026-04-24; a structural review that day split it into four dated release milestones so the Roadmap view renders past GA. The 2026-04-29 reviews added v0.9 (multi-tenancy) between GA and v1.1, and twice compressed dates — see Decisions 17 and 18 — landing at the current ~30-day window. Deliverable sentences are authoritative — if a proposed issue doesn't fit exactly one, it belongs in NO_MILESTONE (big-idea) or in a new milestone, not wedged into an existing one.
+Post-GA Hardening was a single undated grab-bag milestone through 2026-04-24; a structural review that day split it into four dated release milestones so the Roadmap view renders past GA. The 2026-04-29 reviews added Multi-Tenancy Foundations between GA and Cost + Credentials Hardening, and twice compressed dates — see Decisions 17 and 18 — landing at the current ~30-day window. The 2026-05-01 review (Decision 19) renamed milestones to drop the v0.9/v1.1/etc. prefixes, eliminating the codename-vs-semver collision that had emerged once v0.9.x release tags started shipping while the v0.9 milestone was still mid-flight. Deliverable sentences are authoritative — if a proposed issue doesn't fit exactly one, it belongs in NO_MILESTONE (big-idea) or in a new milestone, not wedged into an existing one.
 
-**Version numbers are codenames, not semver.** Chronological order is GA → v0.9 → v1.1 → v1.4 → v1.2 → v1.3 (Decision 18). v1.4 ships before v1.2/v1.3 per Decision 14's "funnel-first" framing.
+**Milestone names are now deliverable-anchored, not version-numbered.** Chronological release order is GA → Multi-Tenancy Foundations → Cost + Credentials Hardening → Funnel + Triage UX → Tuning Loop + Stats → Ops Hardening (Decision 18). Funnel + Triage UX ships before Tuning Loop / Ops Hardening per Decision 14's "funnel-first" framing. Semver release tags (v0.9.x, v0.10.x, v1.0.0, …) float on the release-process schedule independently of milestone names.
 
-- **[v0.9 — Multi-Tenancy Foundations](https://github.com/brockamer/findajob/milestone/10)** (due 2026-05-18) — "The operator can onboard a new tester end-to-end without hand-curating credentials or hand-editing config files, and can see all running tester stacks' health in one place." Anchored by epic #338, parenting #330 (per-user Gmail OAuth), #333 (multi-tenant operator dashboard), #336 (in-app onboarding chat UI), #339 (per-tester API key isolation). Sits between GA and v1.1 because the operator has multiple testers ready to onboard but the platform isn't quite there yet (Decision 17).
-- **[v1.1 — Cost + Credentials Hardening](https://github.com/brockamer/findajob/milestone/6)** (due 2026-05-22) — "The user sees per-job and per-week LLM spend in-app, and no plaintext API key lives on disk." Anchored by umbrella epics #239 (credentials hygiene) and #240 (cost observability).
-- **[v1.4 — Funnel + Triage UX](https://github.com/brockamer/findajob/milestone/9)** (due 2026-05-25) — "More job sources flow into the funnel, and the operator's daily triage loop makes every candidate row actionable in one click with prior-application context inline." Scheduled ahead of v1.2/v1.3 because funnel/UX friction is the active-operator pain.
-- **[v1.2 — Tuning Loop + Stats](https://github.com/brockamer/findajob/milestone/7)** (due 2026-05-27) — "The pipeline recommends scorer tunes from user-behavior metrics, and /stats/* dashboards show precision, outcome, recall, and cost trends over time." Anchored by epic #228 (data-driven tuning loop) with C.0/C.1/C.2 children.
-- **[v1.3 — Ops Hardening](https://github.com/brockamer/findajob/milestone/8)** (due 2026-05-29) — "Fresh-install smoke is CI-gated, pipeline.jsonl rotates, DB schema migrates cleanly, and folder/DB drift is detectable on demand." Can ship in parallel with v1.2; date is outside-in.
+- **[Multi-Tenancy Foundations](https://github.com/brockamer/findajob/milestone/10)** (due 2026-05-18) — "The operator can onboard a new tester end-to-end without hand-curating credentials or hand-editing config files, and can see all running tester stacks' health in one place." Anchored by epic #338, parenting #330 (Gmail IMAP — shipped v0.9.0), #333 (multi-tenant operator dashboard — shipped v0.8.3), #336 (in-app onboarding chat UI), #339 (per-tester API key isolation). Picked up #283 / #287 / #372 in the 2026-05-01 reshape.
+- **[Cost + Credentials Hardening](https://github.com/brockamer/findajob/milestone/6)** (due 2026-05-22) — "The user sees per-job and per-week LLM spend in-app, and no plaintext API key lives on disk." Anchored by umbrella epics #239 (credentials hygiene) and #240 (cost observability).
+- **[Funnel + Triage UX](https://github.com/brockamer/findajob/milestone/9)** (due 2026-05-25) — "More job sources flow into the funnel, and the operator's daily triage loop makes every candidate row actionable in one click with prior-application context inline." Scheduled ahead of Tuning Loop / Ops Hardening because funnel/UX friction is the active-operator pain. Picked up #85 / #358 / #362 in the 2026-05-01 reshape.
+- **[Tuning Loop + Stats](https://github.com/brockamer/findajob/milestone/7)** (due 2026-05-27) — "The pipeline recommends scorer tunes from user-behavior metrics, and /stats/* dashboards show precision, outcome, recall, and cost trends over time." Anchored by epic #228 (data-driven tuning loop) with C.0/C.1/C.2 children.
+- **[Ops Hardening](https://github.com/brockamer/findajob/milestone/8)** (due 2026-05-29) — "Fresh-install smoke is CI-gated, pipeline.jsonl rotates, DB schema migrates cleanly, and folder/DB drift is detectable on demand." Can ship in parallel with Tuning Loop + Stats; date is outside-in. Picked up #126 / #181 / #301 / #359 / #360 in the 2026-05-01 reshape.
 
-When a new strategic milestone activates (e.g., v0.9 after GA closes), add a `## Active milestone: <name>` section with the same shape (goal, acceptance, phase arc, decisions, scope-out). Move the outgoing milestone's section up to `## Shipped and retired milestones`.
+When a new strategic milestone activates (e.g., Multi-Tenancy Foundations after GA closes), add a `## Active milestone: <name>` section with the same shape (goal, acceptance, remaining scope, decisions, scope-out). Move the outgoing milestone's section up to `## Shipped and retired milestones`.
 
 ---
 
 ## Far-future wishlist
 
-Not on the roadmap. These become worth pursuing only after the operator has job offers in hand and the pipeline has demonstrably gotten someone hired. Captured here so they don't float around as issues.
+Filed as `big-idea` issues on the board so they're trackable without cluttering the active roadmap. Each becomes worth promoting only after the prerequisite milestone arc has demonstrated real-world signal.
 
-**Open-source launch**
-Public-repo polish: domain-neutral README top-to-bottom, external user install guide requiring no operator intervention, `GENERALIZATION.md` complete, config externalization audit finished, CI green for external contributors, CONTRIBUTING.md, CODE_OF_CONDUCT.md, license review.
+**Multi-tester scaling** — *promoted to active roadmap 2026-04-29 as Multi-Tenancy Foundations milestone (Decision 17).* No longer wishlist.
 
-**Multi-tester scaling**
-Per-user API keys, per-user GCP project isolation, separate admin Claude sessions per instance, operator automation for new-tester provisioning. First concrete item: #71 (multi-tenancy discipline on docker.lan).
+**Open-source launch readiness** — [#377](https://github.com/brockamer/findajob/issues/377). Public-repo polish: domain-neutral README, external user install guide with zero operator intervention, `GENERALIZATION.md` complete, CI green for external contributors, LICENSE / CONTRIBUTING / CODE_OF_CONDUCT. Promote when Ops Hardening ships and the operator + testers have produced real-world hire-rate signal.
 
-**Community feedback loop**
-Issue templates for external users, triage discipline when external reports arrive, release cadence that doesn't break downstream users.
+**Outcome-driven self-tuning** — [#378](https://github.com/brockamer/findajob/issues/378). Once Tuning Loop + Stats has accumulated 3–6 months of behavioral signal, evaluate whether the system can propose its own scorer tunes (operator approves with one click, never auto-applied). Substrate is the C.0/C.1/C.2 work in epic #228.
 
-**Optional: hosted variant**
-Only if demand materializes from the open-source launch. Not in scope until then.
+**Cross-user signal (opt-in)** — [#379](https://github.com/brockamer/findajob/issues/379). Once 3+ external testers have multi-month data, evaluate value of opt-in telemetry surfacing career-cluster funnel benchmarks. Privacy model dominates implementation; do not start before testers say "yes please" enthusiastically.
 
-_(Content migrated from issue #88, closed 2026-04-21.)_
+**Hosted variant** — Only if demand materializes from the open-source launch. Not in scope until then. No issue filed.
+
+_(Original wishlist migrated from issue #88, closed 2026-04-21; refreshed 2026-05-01 — concrete items now have issue numbers.)_
 
 ---
 

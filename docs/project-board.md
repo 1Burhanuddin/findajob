@@ -50,22 +50,21 @@ Issue bodies may *reference* the roadmap ("see Phase 4 in roadmap.md") but shoul
 
 ## Columns (Status field)
 
-Five columns, left to right. An issue moves rightward as it progresses.
+Three columns in active use, left to right. An issue moves rightward as it progresses.
 
 | Column | Meaning | Expected count |
 |---|---|---|
-| **Backlog** | Captured but not yet scheduled. Triaged (has Priority) but not actively planned this cycle. | Unbounded |
-| **Up Next** | Scheduled to be picked up next. The on-deck queue. When In Progress frees up, the top of Up Next moves over. | 1–3 items |
-| **In Progress** | Actively being worked on right now. | 1–3 items |
-| **Blocked** | Was pulled to In Progress and then hit an unanticipated stoppage. Has a `## Blocked by` body section naming the unblock owner and the specific event being waited on. Returns to In Progress when unblocked or to Backlog if punted. | 0–2 items |
+| **Backlog** | All open work. Triaged (has Priority + usually Milestone) and prioritized via the Priority field, not by column position. | Unbounded |
+| **Blocked** | Pulled out of Backlog only when an issue hits an unanticipated stoppage. Has a `## Blocked by` body section naming the unblock owner and the specific event being waited on. Returns to Backlog when unblocked. | 0–2 items |
 | **Done** | Closed issues. Auto-populated when an issue closes. | Growing |
 
+The `Up Next` and `In Progress` columns are retired (2026-05-01 structural review). They existed to model WIP-limited kanban for a multi-person team; in a solo-operator + AI-loop context shipping at a 5-patches-per-day cadence, the queue lived in conversation, not on the board, and the columns stayed empty. The board's job here is **prioritization** (Priority field) and **release grouping** (Milestone), not **flow control**. Issues now go straight from Backlog to Done.
+
 **Rules:**
-- In Progress should stay small. More than ~3 items means focus is scattered.
-- Up Next should be ordered — top item is what gets worked next. Priority field breaks ties within the column.
-- Nothing in In Progress without Priority set.
+- Every open issue must have a Priority — Priority drives ordering, not column position.
 - When an issue closes, it moves to Done automatically.
-- An issue with unmet `blockedBy` dependencies is **not** "Blocked" — it's just queued. Items move to Blocked only after being pulled to In Progress and hitting a stoppage.
+- An issue with unmet `blockedBy` dependencies is **not** "Blocked" — it's just queued. Items move to Blocked only after work has actively started and hit a stoppage.
+- A `Backlog` item that's actively being worked on right now is still in `Backlog` — the conversation/PR is the source of truth for "what's in flight," not the column.
 
 ## Body sections — three independent dimensions
 
@@ -73,7 +72,7 @@ A given issue answers three independent questions, each with its own home:
 
 | Question | Where it lives |
 |---|---|
-| Where is this work in the flow? | **Status column** (Backlog / Up Next / In Progress / Blocked / Done) |
+| Where is this work in the flow? | **Status column** (Backlog / Blocked / Done) |
 | What does this issue depend on? | **Native `blockedBy`** — set via the GitHub dependencies API, visible in the "Linked issues" panel and Projects v2 dependency views |
 | Who owns getting an actively-stuck item moving? | **`## Blocked by` body section** — present **only** on items currently in the Blocked Status column. Names the person, the specific event, and the expected-by date. |
 
@@ -94,7 +93,7 @@ Three values. This is the canonical priority signal — **not** the legacy `prio
 **Rules:**
 - Every open issue on the board must have a Priority set.
 - High priority is scarce by design — if everything is High, nothing is.
-- Two High items in In Progress at once should be rare and deliberate (e.g., one blocking work and one small bug fix alongside it).
+- Two simultaneous High items in flight should be rare and deliberate (e.g., one blocking work and one small bug fix alongside it).
 - If the user says "prioritize X," the intent is *X is the top of the queue*, not *X is another High item among many*.
 
 ## Labels
@@ -148,7 +147,7 @@ gh api graphql -f query='
 
 A `## Depends on` body section, when present, is **human prose** explaining *why* the dependency matters. It does not need to be parseable. The authoritative edge is `blockedBy`.
 
-A `blockedBy` edge does **not** automatically move an issue to the Blocked column. Items move to Blocked only when actively stuck during In Progress.
+A `blockedBy` edge does **not** automatically move an issue to the Blocked column. Items move to Blocked only when actively-worked work has hit a stoppage.
 
 ## Epics (umbrella issues)
 
@@ -183,26 +182,26 @@ An issue without Priority will sort into the "no-field" bucket at the bottom of 
 
 ## Moving work — status transitions
 
-- **Backlog → Up Next** — when scheduling the next item to work on.
-- **Up Next → In Progress** — when starting work. Only one claiming per person/session.
-- **In Progress → Done** — happens automatically when the issue closes (via `gh issue close` or PR merge referencing the issue).
+- **Backlog → Done** — happens automatically when the issue closes (via `gh issue close` or PR merge referencing the issue).
+- **Backlog → Blocked** — only when an actively-worked item hits a stoppage. Add the `## Blocked by` body section naming the unblock owner and event.
+- **Blocked → Backlog** — when the stoppage clears. Drop the `## Blocked by` section.
 - **Any column → Done without closing** — avoid. If the work is done, close the issue; if it's obsolete, close with a comment explaining why.
 
 ## Apply gate
 
 **No new features or elective improvements until the user applies to at least three jobs on the current calendar day (Pacific time).** Bug fixes are exempt. Threshold raised from 1 → 3 on 2026-04-23. This means:
 
-- When In Progress is empty and the apply gate hasn't cleared, don't pull new Medium/Low work in. Clear the gate first.
+- Before starting any new Medium/Low work, check the gate. If it hasn't cleared, clear the gate first.
 - High-priority bug fixes and blockers to applying (e.g., damaged prep materials) are always fair game.
 - Claude checks the gate by querying `audit_log` on docker.lan for today's `stage→applied` transitions; do not ask the user whether they've applied.
 
 ## Common inconsistencies to watch for
 
 1. **Label says `priority: high` but Priority field is empty** — reconcile by setting the field.
-2. **Status is In Progress but no Priority** — actively-worked items must be fully triaged.
+2. **Open issue with no Priority** — every open issue must be triaged.
 3. **Issue on board but closed** — should auto-move to Done; if not, set status manually.
-4. **High-priority backlog items older than two weeks** — either promote to Up Next, downgrade to Medium, or close if no longer relevant.
-5. **More than 3 items in In Progress** — focus is scattered; pause and decide which to finish first.
+4. **High-priority backlog items older than two weeks with no movement** — either downgrade to Medium, or close if no longer relevant.
+5. **Open issue with no Milestone (and not labeled `big-idea` / `personal`)** — every working issue should be tied to a release-grouping milestone.
 
 ## Fields quick reference (for gh project CLI)
 
@@ -220,11 +219,13 @@ Priority field ID:   PVTSSF_lAHOAgGulc4BUtxZzhCWZ08
   Low:               79925e2f
 ```
 
-Example: move an item to Up Next:
+Example: move an item to Blocked (the only manual Status transition under current conventions):
 ```bash
 gh project item-edit \
   --project-id PVT_kwHOAgGulc4BUtxZ \
   --id <ITEM_ID> \
   --field-id PVTSSF_lAHOAgGulc4BUtxZzhCOoMM \
-  --single-select-option-id f94b6c8d
+  --single-select-option-id e0fccf99
 ```
+
+The `Up Next` (`f94b6c8d`) and `In Progress` (`87411b49`) option IDs are retained in the GitHub Projects schema for historical items but are no longer used by convention — see "Columns" above.
