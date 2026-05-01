@@ -242,13 +242,19 @@ def _parse_search_uids(response: list) -> list[int]:
     return []
 
 
+_COLDSTART_WINDOW_DAYS = 30
+
+
 def fetch_new_messages(config: GmailConfig, state: GmailState) -> FetchOutcome:
     """Fetch unread-by-us messages from Gmail via incremental UID tracking.
 
     Behavior:
       - SELECTs INBOX read-only.
-      - On UIDVALIDITY mismatch: cold-start with ``SEARCH SINCE <7 days ago>``
-        per sender, log ``gmail_uidvalidity_reset``.
+      - On UIDVALIDITY mismatch (cold-start: first authorize, or server-side
+        mailbox reset): ``SEARCH SINCE <_COLDSTART_WINDOW_DAYS days ago>`` per
+        sender, log ``gmail_uidvalidity_reset``. Bounds the initial sync so a
+        long-lived inbox with years of LinkedIn / Indeed / ZipRecruiter alerts
+        doesn't ingest thousands of stale jobs on first connect.
       - Otherwise: ``SEARCH (UID <last_uid+1>:* FROM "<sender>")`` per sender.
       - Fetches via ``BODY.PEEK[]`` so the \\Seen flag is never set.
       - Logs out in finally.
@@ -273,7 +279,7 @@ def fetch_new_messages(config: GmailConfig, state: GmailState) -> FetchOutcome:
                 old=state.last_uidvalidity,
                 new=current_uidvalidity,
             )
-            since_date = (datetime.now(UTC) - timedelta(days=7)).strftime("%d-%b-%Y")
+            since_date = (datetime.now(UTC) - timedelta(days=_COLDSTART_WINDOW_DAYS)).strftime("%d-%b-%Y")
 
         all_messages: list[tuple[str, bytes]] = []
         seen_uids: set[int] = set()

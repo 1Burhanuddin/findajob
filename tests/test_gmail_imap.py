@@ -392,6 +392,47 @@ def test_fetch_uidvalidity_change_triggers_cold_restart(fake_config, state_path)
     assert outcome.new_uidvalidity == 22222
 
 
+def test_fetch_coldstart_uses_30_day_window(fake_config, state_path):
+    """Cold-start SINCE date must be exactly _COLDSTART_WINDOW_DAYS ago (#370).
+
+    Bounds the initial sync so a long-lived inbox with years of LinkedIn /
+    Indeed / ZipRecruiter alerts doesn't ingest thousands of stale rows on
+    first authorize.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    state = gmail_imap.GmailState(last_uid=0, last_uidvalidity=0)  # cold
+    fake_client = _make_fake_imap_client(
+        uidvalidity=99999,
+        search_results={"jobalerts-noreply@linkedin.com": []},
+        messages={},
+    )
+    with patch("findajob.gmail_imap.imaplib.IMAP4_SSL", return_value=fake_client):
+        gmail_imap.fetch_new_messages(fake_config, state)
+    search_calls = [c for c in fake_client.uid.call_args_list if c.args[0] == "SEARCH"]
+    args = " ".join(a.decode() if isinstance(a, bytes) else a for a in search_calls[0].args[1:])
+    expected = (datetime.now(UTC) - timedelta(days=gmail_imap._COLDSTART_WINDOW_DAYS)).strftime("%d-%b-%Y")
+    assert f'SINCE "{expected}"' in args
+    assert gmail_imap._COLDSTART_WINDOW_DAYS == 30
+
+
+def test_fetch_steady_state_does_not_use_since(fake_config, state_path):
+    """Steady-state SEARCH must use UID range only, no SINCE — otherwise
+    the cold-start widening would silently leak into normal operation."""
+    state = gmail_imap.GmailState(last_uid=12345, last_uidvalidity=22222)
+    fake_client = _make_fake_imap_client(
+        uidvalidity=22222,  # matches → not cold-start
+        search_results={"jobalerts-noreply@linkedin.com": []},
+        messages={},
+    )
+    with patch("findajob.gmail_imap.imaplib.IMAP4_SSL", return_value=fake_client):
+        gmail_imap.fetch_new_messages(fake_config, state)
+    search_calls = [c for c in fake_client.uid.call_args_list if c.args[0] == "SEARCH"]
+    args = " ".join(a.decode() if isinstance(a, bytes) else a for a in search_calls[0].args[1:])
+    assert "SINCE" not in args
+    assert "UID 12346:*" in args
+
+
 # ── fetch_gmail_jobs integration (Task 6) ────────────────────────────────────
 
 
