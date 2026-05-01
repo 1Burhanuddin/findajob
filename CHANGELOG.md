@@ -10,6 +10,15 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Added
+
+- **In-app onboarding interview — schema foundation (#336 Task 1).** New `onboarding_sessions` SQLite table persists multi-turn LLM conversations server-side so the upcoming embedded chat UI can survive tab close + reload. Pure-additive migration via `init_db.py`'s idempotent `CREATE TABLE IF NOT EXISTS` pattern; no behavior change in this commit.
+- **In-app onboarding interview — session_store CRUD (#336 Task 2).** New `findajob.onboarding.session_store` module wraps the `onboarding_sessions` table with a frozen `Session` dataclass + six CRUD helpers (`create_session`, `get_session`, `append_turn`, `update_captured_blocks`, `mark_complete`, `set_error`). Pure DB layer — no FastAPI, no LLM client; routes own connection lifecycle. No user-visible behavior change; foundation for Tasks 3+.
+
+### Migration required
+
+- **Schema:** new `onboarding_sessions` table. Pulled automatically on next `docker compose pull` + entrypoint init_db run; no operator action required.
+
 ## [0.9.2] — 2026-05-01
 
 Patch bump. Three independent web/cron bug fixes surfaced by today's overnight tester triage observation. No migration required — bind mounts, schema, crontab, and compose unchanged. Operators on `:latest` and testers on `:v0.9` both pull and recreate.
