@@ -1,3 +1,7 @@
+---
+**Shipped in #339 on 2026-05-01. Final decisions captured in issue body.**
+---
+
 # Plan — #339 Per-tester API key isolation at onboarding
 
 **Spec:** `docs/superpowers/specs/2026-05-01-339-per-tester-api-keys-design.md`
