@@ -710,7 +710,9 @@ from GHCR and deployed via Docker Compose on a shared Docker host.
 - Documentation cleanup — removing `sigoden/aichat` references in favor of
   `blob42/aichat-ng` — is tracked in #70
 
-[Unreleased]: https://github.com/brockamer/findajob/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/brockamer/findajob/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/brockamer/findajob/releases/tag/v0.14.0
+[0.13.0]: https://github.com/brockamer/findajob/releases/tag/v0.13.0
 [0.12.0]: https://github.com/brockamer/findajob/releases/tag/v0.12.0
 [0.11.0]: https://github.com/brockamer/findajob/releases/tag/v0.11.0
 [0.10.1]: https://github.com/brockamer/findajob/releases/tag/v0.10.1
