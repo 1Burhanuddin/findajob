@@ -211,6 +211,50 @@ def test_interview_page_hides_finalize_block_when_not_ready(client_with_key: Tes
     assert f"/onboarding/interview/{sid}/finalize" not in body
 
 
+# ── Task 6: finalize-block OOB placeholder (#401 PR B) ───────────────────
+
+
+def test_finalize_block_placeholder_present_when_not_ready(client_with_key: TestClient, base_root: Path) -> None:
+    """<section id="finalize-block"> must exist in the DOM even when finalize_ready=False.
+    HTMX OOB swaps targeting #finalize-block require the element to be present at first
+    page load or the swap silently fails — Finalize button never appears without a reload."""
+    sid = _create_session_with_history(base_root, [{"role": "user", "content": "hi"}])
+    resp = client_with_key.get(f"/onboarding/interview/{sid}")
+    assert resp.status_code == 200
+    body = resp.text
+    # Section must be present (empty placeholder for OOB target)
+    assert 'id="finalize-block"' in body
+    # No green-border class on the empty placeholder
+    assert "border-green-300" not in body
+    # No finalize form action
+    assert f"/onboarding/interview/{sid}/finalize" not in body
+
+
+def test_finalize_block_has_green_styling_and_button_when_ready(client_with_key: TestClient, base_root: Path) -> None:
+    """When finalize_ready=True the section must carry the green-border styling
+    and contain the Finalize submit button."""
+    from findajob.onboarding.parser import ALLOWED_FILENAMES, parse_emission
+    from findajob.onboarding.session_store import update_captured_blocks
+
+    blob = "\n\n".join(f"<<<FILE: {name}>>>\nbody for {name}\n<<<END FILE: {name}>>>" for name in ALLOWED_FILENAMES)
+    captured = parse_emission(blob).found
+
+    sid = _create_session_with_history(base_root, [])
+    conn = sqlite3.connect(base_root / "data" / "pipeline.db")
+    try:
+        update_captured_blocks(conn, sid, captured)
+    finally:
+        conn.close()
+
+    resp = client_with_key.get(f"/onboarding/interview/{sid}")
+    assert resp.status_code == 200
+    body = resp.text
+    assert 'id="finalize-block"' in body
+    assert "border-green-300" in body
+    assert "bg-green-50" in body
+    assert f"/onboarding/interview/{sid}/finalize" in body
+
+
 def test_interview_page_shows_finalize_block_when_all_blocks_captured(
     client_with_key: TestClient, base_root: Path
 ) -> None:
@@ -285,3 +329,119 @@ def test_turn_response_renders_user_and_assistant_bubbles(
     assert "ASSISTANT_REPLY_MARKER" in body
     assert 'data-role="user"' in body
     assert 'data-role="assistant"' in body
+
+
+# ── Start Interview button loading state (#401 PR B Task 2) ──────────────
+
+
+def test_start_interview_button_has_alpine_loading_state(client_with_key: TestClient, base_root: Path) -> None:
+    """When keys are collected the Start Interview button carries Alpine.js
+    reactivity to disable itself and swap to a spinner label on submit."""
+    _plant_credentials(base_root)
+    resp = client_with_key.get("/onboarding/")
+    assert resp.status_code == 200
+    body = resp.text
+    assert 'x-data="{ starting: false }"' in body
+    assert ':disabled="starting"' in body
+    assert "animate-spin" in body
+
+
+# ── Markdown rendering + FILE-block badging (#401 PR B Task 3) ───────────
+
+
+def _bind_credentials(base_root: Path, session_id: str) -> None:
+    from findajob.onboarding.session_store import set_credentials
+
+    conn = sqlite3.connect(base_root / "data" / "pipeline.db")
+    try:
+        set_credentials(conn, session_id, openrouter_api_key="sk-or-v1-render-test", rapidapi_key="", google_api_key="")
+    finally:
+        conn.close()
+
+
+def test_turn_partial_file_block_shows_badge_not_raw_delimiter(
+    client_with_key: TestClient, base_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the assistant emits a FILE block, the HTMX partial must render
+    a captured-file badge instead of the raw <<<FILE:>>> markers (#401 PR B Task 3)."""
+    sid = _create_session_with_history(base_root, [])
+    _bind_credentials(base_root, sid)
+
+    emission_turn = (
+        "Your profile has been captured:\n\n"
+        "<<<FILE: profile.md>>>\nname: Test User\nrole: tester\n<<<END FILE: profile.md>>>\n\n"
+        "Let's continue with the next section."
+    )
+
+    monkeypatch.setattr(
+        "findajob.web.routes.onboarding_interview.run_turn",
+        lambda *a, **kw: (emission_turn, {}),
+    )
+
+    resp = client_with_key.post(
+        "/onboarding/interview/turn",
+        data={"session_id": sid, "message": "ready"},
+    )
+    assert resp.status_code == 200
+    body = resp.text
+    # Badge must be present
+    assert "captured-file" in body
+    # Raw delimiter must NOT appear
+    assert "<<<FILE:" not in body
+    assert "<<<END FILE:" not in body
+    # Block body (multi-KB in production) must not bleed through
+    assert "name: Test User" not in body
+
+
+def test_resume_page_file_block_shows_badge_not_raw_delimiter(client_with_key: TestClient, base_root: Path) -> None:
+    """On full-page resume load (GET /onboarding/interview/{sid}), FILE blocks
+    in persisted history must appear as badges, not raw markers (#401 PR B Task 3)."""
+    emission_content = (
+        "Here is your profile:\n\n"
+        "<<<FILE: profile.md>>>\nname: Stored User\n<<<END FILE: profile.md>>>\n\n"
+        "Continuing the interview."
+    )
+    sid = _create_session_with_history(
+        base_root,
+        [
+            {"role": "user", "content": "Begin the interview."},
+            {"role": "assistant", "content": emission_content},
+        ],
+    )
+
+    resp = client_with_key.get(f"/onboarding/interview/{sid}")
+    assert resp.status_code == 200
+    body = resp.text
+    # Badge must appear for the stored FILE block
+    assert "captured-file" in body
+    # Raw delimiter must not leak into rendered HTML
+    assert "<<<FILE:" not in body
+    assert "<<<END FILE:" not in body
+    # Block body must not appear
+    assert "name: Stored User" not in body
+
+
+# ── Nav lifetime-cost OOB swap (#401 PR B Task 5) ────────────────────────
+
+
+def test_turn_response_includes_nav_lifetime_cost_oob_swap(
+    client_with_key: TestClient, base_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """_turn.html must include an OOB swap block targeting #nav-lifetime-cost
+    so the nav badge updates per turn without a full page reload (#401 Task 5)."""
+    sid = _create_session_with_history(base_root, [])
+    _bind_credentials(base_root, sid)
+
+    def _fake(api_key, system_prompt, history, user_message):
+        return "ASSISTANT_REPLY", {}
+
+    monkeypatch.setattr("findajob.web.routes.onboarding_interview.run_turn", _fake)
+
+    resp = client_with_key.post(
+        "/onboarding/interview/turn",
+        data={"session_id": sid, "message": "hello"},
+    )
+    assert resp.status_code == 200
+    body = resp.text
+    assert 'id="nav-lifetime-cost"' in body
+    assert 'hx-swap-oob="true"' in body
