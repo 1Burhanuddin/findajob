@@ -10,8 +10,14 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-05-02
+
+Minor bump shipping #283 source-strategy briefing in the onboarding interview, with bundled #215 injector hardening polish (3 fixes). Operator's stack and `findajob-test` already track `:latest`; tester stacks (alice, papa, dave, judy, tango) currently on `:v0.12` should bump to `:v0.13` in the cohort wave.
+
+**Migration required:** No code-side action — `docker compose pull && up -d` covers the image upgrade. Existing operators keep their pre-existing `jsearch_queries.txt` / `feed_urls.txt` files unchanged unless they explicitly re-run onboarding via `/onboarding/?mode=rerun` (re-runs back up existing files under `.backups/{UTC-stamp}/` before overwrite).
+
 ### Added
-- **Onboarding source-strategy briefing (#283).** The onboarding interview now opens with a four-source taxonomy (paid service, company career-page feeds, Gmail alerts, manual) in plain language and asks the candidate to pick which sources to activate using letter-prefixed selection. Source-config files (`config/jsearch_queries.txt`, `config/feed_urls.txt`, `candidate_context/linkedin-alerts.md`) are emitted opt-in based on selection. Existing operators can re-run via `/onboarding/?mode=rerun` to upgrade. Includes #215 injector hardening polish.
+- **Onboarding source-strategy briefing (#283).** The onboarding interview now opens with a four-source taxonomy (paid service, company career-page feeds, Gmail alerts, manual) in plain language and asks the candidate to pick which sources to activate using letter-prefixed selection. Source-config files (`config/jsearch_queries.txt`, `config/feed_urls.txt`, `candidate_context/linkedin-alerts.md`) are emitted opt-in based on selection. Includes #215 injector hardening polish (rollback hole closed; rollback test residue assertion widened tree-wide; Tier 1 hyphen-joined company name caveat).
 
 ### Changed
 - `findajob.onboarding.parser.ALLOWED_FILENAMES` drops from 10 entries to 9 (`jsearch_queries.txt` moves to `OPTIONAL_FILENAMES`). New OPTIONAL files: `feed-urls.txt`, `linkedin-alerts.md`. Conditional emission is enforced by the prompt; the parser is selection-agnostic.
