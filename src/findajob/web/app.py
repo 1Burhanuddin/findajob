@@ -42,16 +42,32 @@ def create_app(
     templates.env.globals["filter_remove_qs"] = filter_remove_qs
     templates.env.globals["filter_qs_with"] = filter_qs_with
     templates.env.globals["operator_mode"] = os.environ.get("FINDAJOB_OPERATOR_MODE") == "1"
-    # True iff the operator-funded fallback for the in-app interview chat is
-    # available on this stack (used by findajob-test and operator-deployed-
-    # for-tester scenarios). Tester credentials collected at /onboarding/
-    # Step 1 (#339) are an independent path — both flow into
-    # ``_resolved_chat_key`` in onboarding_interview.py with tester
-    # credentials taking precedence. Templates use this flag to render the
-    # Step 2 affordance even before Step 1 keys are collected.
-    templates.env.globals["operator_mode_interview_enabled"] = bool(
-        (os.environ.get("OPENROUTER_OPERATOR_KEY") or "").strip()
-    )
+    # Cost-transparency signal for the /onboarding/ Step 2 panel. True on
+    # stacks where the chat-runner uses OPENROUTER_OPERATOR_KEY (operator-
+    # subsidized — findajob-test, operator-deployed-for-tester); False on
+    # tester stacks where the chat is billed to the tester's own key.
+    chat_subsidized = bool((os.environ.get("OPENROUTER_OPERATOR_KEY") or "").strip())
+    templates.env.globals["chat_subsidized_by_operator"] = chat_subsidized
+
+    # Helper exposed to base.html so the nav bar can render a lifetime
+    # onboarding-cost badge on every page. Wrapped in a function (not a
+    # static value) so each request reads fresh DB state without us having
+    # to wire it through every individual route handler's context.
+    def _lifetime_cost_for_template() -> float:
+        try:
+            conn = sqlite3.connect(str(db_path), timeout=5)
+        except sqlite3.Error:
+            return 0.0
+        try:
+            from findajob.onboarding.session_store import lifetime_cost_usd
+
+            return lifetime_cost_usd(conn)
+        except sqlite3.Error:
+            return 0.0
+        finally:
+            conn.close()
+
+    templates.env.globals["onboarding_lifetime_cost_usd"] = _lifetime_cost_for_template
 
     static_dir = Path(__file__).parent / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
