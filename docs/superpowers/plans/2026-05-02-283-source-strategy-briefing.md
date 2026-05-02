@@ -1008,7 +1008,7 @@ picked only `b` (company feeds) or "none" (manual only).
 [query 2]
 [query 3]
 # Examples across fields (do not copy — replace with user's own):
-#   senior backend engineer
+#   backend engineer python
 #   clinical social worker
 #   middle school math teacher
 #   nonprofit development director
@@ -1199,7 +1199,7 @@ you matches.
 ## Steps
 
 - [ ] On LinkedIn, go to the Jobs tab and search for one of your target
-      roles (e.g., "{first query from search-queries.txt}"). Use the
+      roles (e.g., "{first query from jsearch_queries.txt}"). Use the
       "Job alerts" toggle on the search results page to enable email
       alerts for this search.
 - [ ] Repeat for each query in `config/jsearch_queries.txt`. LinkedIn
@@ -1220,7 +1220,7 @@ testing the connection.
 ```
 
 **Derivation:** the body is mostly static markdown — the only dynamic
-substitution is `{first query from search-queries.txt}`, which should
+substitution is `{first query from jsearch_queries.txt}`, which should
 be the first 3-4 word query you emit in `jsearch_queries.txt` for this
 candidate. This grounds the example in the candidate's actual target
 roles instead of a generic placeholder.
@@ -1302,10 +1302,12 @@ contains ` - ` (space-hyphen-space) — e.g., `Procter - Gamble` — the
 injector will truncate it.
 
 **Avoid the form in Tier 1 output.** If a real company's name contains
-a ` - `, normalize it to either an em-dash (`Procter — Gamble`) or no
-surrounding spaces (`Procter-Gamble`) before emitting in the Tier 1
-list. Document the canonical form once at the top of the user's
-`## Notes` if it might confuse them later.
+a ` - ` (space-hyphen-space), normalize it by removing the surrounding
+spaces (`Procter-Gamble`) before emitting in the Tier 1 list. (Em-dash
+with surrounding spaces — `Procter — Gamble` — also gets truncated by
+the same splitter; only the no-spaces form survives.) Document the
+canonical form once at the top of the user's `## Notes` if it might
+confuse them later.
 ```
 
 - [ ] **Step 3: Commit**
