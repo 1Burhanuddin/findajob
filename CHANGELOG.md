@@ -10,12 +10,22 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-05-02
+
+Minor bump. Onboarding goes in-app-only — the paste-back path is retired in favor of a single supported flow, with a same-PR fix for the loop-back bug that stranded testers on `/onboarding/` after a completed interview. Adds prompt caching (~$3 → ~$0.50 per onboarding), a per-turn running-cost badge in the chat, and a lifetime onboarding-cost badge in the top nav so testers can see what they've spent without leaving findajob. No schema migration, no manual user step — `docker compose pull && up -d` is the entire upgrade. Operator's stack and `findajob-test` (both on `:latest`) get the new behavior; tester stacks (alice, papa, dave, judy, tango) on `:v0.10` are unaffected and roll forward with the next cohort wave.
+
 ### Changed
 
 - **Onboarding: in-app-only flow; paste-back path retired.** The "I'll run the interview elsewhere and paste back" affordance and its routes (`GET /onboarding/prompt`, `POST /onboarding/inject`) are gone, along with the `_paste_form.html` template, the `<details>` toggle and clipboard JS on `/onboarding/`, and the v0.10.0 docs that documented two paths. The in-app flow becomes the single supported path. Mechanically: Step 2 is now disabled until Step 1 saves keys (the earlier "operator-key-only" path that let testers reach Step 2 before Step 1 was the proximate cause of a loop-back bug — finalize required an OR-key field even when Step 1 already had one, so smoke check rejected the typed key and stranded the session). Finalize on the chat page no longer renders an OpenRouter input; keys come from the credentials bound to the session at Step 1.
 - **Operator-key precedence flipped.** `_resolved_chat_key` now prefers `OPENROUTER_OPERATOR_KEY` over the tester's collected key. On stacks without the env var (real tester stacks: alice, papa, dave, judy, tango), behavior is unchanged — they fall through to tester key. On `findajob-test` (env var set), the chat is now subsidized: the operator pays for dogfood interviews instead of the tester. Pipeline (triage, scoring, prep) still runs on the tester's own key from Step 1.
 - **Onboarding interview prompt rewritten for in-app context (v3 — 2026-05-02).** Drops the "ask which LLM platform" branch, the OpenRouter signup walk-through (Phase 5), and the "After the interview, copy the chat back to findajob's textbox" closing instructions — all artifacts of the paste-back lineage. Phase 4 no longer shows YAML/regex blocks to the user; the LLM builds patterns silently and shows example titles ("yes, loosen, or drop?") so non-technical testers don't have to read regex. Phase 2 instructs paste-the-text instead of upload-files (in-app has no attach button). Schema exemplars and `<<<FILE: ...>>>` delimiters preserved — the parser depends on them.
 - **OpenRouter prompt caching enabled.** System prompt is sent with `cache_control: {type: "ephemeral"}` per Anthropic's caching protocol, so subsequent turns bill cached system tokens at ~10%. Per-onboarding cost drops from ~$3 to ~$0.50 with Sonnet 4.6 (~25KB system prompt × ~50 turns).
+
+### Added
+
+- **Per-turn running cost badge in the chat.** The interview chat surface now shows `$X.XX spent` next to the captured-blocks count, ticking up live via HTMX OOB swap on every turn. Sourced from OpenRouter's authoritative `usage.cost` field — already discounted for cache reads, inclusive of provider markup, matches the OpenRouter dashboard. No hardcoded pricing in the codebase, so the display follows pricing changes automatically.
+- **Lifetime onboarding-cost badge in the top nav bar.** On every page, the right side of the nav shows `$X.XX onboarding` — sum of OpenRouter cost across every onboarding session on this stack. Hidden on operator-subsidized stacks (`findajob-test`) where the tester wasn't billed. Eases the "how much have I spent?" question without making a tester leave findajob and check OpenRouter.
+- **Resume-friendly chat textarea.** Grew from `rows=3` to `rows=4` with `resize-y` and a placeholder hint about dragging the corner — pasting a resume into a cramped 3-line box was a real rough edge.
 
 ### Fixed
 
@@ -625,7 +635,8 @@ from GHCR and deployed via Docker Compose on a shared Docker host.
 - Documentation cleanup — removing `sigoden/aichat` references in favor of
   `blob42/aichat-ng` — is tracked in #70
 
-[Unreleased]: https://github.com/brockamer/findajob/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/brockamer/findajob/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/brockamer/findajob/releases/tag/v0.11.0
 [0.10.1]: https://github.com/brockamer/findajob/releases/tag/v0.10.1
 [0.10.0]: https://github.com/brockamer/findajob/releases/tag/v0.10.0
 [0.9.2]: https://github.com/brockamer/findajob/releases/tag/v0.9.2
