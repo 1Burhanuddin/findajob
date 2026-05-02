@@ -74,6 +74,14 @@ _FIRST_BULLET_RE = re.compile(
     re.MULTILINE,
 )
 
+# v3 onboarding schema emits ``## Target Role`` as a single sentence on the
+# next line (no bullet, no bold). Schema examples use ``;`` as the
+# headline / descriptor separator; em-dash also tolerated for symmetry with
+# the bullet form. Metadata lines like ``Open to:`` / ``Not open to:`` are
+# part of the section body but should not be used as the role anchor.
+_METADATA_PREFIX_RE = re.compile(r"^(open to|not open to|note)\s*:", re.IGNORECASE)
+_HEADLINE_DESCRIPTOR_SPLIT_RE = re.compile(r"\s*[;—–]\s*")
+
 
 def _extract_section(profile_text: str, *aliases: str) -> str:
     """Return the body of the first matching ``## <name>`` section, stripped."""
@@ -86,12 +94,35 @@ def _extract_section(profile_text: str, *aliases: str) -> str:
 
 
 def _extract_role_anchor(target_roles_body: str) -> tuple[str, str]:
-    """Parse the first bold-marked bullet's headline + descriptor."""
-    match = _FIRST_BULLET_RE.search(target_roles_body)
-    if not match:
+    """Parse role anchor from either schema:
+
+    - v1/v2 schema: bulleted line with bold-marked headline.
+    - v3 onboarding schema: single sentence on the first non-empty line of
+      the section body, separator ``;`` or em/en-dash between headline and
+      descriptor. ``Open to:`` / ``Not open to:`` metadata lines are
+      ignored.
+    """
+    body = target_roles_body.strip()
+    if not body:
         return ("people in the candidate's field", "")
-    headline = match.group("headline").strip().rstrip(",.;:")
-    descriptor = (match.group("descriptor") or "").strip().rstrip(",.;:")
+
+    bullet_match = _FIRST_BULLET_RE.search(body)
+    if bullet_match:
+        headline = bullet_match.group("headline").strip().rstrip(",.;:")
+        descriptor = (bullet_match.group("descriptor") or "").strip().rstrip(",.;:")
+        return (headline, descriptor)
+
+    first_line = body.split("\n", 1)[0].strip()
+    if not first_line or _METADATA_PREFIX_RE.match(first_line):
+        return ("people in the candidate's field", "")
+
+    parts = _HEADLINE_DESCRIPTOR_SPLIT_RE.split(first_line, maxsplit=1)
+    if len(parts) == 2:
+        headline = parts[0].strip().rstrip(",.;:")
+        descriptor = parts[1].strip().rstrip(",.;:")
+    else:
+        headline = first_line.rstrip(",.;:")
+        descriptor = ""
     return (headline, descriptor)
 
 
