@@ -32,6 +32,7 @@ from findajob.onboarding.openrouter_smoke import (
 )
 from findajob.onboarding.parser import ALLOWED_FILENAMES
 from findajob.onboarding.voice_processor import process_voice_samples
+from findajob.utils import log_event
 
 # Maps emission filename -> destination relative path (relative to base_root).
 # Plain-file destinations: emission body is written verbatim to this file.
@@ -43,7 +44,6 @@ _ALL_DESTINATIONS: dict[str, str] = {
     "master_resume.md": "candidate_context/master_resume.md",
     "target_companies.md": "config/target_companies.md",
     "business_sector_employers_reference.md": "config/business_sector_employers_reference.md",
-    "jsearch_queries.txt": "config/jsearch_queries.txt",
     "prefilter_rules.yaml": "config/prefilter_rules.yaml",
     "in_domain_patterns.yaml": "config/in_domain_patterns.yaml",
     "display_name.txt": "candidate_context/display_name.txt",
@@ -61,6 +61,9 @@ _ENV_EXAMPLE_RELPATH = "data/.env.example"
 # required destinations.
 _OPTIONAL_DESTINATIONS: dict[str, str] = {
     "voice-samples.md": "candidate_context/voice_samples/voice-samples.md",
+    "jsearch_queries.txt": "config/jsearch_queries.txt",
+    "feed-urls.txt": "config/feed_urls.txt",
+    "linkedin-alerts.md": "candidate_context/linkedin-alerts.md",
 }
 
 _COMPANIES_OF_INTEREST_DEST = "config/companies_of_interest.txt"
@@ -101,6 +104,37 @@ def mark_complete(base_root: Path) -> None:
     sentinel.parent.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     sentinel.write_text(ts + "\n", encoding="utf-8")
+
+
+def _emission_consistency_warnings(base_root: Path, found: dict[str, str]) -> None:
+    """Log non-blocking warnings to pipeline.jsonl for emission inconsistencies.
+
+    Triggers:
+      - linkedin-alerts.md emitted but jsearch_queries.txt absent → broken
+        cross-reference in the alerts checklist.
+      - jsearch_queries.txt emitted but contains zero non-comment, non-blank
+        lines → signals prompt-LLM drift (the prompt should not have emitted
+        an empty queries file).
+
+    Caller MUST treat any exception from this helper as soft-fail — onboarding
+    has already committed at this point and the sentinel is set.
+    """
+    if "linkedin-alerts.md" in found and "jsearch_queries.txt" not in found:
+        log_event(
+            "onboarding_emission_anomaly",
+            kind="linkedin_alerts_without_jsearch_queries",
+            base_root=str(base_root),
+        )
+
+    if "jsearch_queries.txt" in found:
+        body = found["jsearch_queries.txt"]
+        non_comment_lines = [line for line in body.splitlines() if line.strip() and not line.strip().startswith("#")]
+        if not non_comment_lines:
+            log_event(
+                "onboarding_emission_anomaly",
+                kind="jsearch_queries_empty",
+                base_root=str(base_root),
+            )
 
 
 def _utc_stamp() -> str:
@@ -329,35 +363,43 @@ def inject(
                 continue
             dest = base_root / _ALL_DESTINATIONS[name]
             fd, tmp_name = tempfile.mkstemp(prefix=dest.name + ".", suffix=".tmp", dir=str(dest.parent))
+            tempfiles.append((tmp_name, dest))  # register immediately so rollback sees it
             with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
                 fh.write(found[name])
-            tempfiles.append((tmp_name, dest))
 
-        # Stage optional files (voice-samples.md, etc.) — clean + redact first
-        if "voice-samples.md" in found:
-            processed, _redaction_ok = process_voice_samples(found["voice-samples.md"], redact=redact_voice_samples)
-            if processed:
-                dest = base_root / _OPTIONAL_DESTINATIONS["voice-samples.md"]
-                fd, tmp_name = tempfile.mkstemp(prefix=dest.name + ".", suffix=".tmp", dir=str(dest.parent))
-                with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
-                    fh.write(processed)
-                tempfiles.append((tmp_name, dest))
+        # Stage optional files. voice-samples.md goes through process_voice_samples
+        # (clean + LLM-redact); the others (jsearch_queries.txt, feed-urls.txt,
+        # linkedin-alerts.md) are plain-write.
+        for opt_name, opt_relpath in _OPTIONAL_DESTINATIONS.items():
+            if opt_name not in found:
+                continue
+            body = found[opt_name]
+            if opt_name == "voice-samples.md":
+                processed, _redaction_ok = process_voice_samples(body, redact=redact_voice_samples)
+                if not processed:
+                    continue  # voice-samples processing returned empty → skip write
+                body = processed
+            dest = base_root / opt_relpath
+            fd, tmp_name = tempfile.mkstemp(prefix=dest.name + ".", suffix=".tmp", dir=str(dest.parent))
+            tempfiles.append((tmp_name, dest))  # register immediately so rollback sees it
+            with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+                fh.write(body)
 
         # Stage the derived companies_of_interest.txt
         coi_body = derive_companies_of_interest(found["target_companies.md"])
         coi_dest = base_root / _COMPANIES_OF_INTEREST_DEST
         fd, tmp_name = tempfile.mkstemp(prefix=coi_dest.name + ".", suffix=".tmp", dir=str(coi_dest.parent))
+        tempfiles.append((tmp_name, coi_dest))  # register immediately so rollback sees it
         with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
             fh.write(coi_body)
-        tempfiles.append((tmp_name, coi_dest))
 
         # Stage the merged data/.env if there are any env updates
         if new_env_content is not None:
             fd, env_tmp_name = tempfile.mkstemp(prefix=env_path.name + ".", suffix=".tmp", dir=str(env_path.parent))
+            tempfiles.append((env_tmp_name, env_path))  # register immediately so rollback sees it
+            os.chmod(env_tmp_name, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
                 fh.write(new_env_content)
-            os.chmod(env_tmp_name, 0o600)
-            tempfiles.append((env_tmp_name, env_path))
 
         # Commit: os.replace every staged tempfile into place
         for tmp_name, dest in tempfiles:
@@ -389,6 +431,14 @@ def inject(
                 pass
         shutil.rmtree(backup_dir, ignore_errors=True)
         raise
+
+    # Non-blocking emission-consistency warnings (#283). Soft-fail: any failure
+    # here does NOT roll back the seven-file commit (sentinel is already written).
+    # Placed before the discovery hook so warnings fire even if discoverer bombs.
+    try:
+        _emission_consistency_warnings(base_root, found)
+    except Exception:  # noqa: BLE001 — warnings must never fail onboarding
+        pass
 
     # Post-commit discovery hook. Soft-fail: any failure here does NOT
     # roll back the seven-file commit (sentinel is already written).

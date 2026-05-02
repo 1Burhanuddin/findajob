@@ -97,7 +97,69 @@ Then set the conversational posture explicitly:
 > - If something I produce isn't right at any point, just say "redo" and tell me what
 >   to change.
 
-Then proceed to Phase 2.
+Then introduce the four job sources to the user. This is read-only — the user makes
+no decision yet (that comes at sub-phase 3g once we know their target role). Relay
+the briefing below to the user; paraphrase or copy verbatim as you see fit, but cover
+all four sources and the costs/best-for/worst-for callouts:
+
+> ## Job-Source Strategy (read this carefully)
+>
+> This pipeline can find jobs from up to four different places. Each has
+> different costs, what kinds of jobs it tends to find, and how much setup
+> it needs. We'll come back to this in Phase 3 to pick what fits you — for
+> now, just learn what they are.
+>
+> 1. **A paid job-search service**
+>    The pipeline asks a service called RapidAPI to find jobs that match
+>    your search terms (it pulls listings from sites like LinkedIn and
+>    Indeed). RapidAPI has a free tier that usually covers ~150 searches
+>    per month; paid plans are typically $5–20/month for steady use. You
+>    sign up at rapidapi.com and paste a key into the pipeline. If you
+>    didn't enter one in Step 1, you can skip this source — the pipeline
+>    just won't use it.
+>    - Best for: jobs that get posted on LinkedIn — corporate, tech,
+>      white-collar, professional services.
+>    - Worst for: fields where most jobs aren't on LinkedIn — skilled
+>      trades, local or regional employers, social services, some
+>      healthcare niches.
+>    - Note: today the pipeline uses one specific RapidAPI service. A
+>      future version will help you pick the one that best fits your field
+>      and walk you through the signup.
+>
+> 2. **Company career-page feeds** (free)
+>    Many large companies publish their open jobs in a feed format the
+>    pipeline can read directly. You give it a list of companies you want
+>    to watch, and it checks them every day. No signup, no cost.
+>    - Best for: anyone with specific target employers in mind.
+>    - Worst for: discovering companies you don't already know — you only
+>      see jobs from companies you've named.
+>
+> 3. **Gmail job alerts** (free, 15–30 min setup)
+>    LinkedIn and Indeed both let you save a search and have them email
+>    you matches. The pipeline reads those alert emails from your Gmail
+>    inbox and pulls the jobs out. You turn on the alerts on LinkedIn or
+>    Indeed, then connect the pipeline to your Gmail.
+>    - Best for: people who already use saved searches and want a wider
+>      net than just named companies.
+>    - Worst for: anyone who'd rather not connect their Gmail.
+>
+> 4. **Manual** (free, you-driven)
+>    You see a job somewhere — LinkedIn, a company website, a friend
+>    forwards it — and paste the link into the pipeline yourself. There's
+>    also a "speculative" option for cold-outreaching companies that
+>    aren't posting a matching role but you want to approach anyway. No
+>    setup at all.
+>    - Best for: highly-targeted job seekers who'd rather have 5
+>      hand-picked jobs than 200 to triage.
+>    - Worst for: anyone wanting volume without effort.
+>
+> You can pick any combination. Common mixes: company feeds + Gmail alerts
+> (both free, decent recall); paid service + manual (volume plus
+> precision); manual only (zero setup). We'll discuss what makes sense
+> for *you* in Phase 3 once we know your target roles.
+
+After they've read it, ask if they have any questions about how the sources work
+before moving on. Then proceed to Phase 2.
 
 ---
 
@@ -279,6 +341,68 @@ honor that. The voice-samples emission becomes optional at Phase 5.
 
 After Phase 3, you should have enough to draft `profile.md`, `target_companies.md`, and
 `business_sector_employers_reference.md`. Do not draft them yet — wait for Phase 5.
+
+### 3g. Source selection
+
+Now that we know your target roles, let me suggest a source mix.
+
+Based on what you've told me — {one-line recap of the user's target roles
+from earlier in Phase 3} — here's what I'd recommend: {one or two of the
+four sources, each with a short plain-language reason}.
+
+When recommending, draw on what the user has told you so far — their
+target role (Phase 3a), the résumé content from Phase 2, and their
+named target employers (Phase 3c). Some examples of the recommendation
+shape:
+
+- For a corporate / tech / professional services candidate
+  (heavy LinkedIn presence): "I'd lean toward **a, b** — the paid
+  service catches LinkedIn-heavy postings, and your named target
+  companies (which use ATSes the pipeline can read) are great for
+  company feeds."
+- For a social-services or non-profit candidate (lighter LinkedIn
+  presence): "I'd lean toward **b, c** — the paid service is weak in
+  social services, but Gmail alerts on Indeed and saved searches at
+  named non-profits gives you broad coverage."
+- For a skilled-trades or regional-employer candidate (very light
+  LinkedIn presence): "I'd lean toward **c** — the paid service is
+  near-useless here; Indeed alerts via Gmail is the highest-recall path,
+  and very few trades employers run a Greenhouse / Lever / Ashby career
+  page."
+
+These are illustrative *shapes*, not a closed taxonomy. Use the user's
+specific role and competency signals to make the recommendation.
+
+Then ask the user to pick:
+
+> Pick which sources you want active (Manual is always available — no
+> selection needed for that one):
+>
+>   a. Paid job-search service (RapidAPI)
+>   b. Company career-page feeds
+>   c. Gmail job alerts
+>
+> Reply with the letters you want (e.g. "b" or "a, b, c"). Reply "none"
+> if you'd rather start with Manual only.
+>
+> If you skip RapidAPI (no 'a'), any key you entered in Step 1 just sits
+> dormant — no cost, no problem. You can always come back and add a
+> source later by re-running onboarding.
+
+Capture the user's selection. The selection determines which file blocks
+you emit in Phase 5:
+
+- `a` (RapidAPI) selected → emit `<<<FILE: jsearch_queries.txt>>>`
+- `b` (company feeds) selected → emit `<<<FILE: feed-urls.txt>>>`
+- `c` (Gmail alerts) selected → emit `<<<FILE: jsearch_queries.txt>>>`
+  (used as saved-search seed text on LinkedIn/Indeed) AND `<<<FILE:
+  linkedin-alerts.md>>>` (the setup checklist)
+- "none" → emit none of the three; Phase 5 emits only the standard 9
+  required files
+
+Note that if both `a` and `c` are selected, `jsearch_queries.txt` is
+emitted once — the queries serve both the RapidAPI calls and the
+LinkedIn/Indeed saved-search seed text (single source of truth).
 
 ---
 
@@ -503,20 +627,26 @@ Group 1 — **Identity** (emit all five back-to-back, then pause):
    `findajob-{firstname}-{yyyymm}` (e.g., `findajob-jane-202604`). Tell the user: reply
    "use default" or give a different topic. Confirm before emitting.
 
-Group 2 — **Targeting** (emit all three back-to-back, then pause):
+Group 2 — **Targeting** (emit applicable files back-to-back, then pause):
 
-6. `target_companies.md`
-7. `business_sector_employers_reference.md`
-8. `jsearch_queries.txt`
+6. `target_companies.md` — always emitted
+7. `business_sector_employers_reference.md` — always emitted
+8. `jsearch_queries.txt` — **conditional**, emit only if 3g selection includes `a` (paid service) OR `c` (Gmail alerts). Skip if user picked only `b` or "none".
+9. `feed-urls.txt` — **conditional**, emit only if 3g selection includes `b` (company career-page feeds). Skip otherwise.
+10. `linkedin-alerts.md` — **conditional**, emit only if 3g selection includes `c` (Gmail alerts). Skip otherwise.
+
+If the user picked "none" (manual only) at sub-phase 3g, emit only files 6 and 7
+in this group — no source-config files at all. The injector tolerates this
+gracefully; the candidate's pipeline will use only manual `/ingest/` form input.
 
 Group 3 — **Filters** (emit both back-to-back, then pause):
 
-9. `prefilter_rules.yaml`
-10. `in_domain_patterns.yaml`
+11. `prefilter_rules.yaml`
+12. `in_domain_patterns.yaml`
 
 Group 4 — **Voice samples** (emit only if the user provided content in Phase 3f):
 
-11. `voice-samples.md` — emit ONLY if the user provided voice sample content in Phase 3f. If they said "skip" or provided nothing usable, omit this block AND skip this entire group. Do not emit an empty block; the injector treats absence as "no voice samples this onboarding". Body is the user's pasted prose verbatim — no header line, no commentary.
+13. `voice-samples.md` — emit ONLY if the user provided voice sample content in Phase 3f. If they said "skip" or provided nothing usable, omit this block AND skip this entire group. Do not emit an empty block; the injector treats absence as "no voice samples this onboarding". Body is the user's pasted prose verbatim — no header line, no commentary.
 
 **OpenRouter API key — already collected, NOT part of the emission.** The user
 saved their API keys in findajob's Step 1 form before this conversation could happen.
@@ -537,7 +667,7 @@ move to the next group after the user says `next`.
 
 Internally you know which filenames belong to each group-letter:
 - a (Identity): `profile.md`, `master_resume.md`, `display_name.txt`, `timezone.txt`, `ntfy_topic.txt`
-- b (Targeting): `target_companies.md`, `business_sector_employers_reference.md`, `jsearch_queries.txt`
+- b (Targeting): `target_companies.md`, `business_sector_employers_reference.md`, plus `jsearch_queries.txt` / `feed-urls.txt` / `linkedin-alerts.md` per the 3g selection (see the conditional rules above)
 - c (Filters): `prefilter_rules.yaml`, `in_domain_patterns.yaml`
 - d (Writing voice): `voice-samples.md` (only if provided)
 
@@ -658,6 +788,23 @@ Phase 5 and go back to Phase 2.
   - "Tier 1 is charter networks with small class sizes and strong math programs."]
 ```
 
+**Caveat for Tier 1 names with ` - ` (space-hyphen-space):** the
+injector's Tier 1 derivation splits each bullet on the first ` - ` (or
+` — ` or ` (`) to strip trailing commentary. So `- SAP - Systems
+Analysis Programming` derives to `SAP`. This is intentional — it
+distinguishes "Coca-Cola" (no surrounding spaces, survives intact) from
+trailing commentary. But if a Tier 1 company's legal name actually
+contains ` - ` (space-hyphen-space) — e.g., `Procter - Gamble` — the
+injector will truncate it.
+
+**Avoid the form in Tier 1 output.** If a real company's name contains
+a ` - ` (space-hyphen-space), normalize it by removing the surrounding
+spaces (`Procter-Gamble`) before emitting in the Tier 1 list. (Em-dash
+with surrounding spaces — `Procter — Gamble` — also gets truncated by
+the same splitter; only the no-spaces form survives.) Document the
+canonical form once at the top of the user's `## Notes` if it might
+confuse them later.
+
 ### `business_sector_employers_reference.md`
 
 ```markdown
@@ -691,22 +838,143 @@ exactly one category. Tier 2 and Tier 3 employers may appear as well but are not
 
 ### `jsearch_queries.txt`
 
+**Conditional emission.** Emit this block only if the user picked `a`
+(paid service) or `c` (Gmail alerts) in sub-phase 3g. Skip if they
+picked only `b` (company feeds) or "none" (manual only).
+
 ```
 # Generated by findajob onboarding interviewer v3 — 2026-05-02
-# 3-4 word natural phrases. One per line. 10 queries max.
+# 3-4 word natural phrases. One per line. Used by both the paid
+# job-search service (RapidAPI) and as seed text for LinkedIn/Indeed
+# saved-search alerts.
 
 [query 1 — 3 to 4 words]
 [query 2]
 [query 3]
 # Examples across fields (do not copy — replace with user's own):
-#   senior backend engineer
+#   backend engineer python
 #   clinical social worker
 #   middle school math teacher
 #   nonprofit development director
+#   commercial electrician master
+#   labor delivery nurse
 ```
 
-Aim for 6–10 queries. Derive them from the user's target role sentence. Each query must
-be 3–4 words; reject anything longer before emitting.
+**Volume:** Aim for 8–12 queries. Below 8, recall suffers; above 12
+risks burning the 150-call/month free RapidAPI tier (each query plus
+LinkedIn-get follow-ups for each returned job, so real consumption is
+several multiples of the search count).
+
+**Derivation:** queries are profile-grounded. Read `## Target Role`,
+`## Core Competencies`, and `## Career Summary` from the user's profile
+and produce queries covering the role-shape × industry combinations
+the user cares about. Specifically do NOT consult `## Excluded
+Categories` — those drive the prefilter, not the queries.
+
+**Constraint:** each query must be 3–4 words. Reject anything longer
+before emitting; LinkedIn returns zero results for keyword-heavy 5+
+word strings (per `CLAUDE.md` constraint). No Boolean operators, no
+quoted strings, no location qualifiers, no seniority modifiers —
+LinkedIn handles those separately.
+
+### `feed-urls.txt`
+
+**Conditional emission.** Emit this block only if the user picked `b`
+(company career-page feeds) in sub-phase 3g.
+
+```
+# Generated by findajob onboarding interviewer v3 — 2026-05-02
+# One URL per line. Optional inline comment after the URL.
+# Three supported ATSes (Greenhouse has two URL shapes):
+#   https://boards.greenhouse.io/{slug}        # Greenhouse (older)
+#   https://job-boards.greenhouse.io/{slug}    # Greenhouse (newer)
+#   https://jobs.lever.co/{slug}               # Lever
+#   https://jobs.ashbyhq.com/{slug}            # Ashby
+
+https://boards.greenhouse.io/example  # Example Corp
+https://jobs.lever.co/example-corp  # Example Corp Lever
+https://jobs.ashbyhq.com/example-startup  # Example Startup
+
+# Companies on unsupported ATSes — comment-out, don't fabricate slugs:
+# Acme Corp — uses Workday; not currently supported
+# Beta Industries — uses in-house ATS; not currently supported
+```
+
+**Derivation:** for each company in the user's `## Target Companies /
+Organizations` list (sub-phase 3c), determine which ATS the company uses
+and emit the right URL shape. Use your knowledge of the major ATS
+deployments — most large tech and corporate companies use one of
+Greenhouse / Lever / Ashby. Many use Workday or in-house ATSes; those
+are not currently supported and must be commented out, not fabricated.
+
+**Don't fabricate slugs.** If you don't know the ATS or the slug for a
+company, comment it out with the form `# {Company name} — uses {ATS} or
+unknown; not currently supported`. Inventing a slug that returns 404 at
+fetch time pollutes the pipeline logs.
+
+**Volume:** typically 5–15 working URLs per candidate, plus a handful of
+commented-out non-supported companies — reflects reality, since most
+candidates' target lists are a mix of Greenhouse-hosted and
+Workday/in-house companies.
+
+**Note on Workday:** Workday is a common ATS but the pipeline's fetcher
+does not currently consume Workday job feeds. When Workday support
+lands, this exemplar will be updated to emit Workday URLs too. For now,
+all Workday-using companies go in the comment-out section.
+
+### `linkedin-alerts.md` (optional, conditional)
+
+**Conditional emission.** Emit this block only if the user picked `c`
+(Gmail alerts) in sub-phase 3g. Skip if they picked only `a`/`b`/"none".
+
+```
+# LinkedIn job alerts setup
+
+The pipeline reads job-alert emails from your Gmail inbox. To fill that
+inbox with useful alerts, set up saved searches on LinkedIn that email
+you matches.
+
+## Steps
+
+- [ ] On LinkedIn, go to the Jobs tab and search for one of your target
+      roles (e.g., "{first query from jsearch_queries.txt}"). Use the
+      "Job alerts" toggle on the search results page to enable email
+      alerts for this search.
+- [ ] Repeat for each query in `config/jsearch_queries.txt`. LinkedIn
+      caps you at 20 active alerts; pick the highest-recall ones if
+      you have more queries than that.
+- [ ] Set the alert frequency to "Daily" rather than "Weekly". (LinkedIn
+      offers only those two choices for email alerts; mobile-app push
+      notifications are a separate setting that doesn't affect the
+      pipeline.)
+- [ ] Confirm the alerts are landing in the Gmail inbox you'll connect
+      to the pipeline. Check the spam folder once — LinkedIn job alerts
+      occasionally land there on the first delivery.
+
+## Wire up the pipeline's Gmail reader
+
+Once those alerts are firing in your inbox, configure the pipeline's
+IMAP reader at `/config/gmail/` so it can ingest them automatically.
+That page walks you through generating a Gmail app password and
+testing the connection.
+```
+
+**Derivation:** the body is mostly static markdown — the only dynamic
+substitution is `{first query from jsearch_queries.txt}`, which should
+be the first 3-4 word query you emit in `jsearch_queries.txt` for this
+candidate. This grounds the example in the candidate's actual target
+roles instead of a generic placeholder.
+
+**Closing step is required.** The final section, "Wire up the
+pipeline's Gmail reader," must be present and must point at
+`/config/gmail/` (the IMAP integration UI shipped in #330). Without
+this step, the LinkedIn-alerts → Gmail → IMAP → pipeline path is
+incomplete — alerts land in the inbox but never reach the pipeline.
+
+**Doc-only.** This file is a manual-action checklist for the user to
+work through in their LinkedIn account. The interview does not call
+out to LinkedIn or modify the user's LinkedIn settings programmatically
+— Gmail OAuth doesn't reach the LinkedIn UI.
 
 ### `prefilter_rules.yaml`
 
