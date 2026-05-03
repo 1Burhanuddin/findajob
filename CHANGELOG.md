@@ -10,6 +10,10 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-05-03
+
+Minor bump shipping the cohort wave: shared `RAPIDAPI_KEY` canonicalization, `JobsApi14IndeedAdapter` (Indeed restored via jobs-api14), per-adapter multi-page fetching (LinkedIn nextToken + JSearch num_pages), and the `JobsApi14IndeedAdapter` title-allowlist lift to config — plus #84 deterministic excluded-employer prefilter, #287 discoverer cost-guardrail recalibration, retirement of the derived `companies_of_interest.txt`, deletion of `env_migrate.py`, the local-dev `uv` standardization (#126), and a Docker-context refresh of `operations.md` / `architecture.md` / `scripts-reference.md`. Operator's stack and `findajob-test` track `:latest`; tester stacks (alice, papa, dave, judy, tango) currently on `:v0.13` bump straight to `:v0.15` in this cohort wave.
+
 ### Added
 - `config/excluded_employers.yaml` — deterministic Stage 1 prefilter exclusion by company. Two-list shape: `exact:` (case-insensitive exact match) and `regex:` (compiled case-insensitive). Wires onboarding's "employers I'll never work for" signal from profile.md prose into the deterministic prefilter, consistent with the "Hard Rejects are Code" rule. Title hard-reject runs first so off-domain titles at excluded employers still report as title-rejects. Missing/empty file → no-op. Hits get `relevance_score=1`, no LLM call, `score_flag_reason="excluded_employer"` (#84)
 - `JobsApi14IndeedAdapter` — Indeed coverage via jobs-api14 `/v2/indeed/search`. Restores pre-#408 Indeed pulls, tuned with `sortType=date` + adapter-side title-allowlist regex to compensate for the missing recency / experience-level / employment-type filters. 20 jobs/page (2× LinkedIn), inline JD ingestion. `source_label='jobsapi_indeed'` preserves DB row continuity. Active when `'jobs-api14-indeed'` is listed in `config/active_sources.txt` (#414)
@@ -20,6 +24,9 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 ### Changed
 - Company-discoverer cost guardrail default lowered from `$10/run` → `$1/run` (`_DEFAULT_COST_THRESHOLD_USD` in `findajob.discoverer.runner`). PR-time smoke for #284 measured ~$0.10/run; the original $10 default carried ~50× more headroom than needed and would have suppressed real cost-anomaly signal. Operators with `DISCOVERY_COST_THRESHOLD_USD` set in `data/.env` are unaffected. Annual envelope revised from ~$260/year/stack to ~$5/year/stack (52 runs × ~$0.10) (#287)
 - `JobsApi14IndeedAdapter` title allowlist lifted from a hardcoded engineering-tuned regex (`_TITLE_ALLOW_PATTERN`) to the optional `indeed_title_allow:` key in `config/prefilter_rules.yaml`. Missing/empty key = no post-filter (allow-all). Field-specific example blocks for engineering, healthcare, social-work, and education candidates included in `prefilter_rules.yaml.example`. Restores domain-neutrality of the pipeline per CLAUDE.md "PII / Domain-Neutrality — HARD RULES" (#417)
+- Local-dev tooling standardized on `uv` — `uv sync` for dev deps, `uv run` for pytest / ruff / mypy / uvicorn. Docker image still uses `pip install -e .` inside the container (no change to release pipeline). Contributor docs and `pyproject.toml` updated; existing virtualenv-based dev loops continue to work, but the documented path is `uv sync` (#126)
+- `docs/operations.md`, `docs/architecture.md`, and `docs/scripts-reference.md` refreshed for Docker-canonical run mode. `operations.md` gains parallel `## Docker Operations (Compose)` and `## Native Operations (systemd)` sections; commands shown in `docker compose exec scheduler …` form; `architecture.md` adds a `## Scheduler` subsection naming `ops/scheduled-jobs.yaml` as canonical schedule source; `scripts-reference.md` gains a `Manual run:` line per script. Native install stays supported as fallback (#76)
+- `docs/usage/expanding-sources.md` — new dedicated guide for adding LinkedIn saved-search alerts to multiply `gmail_linkedin` ingestion volume. Cross-field example bundle (engineering / healthcare / social work / education / skilled trades). Cross-linked from `docs/usage.md` and registered in the `/docs/` web viewer (#275)
 
 ### Removed
 - `findajob.onboarding.env_migrate.migrate_rapidapi_key_env()` and its startup invocation in `findajob.web.app`. The v0.14 helper renamed `RAPIDAPI_KEY` → `JOBS_API14_KEY` on every container boot, which became the inverse of #414's canonical-name direction. Adapter + legacy-fetcher fallback (introduced alongside #414) covers the same compatibility surface without rewriting `data/.env` (#416)
@@ -734,7 +741,8 @@ from GHCR and deployed via Docker Compose on a shared Docker host.
 - Documentation cleanup — removing `sigoden/aichat` references in favor of
   `blob42/aichat-ng` — is tracked in #70
 
-[Unreleased]: https://github.com/brockamer/findajob/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/brockamer/findajob/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/brockamer/findajob/releases/tag/v0.15.0
 [0.14.0]: https://github.com/brockamer/findajob/releases/tag/v0.14.0
 [0.13.0]: https://github.com/brockamer/findajob/releases/tag/v0.13.0
 [0.12.0]: https://github.com/brockamer/findajob/releases/tag/v0.12.0
