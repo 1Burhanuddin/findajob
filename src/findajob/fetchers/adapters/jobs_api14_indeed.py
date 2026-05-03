@@ -1,8 +1,24 @@
-"""JobsApi14Adapter — refactor of fetch_jobsapi_jobs (#408)."""
+"""JobsApi14IndeedAdapter — restored Indeed coverage via jobs-api14 (#414).
+
+Indeed endpoint exposes no recency / experience-level / employment-type
+filters (unlike LinkedIn), so the legacy fetcher (retired pre-#408) returned
+~89% off-target rows. This adapter compensates with three knobs:
+
+1. sortType=date — most-recent first, daily triage captures fresh jobs.
+2. countryCode=us + location="United States" — geo-narrow.
+3. Adapter-side title regex post-filter — inclusion allowlist before storing.
+
+Per-page count is 20 (vs LinkedIn's 10). Description is inline in the
+search response, so no separate /v2/linkedin/get-equivalent call needed.
+
+Shares JOBS_API14_KEY / RAPIDAPI_KEY with `JobsApi14Adapter` via the
+shared resolver (#414); both adapters are subscriptions on the same
+RapidAPI account.
+"""
 
 from __future__ import annotations
 
-import os
+import re
 import time
 from typing import ClassVar
 
@@ -14,19 +30,34 @@ from findajob.utils import log_event
 from ._keys import resolve_rapidapi_key
 from .base import LiveTestResult, QueryResult
 
-# Bind module-level imports so tests can patch them via the public path
-__all__ = ("JobsApi14Adapter",)
+__all__ = ("JobsApi14IndeedAdapter",)
 
 
-class JobsApi14Adapter:
-    """LinkedIn ingestion via jobs-api14 (RapidAPI)."""
+# Title-allowlist regex — case-insensitive. Tuned for ops / infrastructure /
+# program-mgmt / NPI / hardware / data-center title families. Tighter than
+# scorer_prefilter Stage 1's REJECT pattern; this is INCLUSION, applied
+# pre-storage to compensate for Indeed's missing server-side filters.
+# Hardcoded here in PR1 (#414); a follow-up issue will lift this to a config file
+# once the right shape is clear from real ingest data.
+_TITLE_ALLOW_PATTERN: re.Pattern[str] = re.compile(
+    r"\b("
+    r"engineer|manager|director|lead|architect|analyst|program|"
+    r"operations|infrastructure|data\s*center|hardware|npi|"
+    r"technician|specialist|coordinator|supervisor|administrator"
+    r")\b",
+    re.IGNORECASE,
+)
 
-    name: ClassVar[str] = "jobs-api14"
-    display_name: ClassVar[str] = "Jobs API (jobs-api14)"
-    source_label: ClassVar[str] = "jobsapi_linkedin"
+
+class JobsApi14IndeedAdapter:
+    """jobs-api14 /v2/indeed/search adapter, tuned for the missing-filter problem."""
+
+    name: ClassVar[str] = "jobs-api14-indeed"
+    display_name: ClassVar[str] = "Jobs API — Indeed (jobs-api14)"
+    source_label: ClassVar[str] = "jobsapi_indeed"  # preserves DB row continuity
     required_env_vars: ClassVar[tuple[str, ...]] = ("RAPIDAPI_KEY", "JOBS_API14_KEY")
 
-    _ENDPOINT: ClassVar[str] = "https://jobs-api14.p.rapidapi.com/v2/linkedin/search"
+    _ENDPOINT: ClassVar[str] = "https://jobs-api14.p.rapidapi.com/v2/indeed/search"
     _HOST: ClassVar[str] = "jobs-api14.p.rapidapi.com"
 
     def is_configured(self) -> bool:
@@ -38,24 +69,19 @@ class JobsApi14Adapter:
     def fetch(self, queries: list[str]) -> list[dict]:
         api_key = self._api_key()
         if not api_key:
-            log_event("jobsapi_error", error="No RAPIDAPI_KEY or JOBS_API14_KEY set in .env")
+            log_event("jobsapi_indeed_error", error="No RAPIDAPI_KEY or JOBS_API14_KEY set in .env")
             return []
-
-        date_posted = _date_posted_for_install()
-        log_event("jobsapi_date_posted", value=date_posted)
 
         headers = self._headers(api_key)
         rows: list[dict] = []
         last_idx = len(queries) - 1
         for i, query in enumerate(queries):
-            params = self._params(query, date_posted)
-            data = self._call_with_retry(headers, params, query)
+            data = self._call_with_retry(headers, self._params(query), query)
             if data is None:
                 continue
             new_rows = self._parse_rows(data, query)
             rows.extend(new_rows)
-            count = len(new_rows)
-            log_event("jobsapi_fetched", source="linkedin", query=query, count=count)
+            log_event("jobsapi_indeed_fetched", query=query, count=len(new_rows))
             if i < last_idx:
                 time.sleep(0.6)
         return rows
@@ -70,14 +96,12 @@ class JobsApi14Adapter:
                 auth_error="No API key configured.",
             )
 
-        date_posted = _date_posted_for_install()
         headers = self._headers(api_key)
         per_query: list[QueryResult] = []
         rate_limited = False
         for i, query in enumerate(queries):
-            params = self._params(query, date_posted)
             try:
-                response = requests.get(self._ENDPOINT, headers=headers, params=params, timeout=30)
+                response = requests.get(self._ENDPOINT, headers=headers, params=self._params(query), timeout=30)
             except requests.RequestException as e:
                 if i == 0:
                     return LiveTestResult(ok=False, bucket="network", per_query=[], auth_error=str(e))
@@ -127,7 +151,9 @@ class JobsApi14Adapter:
                     auth_error=f"API reported error: {data.get('errors')}.",
                 )
 
-            per_query.append(QueryResult(query=query, count=len(data.get("data", []))))
+            # Apply the same post-filter so live-test counts reflect what would actually ingest
+            parsed = self._parse_rows(data, query)
+            per_query.append(QueryResult(query=query, count=len(parsed)))
 
         if rate_limited:
             return LiveTestResult(ok=True, bucket="rate_limit", per_query=per_query, auth_error=None)
@@ -148,13 +174,16 @@ class JobsApi14Adapter:
             "Content-Type": "application/json",
         }
 
-    def _params(self, query: str, date_posted: str) -> dict[str, str]:
+    def _params(self, query: str) -> dict[str, str]:
+        # Indeed has no datePosted / experienceLevels / employmentTypes filters.
+        # Compensating: sortType=date (recency-as-filter) + countryCode=us +
+        # location filter. The remaining off-target rows are dropped by the
+        # title regex post-filter in _parse_rows.
         return {
             "query": query,
             "location": "United States",
-            "datePosted": date_posted,
-            "employmentTypes": "fulltime",
-            "experienceLevels": "midSenior;director",
+            "countryCode": "us",
+            "sortType": "date",
         }
 
     def _call_with_retry(
@@ -173,26 +202,36 @@ class JobsApi14Adapter:
             response.raise_for_status()
             data = response.json()
             if data.get("hasError"):
-                log_event("jobsapi_error", source="linkedin", query=query, errors=data.get("errors"))
+                log_event("jobsapi_indeed_error", query=query, errors=data.get("errors"))
                 return None
             return data
         except requests.RequestException as e:
-            log_event("jobsapi_error", source="linkedin", query=query, error=str(e))
+            log_event("jobsapi_indeed_error", query=query, error=str(e))
             return None
 
     def _parse_rows(self, data: dict, query: str) -> list[dict]:
         rows: list[dict] = []
-        for job in data.get("data", []):
-            title = clean_title(job.get("title", ""))
-            raw_company = job.get("companyName", "") or job.get("company", {})
+        for job in data.get("data", []) or []:
+            raw_title = job.get("title", "")
+            title = clean_title(raw_title)
+            if not title:
+                continue
+            # Inclusion post-filter — drop titles outside the allowlist
+            if not _TITLE_ALLOW_PATTERN.search(title):
+                continue
+
+            url = job.get("applyUrl", "")
+            if not url:
+                continue
+
+            raw_company = job.get("company", {})
             if isinstance(raw_company, dict):
                 raw_company = raw_company.get("name", "")
             company = clean_company(raw_company)
+
             loc = job.get("location", "")
             location = loc.get("location", "") if isinstance(loc, dict) else loc
-            url = job.get("linkedinUrl", "")
-            if not title or not url:
-                continue
+
             rows.append(
                 {
                     "title": title,
@@ -202,18 +241,7 @@ class JobsApi14Adapter:
                     "api_id": str(job.get("id", "")),
                     "source": self.source_label,
                     "query": query,
+                    "description": job.get("description", ""),  # inline JD
                 }
             )
         return rows
-
-
-def _date_posted_for_install() -> str:
-    """LinkedIn datePosted widened from `day` to `month` for first 30 days post-onboarding."""
-    from findajob.paths import BASE
-
-    _NEW_INSTALL_DAYS = 30
-    try:
-        age_days = (time.time() - os.path.getmtime(f"{BASE}/data/.onboarding-complete")) / 86400
-    except OSError:
-        return "day"
-    return "month" if age_days < _NEW_INSTALL_DAYS else "day"
