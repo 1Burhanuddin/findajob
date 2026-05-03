@@ -138,7 +138,7 @@ When the pipeline runs inside the `ghcr.io/brockamer/findajob` image, paths shif
 <repo>/src/findajob/cleaning.py             # normalize, fingerprint, clean_title, clean_company
 <repo>/src/findajob/ingest.py               # ingest_manual_job() — shared entry point for the /ingest/ web form
 <repo>/src/findajob/fetchers/                 # Greenhouse, Gmail job fetching; RapidAPI feeds via adapters/
-<repo>/src/findajob/fetchers/adapters/      # JobSourceAdapter Protocol + REGISTERED_ADAPTERS + JobsApi14Adapter + JobsApi14IndeedAdapter + JSearchAdapter
+<repo>/src/findajob/fetchers/adapters/      # JobSourceAdapter Protocol + REGISTERED_ADAPTERS + JobsApi14Adapter + JobsApi14IndeedAdapter + JSearchAdapter; curation.py = per-adapter signup metadata loaded by /onboarding/feed-config/
 <repo>/src/findajob/scoring.py              # score_job(), _build_feedback_block()
 <repo>/src/findajob/scorer_prefilter.py     # deterministic pre-filter (Stage 1 + 2)
 <repo>/src/findajob/web/app.py               # FastAPI app factory (create_app)
@@ -152,6 +152,8 @@ When the pipeline runs inside the `ghcr.io/brockamer/findajob` image, paths shif
 <repo>/src/findajob/web/onboarding_guard.py # NUX guard dependency — 307s /board,/materials,/stats to /onboarding when sentinel missing
 <repo>/src/findajob/web/routes/onboarding.py # GET /onboarding/, POST /onboarding/keys (Step 1 keys collection)
 <repo>/src/findajob/web/routes/onboarding_interview.py # In-app interview routes: /onboarding/interview/start | /turn | /{sid} | /{sid}/finalize. _resolved_chat_key reads tester's OpenRouter key from session credentials; 503 if no key. Step 1 keys mandatory before /start.
+<repo>/src/findajob/web/routes/onboarding_feed_config.py # GET/POST /onboarding/feed-config/{sid} — per-adapter signup walkthrough (#408)
+<repo>/src/findajob/web/routes/feedback.py    # POST /feedback/ — in-app feedback widget; files GitHub issues. Env: GITHUB_FEEDBACK_PAT, FEEDBACK_STACK_LABEL, FEEDBACK_REPO (#227)
 <repo>/src/findajob/onboarding/parser.py    # parse interview emission into files to inject
 <repo>/src/findajob/onboarding/injector.py  # atomic write + backup + Tier-1 derivation + sentinel
 <repo>/src/findajob/onboarding/session_store.py # onboarding_sessions CRUD (history/captured_blocks/find_active)
@@ -171,7 +173,7 @@ When the pipeline runs inside the `ghcr.io/brockamer/findajob` image, paths shif
 <repo>/scripts/prep_application.py          # on-demand LLM material generation
 <repo>/scripts/find_contacts.py             # LinkedIn contact matching + outreach drafts
 <repo>/scripts/ingest_form.py               # Google Form → DB ingestion (retired; kept for manual drains)
-<repo>/scripts/notify.py                    # ntfy push notifications (8 subcommands incl. send-raw, scoreboard)
+<repo>/scripts/notify.py                    # ntfy push notifications — subcommands: send-raw, scoreboard, health-check, etc.
 <repo>/scripts/rename_folders.py            # rename company folders to new format (idempotent)
 <repo>/scripts/discover_companies.py            # weekly company discovery cron entry
 
