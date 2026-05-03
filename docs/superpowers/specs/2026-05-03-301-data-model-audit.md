@@ -203,8 +203,6 @@ The implementation pieces of the original #301 acceptance criteria are filed as 
 
 Cloud / off-host destinations are explicitly out of scope for v1 — same-Proxmox sibling host is the appetite-fit choice given the user count.
 
-**Implementation (#426):** Landed operator-private at `/home/brockamer/bin/findajob-backup-stacks.sh` on `docker.lan` (parameterized so promotion to tracked `ops/backups/` is mechanical if a second operator ever arrives — see #426 close-comment for full source). Cron runs as `brockamer` at 09:00 UTC; local reads via `sudo` (mode-600 lad-owned files); FTP transport to `nassy.lan` as `brockamer` (tarballs end up brockamer-owned on the share, no SSH-as-admin dance). `findajob-test` excluded by regex (NUX simulator, recreatable).
-
 ### 3.2 `docs/setup/` Backups section — #427 (criterion 4 — split out)
 
 Documents:
