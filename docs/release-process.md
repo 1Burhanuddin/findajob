@@ -152,6 +152,11 @@ one-line correction rather than a 60s startup timeout to debug.
 and Claude may propose the cut.** No time window, no 24h/48h observation. A
 binary signal tied to what a fresh tester actually exercises.
 
+The `findajob-test` stack on `docker.lan` is a separate clean-NUX simulator
+(distinct from the smoke script's throwaway stack). Reset it after any release
+that touches onboarding, schema, config layout, or entrypoint — full procedure
+in [`findajob-test-reset.md`](findajob-test-reset.md).
+
 CI wiring for this smoke is deferred to a follow-up issue: the script depends
 on 9 live API keys + a writable Google Sheet, and wiring that into GitHub
 Actions is a meaningful security and ops decision orthogonal to the smoke
