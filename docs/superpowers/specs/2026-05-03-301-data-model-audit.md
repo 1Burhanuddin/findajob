@@ -1,8 +1,15 @@
 # #301 — End-to-end data model audit
 
 **Date:** 2026-05-03
-**Issue:** [#301](https://github.com/brockamer/findajob/issues/301)
 **Scope:** Audit + triage only. Implementation of the backup mechanism, restore procedure, `docs/setup/` Backups section, and `CLAUDE.md` data-ownership table is split into follow-up issues filed against the findings here.
+
+## Issues
+
+- #301 — parent audit (closed when this spec lands and follow-ups are filed)
+- #426 — backup mechanism implementation
+- #427 — verified restore procedure (blocked by #426)
+- #428 — `CLAUDE.md` data-ownership table
+- #429 — reject-reason taxonomy extraction (vocab leak + drift fix)
 
 This audit answers four questions for every persisted artifact in the pipeline:
 
@@ -183,9 +190,9 @@ The reject-reason taxonomy is duplicated across **four** sites with **two diverg
 
 ## 3. Recommendations & follow-ups
 
-The implementation pieces of the original #301 acceptance criteria are filed as follow-up issues against this audit. Each links back here for the inventory + rationale; this audit closes once the follow-ups are filed.
+The implementation pieces of the original #301 acceptance criteria are filed as follow-up issues against this audit. Each links back here for the inventory + rationale; this audit's parent issue (#301) closes once the follow-ups are filed, and this spec stays current until all four follow-ups (#426, #427, #428, #429) ship.
 
-### 3.1 Backup mechanism (criterion 2 — split out)
+### 3.1 Backup mechanism — #426 (criterion 2 — split out)
 
 **Recommended shape:**
 - Per-stack nightly tarball of `/opt/stacks/findajob-{handle}/state/` written to a sibling host on the same Proxmox cluster
@@ -196,18 +203,18 @@ The implementation pieces of the original #301 acceptance criteria are filed as 
 
 Cloud / off-host destinations are explicitly out of scope for v1 — same-Proxmox sibling host is the appetite-fit choice given the user count.
 
-### 3.2 `docs/setup/` Backups section (criterion 4 — split out)
+### 3.2 `docs/setup/` Backups section — #427 (criterion 4 — split out)
 
 Documents:
 - What the backup script captures and excludes
 - Where backups land
 - Step-by-step restore on a fresh `docker.lan` stack (and verification: re-run triage against the restored DB and confirm board state matches)
 
-### 3.3 `CLAUDE.md` data-ownership table (criterion 5 — split out)
+### 3.3 `CLAUDE.md` data-ownership table — #428 (criterion 5 — split out)
 
 A new table mirroring the Container Context table but classifying state by ownership (operator-authored / pipeline-generated / mixed) and backup status. Becomes the canonical answer to "what gets backed up and what's reproducible?" so future work doesn't re-derive it.
 
-### 3.4 Reject-reason vocabulary leak + drift fix
+### 3.4 Reject-reason vocabulary leak + drift fix — #429
 
 Single follow-up issue covering both the leak (move taxonomy out of tracked code into operator-curated config; emit from interview) and the drift (single source of truth for all four sites). Minor placeholder/comment cleanups (§2.2) folded into the same issue if cheap.
 
@@ -221,4 +228,4 @@ Operator-stack-only chore — out of scope for #301 but worth surfacing:
 
 ## 4. Closing #301
 
-This audit is the deliverable. Once the four follow-up issues (backup mechanism, restore docs, ownership table, reject-reason fix) are filed and linked, #301 closes.
+This audit is the deliverable. Once the four follow-up issues (#426 backup mechanism, #427 restore docs, #428 ownership table, #429 reject-reason fix) are filed and linked, #301 closes. This spec doc stays in `docs/superpowers/specs/` (not archived) until all four follow-ups ship.
