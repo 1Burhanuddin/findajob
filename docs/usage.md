@@ -60,6 +60,11 @@ pipeline's IMAP reader at `/config/gmail/`.
 The interview's `linkedin-alerts.md` checklist (in
 `candidate_context/`) is a one-time setup walkthrough.
 
+This is the highest-yielding automated source by hit-rate. To multiply
+its volume, see [`usage/expanding-sources.md`](usage/expanding-sources.md) for a
+step-by-step on adding more saved-search alerts, tuning frequency and
+keyword breadth, and a cross-field example bundle.
+
 ### Manual ingest
 Paste a job URL into the in-app `/ingest/` form. Best for highly-
 targeted candidates who'd rather hand-curate than triage volume. A

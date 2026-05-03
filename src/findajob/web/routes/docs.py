@@ -19,6 +19,7 @@ router = APIRouter()
 # resolve in-app instead of 404ing.
 _PAGES: dict[str, str] = {
     "usage": "usage.md",
+    "usage/expanding-sources": "usage/expanding-sources.md",
     "troubleshooting": "troubleshooting.md",
     "setup": "setup/README.md",
     "setup/prerequisites": "setup/prerequisites.md",
