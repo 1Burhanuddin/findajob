@@ -1,4 +1,12 @@
+---
+**Shipped in #336, #336 on 2026-05-01. Final decisions captured in issue body.**
+---
+
 # #336 In-app Onboarding Interview — Implementation Plan
+
+## Issue
+
+- #336
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

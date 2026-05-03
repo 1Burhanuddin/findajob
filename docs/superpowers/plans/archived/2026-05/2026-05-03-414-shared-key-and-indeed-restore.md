@@ -1,3 +1,7 @@
+---
+**Shipped via PR #415 on 2026-05-03. Issue #414 was subsequently recycled to track follow-on page-size investigation; this plan describes the original PR1 scope only.**
+---
+
 # #414 PR1 — Shared RapidAPI Key + Indeed Adapter Restoration
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

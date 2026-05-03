@@ -1,4 +1,12 @@
+---
+**Shipped in #333 on 2026-04-30. Final decisions captured in issue body.**
+---
+
 # #333 Multi-tenant Operator Dashboard — Implementation Plan
+
+## Issue
+
+- #333
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

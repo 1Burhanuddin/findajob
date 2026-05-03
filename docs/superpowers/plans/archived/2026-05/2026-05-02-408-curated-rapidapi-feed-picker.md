@@ -1,4 +1,13 @@
+---
+**Shipped in #2, #310, #310, #408 on 2026-05-02. Final decisions captured in issue body.**
+---
+
 # #408 curated RapidAPI feed picker + JobSourceAdapter framework — Implementation Plan
+
+## Issue
+
+- #408
+- #310 (closed by this plan)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -10,7 +19,7 @@
 
 **Spec:** [`docs/superpowers/specs/2026-05-02-408-design.md`](../specs/2026-05-02-408-design.md)
 
-**Issue:** [#408](https://github.com/brockamer/findajob/issues/408) (in progress); closes [#310](https://github.com/brockamer/findajob/issues/310); spawns [#410](https://github.com/brockamer/findajob/issues/410), [#411](https://github.com/brockamer/findajob/issues/411), [#412](https://github.com/brockamer/findajob/issues/412).
+**Spawned follow-ons:** see issue body for follow-on tracking.
 
 ---
 
