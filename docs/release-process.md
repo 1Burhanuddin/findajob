@@ -122,6 +122,22 @@ FINDAJOB_TEST_IMAGE=findajob:local \
   scripts/test_container_integration.sh
 ```
 
+**Where to find the smoke sheet ID.** The operator stores it on the dev VM
+in `~/.secrets` under the variable name `FINDAJOB_SMOKE_SHEET` (a dedicated
+Google Sheet that's safe to overwrite — see `reference_smoke_sheet` memory).
+The smoke script expects `FINDAJOB_SMOKE_SHEET_ID`, so source and alias:
+
+```bash
+source ~/.secrets
+export FINDAJOB_SMOKE_SHEET_ID="$FINDAJOB_SMOKE_SHEET"
+```
+
+The aliasing is intentional — `FINDAJOB_SMOKE_SHEET` is the operator-side
+storage name (concise), `FINDAJOB_SMOKE_SHEET_ID` is the
+script-side input name (explicit). Don't print the value to chat —
+even though the sheet is overwriteable, sheet-IDs in the URL line are
+still personal infrastructure.
+
 The script takes 2–5 minutes (dominated by ~20 LLM scoring calls over the real
 network) and costs ≤$0.10 of API budget per run.
 
