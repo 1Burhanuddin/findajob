@@ -1,0 +1,11 @@
+# Test fixture for load_excluded_employers().
+# Generic placeholder names — must NOT contain any real employer name
+# associated with the operator (per CLAUDE.md PII rules).
+
+exact:
+  - "Excluded Corp"
+  - "ExampleCo, Inc."
+
+regex:
+  - '^state\s+of\s+\w+$'
+  - '\bholdings\b'

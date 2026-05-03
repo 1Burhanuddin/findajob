@@ -2,7 +2,13 @@
 
 import pytest
 
-from findajob.scorer_prefilter import _hard_reject_match, _in_domain_match, prefilter_score
+from findajob import config_loader
+from findajob.scorer_prefilter import (
+    _excluded_employer_match,
+    _hard_reject_match,
+    _in_domain_match,
+    prefilter_score,
+)
 
 # ── _hard_reject_match ────────────────────────────────────────────────────────
 
@@ -373,3 +379,118 @@ class TestPrefilterScore:
         result, reason = prefilter_score("  Software Engineer  ", "Acme", True)
         assert result is not None
         assert result["relevance_score"] == 1
+
+
+# ── _excluded_employer_match ──────────────────────────────────────────────────
+
+
+class TestExcludedEmployerMatch:
+    """#84 — Stage 1 company exclusion via excluded_employers.yaml."""
+
+    @pytest.mark.parametrize(
+        "company",
+        ["Excluded Corp", "excluded corp", "EXCLUDED CORP", "  Excluded Corp  "],
+    )
+    def test_exact_case_insensitive(self, company):
+        assert _excluded_employer_match(company) is not None
+
+    def test_exact_with_punctuation(self):
+        assert _excluded_employer_match("ExampleCo, Inc.") is not None
+
+    @pytest.mark.parametrize(
+        "company",
+        ["State of California", "state of texas", "STATE OF OREGON"],
+    )
+    def test_regex_match(self, company):
+        assert _excluded_employer_match(company) is not None
+
+    def test_regex_substring(self):
+        """Regex `\\bholdings\\b` matches any company with 'holdings' as a word."""
+        assert _excluded_employer_match("Acme Holdings LLC") is not None
+
+    @pytest.mark.parametrize(
+        "company",
+        ["Google", "Meta", "Acme Inc", "Workday"],
+    )
+    def test_no_match(self, company):
+        assert _excluded_employer_match(company) is None
+
+    def test_empty_string(self):
+        assert _excluded_employer_match("") is None
+
+    def test_whitespace_only(self):
+        assert _excluded_employer_match("   ") is None
+
+    def test_missing_file_no_op(self, monkeypatch, tmp_path):
+        """Missing config file → no-op (no match for anything)."""
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", tmp_path / "nonexistent.yaml")
+        config_loader._reset_cache()
+        assert _excluded_employer_match("Excluded Corp") is None
+        assert _excluded_employer_match("Anything") is None
+
+    def test_empty_file_no_op(self, monkeypatch, tmp_path):
+        """Empty config file → no-op."""
+        empty = tmp_path / "empty.yaml"
+        empty.write_text("")
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", empty)
+        config_loader._reset_cache()
+        assert _excluded_employer_match("Excluded Corp") is None
+
+    def test_empty_lists_no_op(self, monkeypatch, tmp_path):
+        """File with empty `exact` and `regex` lists → no-op."""
+        f = tmp_path / "ee.yaml"
+        f.write_text("exact: []\nregex: []\n")
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", f)
+        config_loader._reset_cache()
+        assert _excluded_employer_match("Excluded Corp") is None
+
+    def test_only_exact(self, monkeypatch, tmp_path):
+        """`regex` key absent → exact-only matching still works."""
+        f = tmp_path / "ee.yaml"
+        f.write_text('exact:\n  - "Just Exact"\n')
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", f)
+        config_loader._reset_cache()
+        assert _excluded_employer_match("Just Exact") is not None
+        assert _excluded_employer_match("Anything Else") is None
+
+    def test_only_regex(self, monkeypatch, tmp_path):
+        """`exact` key absent → regex-only matching still works."""
+        f = tmp_path / "ee.yaml"
+        f.write_text("regex:\n  - '^Acme.*'\n")
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", f)
+        config_loader._reset_cache()
+        assert _excluded_employer_match("Acme Holdings") is not None
+        assert _excluded_employer_match("Other Co") is None
+
+
+class TestPrefilterScoreExcludedEmployer:
+    """#84 — integration of excluded-employer check into prefilter_score."""
+
+    def test_excluded_employer_scored_one(self):
+        result, reason = prefilter_score("Product Manager", "Excluded Corp", jd_usable=True)
+        assert result is not None
+        assert result["relevance_score"] == 1
+        assert result["score_status"] == "scored"
+        assert result["score_flag_reason"] == "excluded_employer"
+        assert "Excluded Corp" in reason
+
+    def test_excluded_employer_regex_match(self):
+        result, reason = prefilter_score("Program Manager", "State of California", jd_usable=True)
+        assert result is not None
+        assert result["relevance_score"] == 1
+        assert result["score_flag_reason"] == "excluded_employer"
+
+    def test_title_reject_takes_priority_over_employer(self):
+        """A hard-rejected title at an excluded employer reports as title-reject,
+        preserving signal about WHY the job is filtered."""
+        result, reason = prefilter_score("Software Engineer", "Excluded Corp", jd_usable=True)
+        assert result is not None
+        assert result["relevance_score"] == 1
+        # Title-reject reason, NOT excluded_employer
+        assert "hard reject" in reason.lower()
+        assert result["score_flag_reason"] != "excluded_employer"
+
+    def test_excluded_employer_skipped_when_no_match(self):
+        """Non-excluded company falls through to normal flow."""
+        result, _ = prefilter_score("Product Manager", "Google", jd_usable=True)
+        assert result is None  # falls through to LLM

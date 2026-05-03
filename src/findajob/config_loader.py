@@ -23,6 +23,7 @@ from findajob.paths import BASE
 _RULES_PATH = Path(BASE) / "config" / "prefilter_rules.yaml"
 _IN_DOMAIN_PATH = Path(BASE) / "config" / "in_domain_patterns.yaml"
 _TARGET_COMPANIES_PATH = Path(BASE) / "config" / "target_companies.md"
+_EXCLUDED_EMPLOYERS_PATH = Path(BASE) / "config" / "excluded_employers.yaml"
 
 # Tier 1 parser — moved from findajob.onboarding.injector (#211).
 _TIER1_HEADING_RE = re.compile(r"^##\s+tier\s*1\b[^\n]*", re.IGNORECASE | re.MULTILINE)
@@ -40,6 +41,7 @@ _in_domain_cache: tuple[re.Pattern[str], re.Pattern[str] | None] | None = None
 _companies_cache: frozenset[str] | None = None
 _indeed_title_allow_cache: re.Pattern[str] | None = None
 _indeed_title_allow_loaded: bool = False  # distinguishes "cached None" from "not yet loaded"
+_excluded_employers_cache: tuple[frozenset[str], re.Pattern[str] | None] | None = None
 
 # Warnings emitted (dedup per process)
 _warned: set[str] = set()
@@ -254,15 +256,60 @@ def load_indeed_title_allow_rules() -> re.Pattern[str] | None:
     return _indeed_title_allow_cache
 
 
+def load_excluded_employers() -> tuple[frozenset[str], re.Pattern[str] | None]:
+    """`(exact_set, regex_re)` from `config/excluded_employers.yaml`.
+
+    `exact_set` is a frozenset of lowercased company names for case-insensitive
+    exact match. `regex_re` is a compiled case-insensitive alternation, or
+    `None` if no regex patterns are configured.
+
+    Missing file, empty file, or empty lists → `(frozenset(), None)` —
+    company-exclusion stage becomes a no-op. Malformed entries raise
+    `ConfigError`.
+    """
+    global _excluded_employers_cache
+    if _excluded_employers_cache is not None:
+        return _excluded_employers_cache
+
+    data = _safe_load_yaml(_EXCLUDED_EMPLOYERS_PATH, "excluded_employers.yaml")
+    if data is None:
+        _excluded_employers_cache = (frozenset(), None)
+        return _excluded_employers_cache
+
+    exact = data.get("exact", []) or []
+    if not isinstance(exact, list):
+        raise ConfigError(f"excluded_employers.yaml: 'exact' must be a list, got {type(exact).__name__}")
+    for e in exact:
+        if not isinstance(e, str):
+            raise ConfigError(f"excluded_employers.yaml: exact entry is not a string: {e!r}")
+
+    regex = data.get("regex", []) or []
+    if not isinstance(regex, list):
+        raise ConfigError(f"excluded_employers.yaml: 'regex' must be a list, got {type(regex).__name__}")
+    for p in regex:
+        if not isinstance(p, str):
+            raise ConfigError(f"excluded_employers.yaml: regex pattern is not a string: {p!r}")
+
+    exact_set = frozenset(e.strip().lower() for e in exact if e.strip())
+    regex_re: re.Pattern[str] | None = None
+    if regex:
+        regex_re = _compile_patterns(regex, _EXCLUDED_EMPLOYERS_PATH, "regex")
+
+    _excluded_employers_cache = (exact_set, regex_re)
+    return _excluded_employers_cache
+
+
 def _reset_cache() -> None:
     """Test-only. Clears module-level caches and warning dedup."""
     global _hard_reject_cache, _in_domain_cache, _companies_cache
     global _indeed_title_allow_cache, _indeed_title_allow_loaded
+    global _excluded_employers_cache
     _hard_reject_cache = None
     _in_domain_cache = None
     _companies_cache = None
     _indeed_title_allow_cache = None
     _indeed_title_allow_loaded = False
+    _excluded_employers_cache = None
     _warned.clear()
 
 

@@ -1,0 +1,33 @@
+# excluded_employers.yaml — deterministic prefilter rejection by company.
+# Copy this file to excluded_employers.yaml and edit. This file is gitignored.
+#
+# SHAPE:
+#   exact:    (optional; list of company names — case-insensitive exact match)
+#     - "<company name>"
+#   regex:    (optional; list of regex patterns — case-insensitive)
+#     - '<regex>'
+#
+# If a job's company matches any entry, the job scores 1 with no LLM call
+# (rejection_reason = "excluded_employer"). The check runs in Stage 1 of
+# scorer_prefilter, AFTER the title hard-reject branch, so jobs with
+# off-domain titles still report as title-rejects rather than employer-rejects.
+#
+# Use this for prior employers, geographic holdouts, ethical objections —
+# anywhere a deterministic NEVER applies regardless of role title or JD.
+#
+# Missing file → company-exclusion stage becomes a no-op (warn).
+
+exact:
+  # Entries are matched case-insensitively against the cleaned `company` field.
+  # Common uses: a prior employer, a competitor of a current employer, a
+  # company you explicitly want never to apply to.
+  #
+  # - "Example Corp"
+  # - "Another Co"
+
+regex:
+  # Compiled case-insensitive. Useful for parameterized exclusions like
+  # "any state government" or "any subsidiary of <X>".
+  #
+  # - '^state\s+of\s+\w+$'
+  # - '\b(parent|holdings|group)\b'

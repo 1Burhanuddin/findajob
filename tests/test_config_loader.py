@@ -302,6 +302,82 @@ class TestLoadIndeedTitleAllowRules:
         with pytest.raises(ConfigError, match=r"invalid regex.*\(unclosed"):
             config_loader.load_indeed_title_allow_rules()
 
+
+class TestLoadExcludedEmployers:
+    """#84 — deterministic company exclusion via excluded_employers.yaml."""
+
+    def test_returns_configured_values(self):
+        # Fixture provides exact + regex entries
+        exact_set, regex_re = config_loader.load_excluded_employers()
+        assert "excluded corp" in exact_set
+        assert regex_re is not None
+        assert regex_re.search("State of California") is not None
+
+    def test_returns_empty_when_file_missing(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", tmp_path / "missing.yaml")
+        config_loader._reset_cache()
+        exact_set, regex_re = config_loader.load_excluded_employers()
+        assert exact_set == frozenset()
+        assert regex_re is None
+
+    def test_empty_lists_returns_empty(self, monkeypatch, tmp_path):
+        f = tmp_path / "ee.yaml"
+        f.write_text("exact: []\nregex: []\n")
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", f)
+        config_loader._reset_cache()
+        exact_set, regex_re = config_loader.load_excluded_employers()
+        assert exact_set == frozenset()
+        assert regex_re is None
+
+    def test_exact_lowercased(self, monkeypatch, tmp_path):
+        f = tmp_path / "ee.yaml"
+        f.write_text('exact:\n  - "MixedCase Corp"\n')
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", f)
+        config_loader._reset_cache()
+        exact_set, _ = config_loader.load_excluded_employers()
+        assert "mixedcase corp" in exact_set
+        assert "MixedCase Corp" not in exact_set
+
+    def test_exact_as_dict_raises(self, monkeypatch, tmp_path):
+        bad = tmp_path / "ee.yaml"
+        bad.write_text("exact:\n  nested: value\n")
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", bad)
+        config_loader._reset_cache()
+        with pytest.raises(ConfigError, match="'exact' must be a list"):
+            config_loader.load_excluded_employers()
+
+    def test_regex_as_dict_raises(self, monkeypatch, tmp_path):
+        bad = tmp_path / "ee.yaml"
+        bad.write_text("regex:\n  nested: value\n")
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", bad)
+        config_loader._reset_cache()
+        with pytest.raises(ConfigError, match="'regex' must be a list"):
+            config_loader.load_excluded_employers()
+
+    def test_non_string_exact_raises(self, monkeypatch, tmp_path):
+        bad = tmp_path / "ee.yaml"
+        bad.write_text("exact:\n  - 42\n")
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", bad)
+        config_loader._reset_cache()
+        with pytest.raises(ConfigError, match="exact entry is not a string"):
+            config_loader.load_excluded_employers()
+
+    def test_non_string_regex_raises(self, monkeypatch, tmp_path):
+        bad = tmp_path / "ee.yaml"
+        bad.write_text("regex:\n  - 42\n")
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", bad)
+        config_loader._reset_cache()
+        with pytest.raises(ConfigError, match="regex pattern is not a string"):
+            config_loader.load_excluded_employers()
+
+    def test_invalid_regex_raises(self, monkeypatch, tmp_path):
+        bad = tmp_path / "ee.yaml"
+        bad.write_text("regex:\n  - '(unclosed'\n")
+        monkeypatch.setattr(config_loader, "_EXCLUDED_EMPLOYERS_PATH", bad)
+        config_loader._reset_cache()
+        with pytest.raises(ConfigError, match=r"invalid regex.*\(unclosed"):
+            config_loader.load_excluded_employers()
+
     def test_caches_result(self):
         p1 = config_loader.load_indeed_title_allow_rules()
         p2 = config_loader.load_indeed_title_allow_rules()

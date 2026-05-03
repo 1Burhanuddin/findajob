@@ -3,16 +3,18 @@
 Deterministic pre-filter for job scoring.
 Runs BEFORE any LLM call. Two stages:
 
-  Stage 1 — Hard reject by title regex → score 1, scored, no LLM
-            (context_suppressors in prefilter_rules.yaml can override)
+  Stage 1 — Hard reject by title regex OR excluded company → score 1,
+            scored, no LLM. Title check runs first; company check second.
+            (context_suppressors in prefilter_rules.yaml can override
+            the title branch.)
   Stage 2 — In-domain title + no usable JD → score 5, no LLM
 
 If neither stage fires, returns (None, None) and caller should invoke the LLM.
 
-Rules are loaded from config/prefilter_rules.yaml and config/in_domain_patterns.yaml
-(both gitignored). See src/findajob/config_loader.py. If either file is missing,
-that stage becomes a no-op (all jobs pass through to the LLM) — install config
-files per docs/setup/configure.md.
+Rules are loaded from config/prefilter_rules.yaml, config/in_domain_patterns.yaml,
+and config/excluded_employers.yaml (all gitignored). See
+src/findajob/config_loader.py. If any file is missing, that branch becomes a
+no-op — install config files per docs/setup/configure.md.
 
 Usage:
     from findajob.scorer_prefilter import prefilter_score
@@ -24,7 +26,11 @@ Usage:
 
 from __future__ import annotations
 
-from findajob.config_loader import load_hard_reject_rules, load_in_domain_rules
+from findajob.config_loader import (
+    load_excluded_employers,
+    load_hard_reject_rules,
+    load_in_domain_rules,
+)
 
 
 def _hard_reject_match(title: str) -> str | None:
@@ -37,6 +43,21 @@ def _hard_reject_match(title: str) -> str | None:
     if suppressor_re is not None and suppressor_re.search(title):
         return None
     return m.group(0).strip()
+
+
+def _excluded_employer_match(company: str) -> str | None:
+    """Return the matched company string, or None. Case-insensitive."""
+    if not company:
+        return None
+    c = company.strip()
+    if not c:
+        return None
+    exact_set, regex_re = load_excluded_employers()
+    if c.lower() in exact_set:
+        return c
+    if regex_re is not None and regex_re.search(c):
+        return c
+    return None
 
 
 def _in_domain_match(title: str) -> bool:
@@ -70,6 +91,21 @@ def prefilter_score(title: str, company: str, jd_usable: bool) -> tuple[dict[str
             "comp_estimate": None,
             "ai_notes": reason,
             "score_flag_reason": reason,
+            "remote_status": "Unknown",
+        }, reason
+
+    excluded = _excluded_employer_match(company)
+    if excluded:
+        reason = f'Pre-filter excluded employer: "{excluded}"'
+        return {
+            "score_status": "scored",
+            "relevance_score": 1,
+            "interview_likelihood": 1,
+            "strengths_alignment": "Excluded employer — user opted out of this company.",
+            "industry_sector": None,
+            "comp_estimate": None,
+            "ai_notes": reason,
+            "score_flag_reason": "excluded_employer",
             "remote_status": "Unknown",
         }, reason
 
