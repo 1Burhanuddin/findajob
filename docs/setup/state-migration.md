@@ -220,7 +220,9 @@ If you want a fresh sheet (e.g., to experiment on the target without affecting y
 ## Troubleshooting
 
 **`ModuleNotFoundError` during triage**
-Pip install was missed. Re-run the pip install from the install guide.
+Run `uv sync` from the repo root to (re)install the project venv per
+[install-linux.md](install-linux.md). For Docker installs, this means
+the image build is incomplete — pull a fresh image and re-up the stack.
 
 **Gmail integration not working after migration**
 Re-configure at `/config/gmail/` — the new IMAP/app-password integration is per-stack and the simplest path forward is reconfiguring rather than copying state. See [`gmail.md`](gmail.md).

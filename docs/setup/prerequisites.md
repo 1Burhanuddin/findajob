@@ -108,16 +108,30 @@ See [configure.md](configure.md) for the full config template.
 
 ## Python Dependencies
 
+The project uses [`uv`](https://docs.astral.sh/uv/) to manage Python and
+dependencies (#126). Install once per machine:
+
 ```bash
-pip3 install --break-system-packages \
-  google-api-python-client \
-  google-auth-httplib2 \
-  google-auth-oauthlib \
-  requests \
-  jsonschema
+curl -LsSf https://astral.sh/uv/install.sh | sh
+exec $SHELL
 ```
 
-No virtualenv needed. The pipeline uses the system Python directly.
+Then from the cloned repo:
+
+```bash
+uv sync
+```
+
+This provisions Python 3.12+ if absent, creates `.venv/`, and installs
+the project + dev dependencies declared in `pyproject.toml`. Subsequent
+commands use `uv run` (e.g., `uv run pytest`, `uv run python scripts/triage.py`).
+No system-level pip install required.
+
+> **Why uv:** the project requires Python 3.12+. `uv` provisions a
+> compatible interpreter on hosts that ship with older Python (e.g.,
+> Ubuntu 22.04 → 3.10), avoiding `--break-system-packages` and PEP-668
+> conflicts. The Docker image pip-installs against a 3.12 base internally
+> — different concern, image-only.
 
 ---
 

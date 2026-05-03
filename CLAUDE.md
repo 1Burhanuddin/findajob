@@ -132,7 +132,7 @@ When the pipeline runs inside the `ghcr.io/brockamer/findajob` image, paths shif
 ## Key File Locations
 
 ```
-# ── Package (pip install -e .) ──────────────────────────────────────────────
+# ── Package (uv sync for dev; pip install -e . inside Docker image) ────────
 <repo>/src/findajob/paths.py                # central path resolver — from findajob.paths import BASE, AICHAT, PANDOC
 <repo>/src/findajob/utils.py                # shared utilities: log_event(), write_audit(), load_env()
 <repo>/src/findajob/cleaning.py             # normalize, fingerprint, clean_title, clean_company
@@ -276,7 +276,7 @@ Some transitions also spawn detached generator subprocesses:
 All binary paths (AICHAT, PANDOC) come from `findajob.paths` (`src/findajob/paths.py`), which reads `config/paths.env`.
 Never hardcode platform paths in scripts. `BASE` is derived from `__file__` — the repo can live anywhere.
 For subprocess calls to other pipeline scripts, always use `sys.executable`, not a hardcoded Python path.
-Library code lives in `src/findajob/` (installed via `pip install -e .`). Entry point scripts in `scripts/` import via `from findajob.* import ...`. No `sys.path.insert` hacks.
+Library code lives in `src/findajob/` (installed editable into the project venv via `uv sync` for local dev, `pip install -e .` inside the Docker image — #126). Entry point scripts in `scripts/` import via `from findajob.* import ...`. No `sys.path.insert` hacks.
 
 ### RAG Policy
 RAG (`--rag job_search_rag`) is NEVER passed to `job_scorer`, `cover_letter_writer`,

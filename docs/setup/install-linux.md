@@ -11,18 +11,25 @@ This guide covers a fresh install on a Debian-based Linux system. Tested on Pop!
 
 ```bash
 sudo apt update && sudo apt install -y \
-  python3 python3-pip \
   pandoc \
   curl \
   git \
   build-essential  # needed for Rust/aichat-ng build
+
+# Install uv — manages Python + the venv for findajob (#126).
+curl -LsSf https://astral.sh/uv/install.sh | sh
+exec $SHELL  # reload shell to pick up `uv` on PATH
 ```
 
 Verify:
 ```bash
-python3 --version    # should be 3.11+
+uv --version         # 0.4+
 pandoc --version
 ```
+
+`uv` provisions Python 3.12+ on demand for the project's venv; you don't
+need a system-wide Python install. (The Docker image uses pip on a
+Python 3.12 base — different concern, internal to the image.)
 
 ---
 
@@ -62,14 +69,24 @@ cd ~/findajob
 
 ## 4. Install Python Dependencies
 
+`uv` reads `pyproject.toml` and installs the project + every transitive
+dependency into a project-local venv at `.venv/`:
+
 ```bash
-pip3 install --break-system-packages \
-  google-api-python-client \
-  google-auth-httplib2 \
-  requests \
-  jsonschema \
-  beautifulsoup4
+uv sync
 ```
+
+Subsequent commands (pytest, ruff, mypy, uvicorn, scripts/*) prefix with
+`uv run` so they execute against the venv:
+
+```bash
+uv run pytest
+uv run python scripts/triage.py
+```
+
+You don't need to `source .venv/bin/activate` — `uv run` handles it. If
+you prefer the activated-shell flow, `source .venv/bin/activate` works
+the conventional way.
 
 ---
 
@@ -151,7 +168,7 @@ set -a; source ~/findajob/data/.env; set +a
 
 ```bash
 cd ~/findajob
-python3 scripts/init_db.py
+uv run python scripts/init_db.py
 ```
 
 Verify:
@@ -173,7 +190,7 @@ echo "YOUR_SHEET_ID" > config/sheet_id.txt
 
 Run the sheet formatter:
 ```bash
-python3 scripts/setup_sheets.py
+uv run python scripts/setup_sheets.py
 ```
 
 ---
@@ -260,10 +277,10 @@ echo "Hello" | /usr/local/bin/aichat-ng -m gemini:gemini-3-flash-preview -S "Say
 sqlite3 ~/findajob/data/pipeline.db "SELECT count(*) FROM jobs;"
 
 # Test Sheet connection
-python3 scripts/sync_sheet.py
+uv run python scripts/sync_sheet.py
 
 # Run a single triage cycle (may take 30–60 min)
-python3 scripts/triage.py
+uv run python scripts/triage.py
 ```
 
 ---
