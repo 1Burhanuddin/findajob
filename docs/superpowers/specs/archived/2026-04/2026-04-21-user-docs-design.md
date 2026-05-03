@@ -1,3 +1,7 @@
+---
+**Shipped in #11 on 2026-04-24. Final decisions captured in issue body.**
+---
+
 # User-Facing Documentation — Design Spec
 
 ## Issue(s)
