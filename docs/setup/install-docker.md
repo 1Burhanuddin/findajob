@@ -62,7 +62,7 @@ FINDAJOB_AUTH_USER=<your username>
 FINDAJOB_AUTH_PASS=<a strong password>
 ```
 
-Wireguard-only / LAN-only instances can skip this — the perimeter is the gate.
+the perimeter VPN-only / LAN-only instances can skip this — the perimeter is the gate.
 See [`internet-exposure.md`](internet-exposure.md) for the full threat model.
 
 ### What the entrypoint does automatically
@@ -98,7 +98,7 @@ Each stack on the same host must use a unique port number.
 FINDAJOB_MATERIALS_PORT=8090
 ```
 
-The container publishes the viewer at `http://<docker-host>:<port>/`. On a LAN or Wireguard
+The container publishes the viewer at `http://<docker-host>:<port>/`. On a LAN or the perimeter VPN
 VPN this is reachable from any device. The viewer is read-only — it displays prep-folder
 contents grouped by stage (staged, applied, waitlisted, rejected), renders Markdown inline,
 and offers `.docx` files for download.
@@ -108,7 +108,7 @@ page with stage counts; `/materials/` is the prep-folder index (previously serve
 
 ```bash
 # Quick smoke test after first deploy
-curl http://docker.lan:8090/healthz    # expect: ok
+curl http://<deployment-host>:8090/healthz    # expect: ok
 ```
 
 The viewer also serves six board pages under `/board/`: Dashboard, Applied,
@@ -123,7 +123,7 @@ and a live text filter.
 `sync_sheet.py` hyperlinks the company cell on Dashboard / Applied / Waitlist / Rejected Applications tabs into the viewer, but only when `FINDAJOB_MATERIALS_BASE_URL` is set in the stack `.env` **and** the deployed `compose.yaml` passes it into the container. Unset → cells render as plain text, no crash.
 
 ```
-FINDAJOB_MATERIALS_BASE_URL=http://docker.lan:8090
+FINDAJOB_MATERIALS_BASE_URL=http://<deployment-host>:8090
 ```
 
 Match the hostname and port to what the user's browser can reach (LAN hostname or VPN hostname + `FINDAJOB_MATERIALS_PORT`).
@@ -277,7 +277,7 @@ The full job list lives at `ops/scheduled-jobs.yaml` in the repo. To inspect wha
 ### Operator mode (multi-tenant stack health dashboard) — #333
 
 If you run multiple findajob stacks side-by-side (e.g. yourself + several
-beta testers on the same `docker.lan`), the operator stack can run with
+beta testers on the same `<deployment-host>`), the operator stack can run with
 operator mode enabled to surface a cross-stack health dashboard at
 `/admin/stacks/`. The dashboard shows last-triage time, stage distribution,
 stuck-prep count, and last-failure timestamp for every stack at
@@ -341,7 +341,7 @@ behalf, or when the web UI is unreachable. Edit `data/.env` server-side
 and bounce the stack:
 
 ```bash
-ssh docker.lan
+ssh <deployment-host>
 cd /opt/stacks/findajob-<handle>/
 sudo sed -i 's|^OPENROUTER_API_KEY=.*|OPENROUTER_API_KEY=sk-or-v1-NEW...|' state/data/.env
 sudo docker compose restart scheduler

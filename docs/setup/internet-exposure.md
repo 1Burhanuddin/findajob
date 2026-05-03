@@ -1,6 +1,6 @@
 # Exposing findajob to the public internet
 
-By default findajob has no authentication. That is fine when access is restricted by the network perimeter (Wireguard, loopback, lab network). To expose a per-tester instance to the public internet — for example at `https://findajob-{tester}.example.com` — turn on HTTP Basic Auth via two env vars.
+By default findajob has no authentication. That is fine when access is restricted by the network perimeter (the perimeter VPN, loopback, lab network). To expose a per-tester instance to the public internet — for example at `https://findajob-{tester}.example.com` — turn on HTTP Basic Auth via two env vars.
 
 ## Threat model
 
@@ -25,9 +25,9 @@ https://findajob-{tester}.example.com
         ↓
    Geo-IP filter (e.g. Firewalla, restrict to expected regions)
         ↓
-   Reverse proxy (TLS termination — e.g. Synology DSM)
+   Reverse proxy (TLS termination — e.g. the reverse-proxy admin UI)
         ↓
-   docker.lan:<per-tester-port>
+   <deployment-host>:<per-tester-port>
         ↓
    FastAPI BasicAuthMiddleware  ← this layer
         ↓
@@ -66,7 +66,7 @@ The middleware sits inside the findajob FastAPI app. There is no separate auth L
 
    Expected: `200 OK`.
 
-6. **Wire the reverse proxy**: in your reverse-proxy UI (Synology DSM, etc.) point `findajob-alice.example.com` at `docker.lan:<port>`.
+6. **Wire the reverse proxy**: in your reverse-proxy UI (the reverse-proxy admin UI, etc.) point `findajob-alice.example.com` at `<deployment-host>:<port>`.
 
 ## Allowlist
 
@@ -92,5 +92,5 @@ Remove (or empty) `FINDAJOB_AUTH_USER` / `FINDAJOB_AUTH_PASS` and `docker compos
 
 ## What this does not change
 
-- **Wireguard access still works** for stacks that don't set the env vars (the operator's own deployment, for instance). The middleware is opt-in per stack.
+- **the perimeter VPN access still works** for stacks that don't set the env vars (the operator's own deployment, for instance). The middleware is opt-in per stack.
 - **`/config/` is still un-rate-limited and trusts whoever the gate let in.** This is per-instance auth, not per-user authorization. Anyone holding the credential can edit pipeline config.

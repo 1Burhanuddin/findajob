@@ -142,8 +142,7 @@ NTFY_TOPIC=your-topic-name
 
 Protect this file: `chmod 600 data/.env`
 
-See `docs/superpowers/plans/2026-05-01-336-in-app-onboarding-interview.md`
-for design details.
+Design details for the in-app onboarding interview live in operator-private notes.
 
 ---
 

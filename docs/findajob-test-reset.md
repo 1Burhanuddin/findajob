@@ -27,10 +27,10 @@
 
 ## Procedure
 
-The reset is one `ssh docker.lan` command. Run from the operator's dev VM.
+The reset is one `ssh <deployment-host>` command. Run from the operator's dev VM.
 
 ```bash
-ssh docker.lan "set -e
+ssh <deployment-host> "set -e
 cd /opt/stacks/findajob-test
 echo '== compose down =='
 sudo docker compose down
@@ -70,7 +70,7 @@ later — the install-docker.md guide implicitly assumes the user `cp`s
 After the reset, confirm the stack lands an external user on `/onboarding/`:
 
 ```bash
-ssh docker.lan "curl -sf -m 5 -o /dev/null -w 'GET /             : %{http_code}\n' http://localhost:8096/
+ssh <deployment-host> "curl -sf -m 5 -o /dev/null -w 'GET /             : %{http_code}\n' http://localhost:8096/
 curl -sf -m 5 -o /dev/null -w 'GET /board/        : %{http_code}\n' http://localhost:8096/board/dashboard
 curl -sf -m 5 -o /dev/null -w 'GET /onboarding/   : %{http_code}\n' http://localhost:8096/onboarding/"
 ```
@@ -84,14 +84,14 @@ If `/` returns 200 instead of 307, the onboarding sentinel was not wiped — re-
 
 If `/healthz` doesn't return 200 within ~10s of `compose up -d`, check container logs:
 ```bash
-ssh docker.lan "sudo docker logs findajob-test-scheduler-1 2>&1 | tail -30"
+ssh <deployment-host> "sudo docker logs findajob-test-scheduler-1 2>&1 | tail -30"
 ```
 
 ## After the reset
 
 `findajob-test` now behaves as a fresh install. To complete the NUX simulation:
 
-1. Visit `http://docker.lan:8096/` — should redirect to `/onboarding/`.
+1. Visit `http://<deployment-host>:8096/` — should redirect to `/onboarding/`.
 2. Step 1: enter API keys (operator's OpenRouter / RapidAPI / Google work for testing — they're funded by the operator's accounts; document the smoke-vs-real-cost trade-off if the test will involve heavy LLM use).
 3. Step 2: run the in-app interview to completion. The injector writes ~10 canonical files under `state/candidate_context/` / `state/config/` / `state/data/` and creates the sentinel.
 4. Verify post-onboarding state:

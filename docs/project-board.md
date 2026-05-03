@@ -200,7 +200,7 @@ An issue without Priority will sort into the "no-field" bucket at the bottom of 
 
 - When In Progress is empty and the apply gate hasn't cleared, don't pull new Medium/Low work in. Clear the gate first.
 - High-priority bug fixes and blockers to applying (e.g., damaged prep materials) are always fair game.
-- Claude checks the gate by querying `audit_log` on docker.lan for today's `stage→applied` transitions; do not ask the user whether they've applied.
+- Claude checks the gate by querying `audit_log` on <deployment-host> for today's `stage→applied` transitions; do not ask the user whether they've applied.
 
 ## Common inconsistencies to watch for
 

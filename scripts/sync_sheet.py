@@ -39,7 +39,7 @@ except FileNotFoundError:
     SHEET_ID = ""
 
 # Base URL for the materials viewer that hyperlinks company cells into.
-# Set per stack (e.g., http://docker.lan:8090 matching FINDAJOB_MATERIALS_PORT).
+# Set per stack (e.g., http://localhost:8090 matching FINDAJOB_MATERIALS_PORT).
 # Unset → company cells render as plain text.
 MATERIALS_BASE_URL = os.getenv("FINDAJOB_MATERIALS_BASE_URL", "").strip()
 

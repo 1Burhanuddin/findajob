@@ -142,13 +142,14 @@ def test_per_row_error_does_not_crash_page(operator_app, tmp_path: Path) -> None
     assert ">broken<" in r.text
 
 
-def test_drill_down_recipe_renders_per_row(operator_app, tmp_path: Path) -> None:
+def test_drill_down_recipe_renders_per_row(operator_app, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FINDAJOB_DEPLOYMENT_HOST", "test-host")
     stacks = tmp_path / "stacks"
     stacks.mkdir()
     _seed_stack(stacks, "alice")
     client = TestClient(operator_app)
     r = client.get("/admin/stacks/")
-    assert "ssh docker.lan tail -F /opt/stacks/findajob-alice/state/logs/pipeline.jsonl" in r.text
+    assert "ssh test-host tail -F /opt/stacks/findajob-alice/state/logs/pipeline.jsonl" in r.text
 
 
 def test_basic_auth_inherited_when_set(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -274,9 +274,9 @@ on v0.1.x. Testers on fresh installs can skip this — they never had rclone ena
 
 6. Verify:
    ```bash
-   curl http://docker.lan:8090/healthz    # expect: ok
+   curl http://<deployment-host>:8090/healthz    # expect: ok
    ```
-   Then open `http://docker.lan:8090/` in a browser to browse materials.
+   Then open `http://<deployment-host>:8090/` in a browser to browse materials.
 
 ### Existing Drive folders
 
@@ -302,7 +302,7 @@ Fresh installs that re-pulled the template on the current tag are unaffected.
    ```
    FINDAJOB_MATERIALS_BASE_URL=http://<your-docker-host>:<FINDAJOB_MATERIALS_PORT>
    ```
-   Typically `http://docker.lan:8090` — match the hostname and port already used for `FINDAJOB_MATERIALS_PORT`.
+   Typically `http://<deployment-host>:8090` — match the hostname and port already used for `FINDAJOB_MATERIALS_PORT`.
 
 2. Edit `compose.yaml` — add one line under `environment:` in the `scheduler` service (the `scheduler` service handles all env vars; there is no separate auth helper):
    ```yaml

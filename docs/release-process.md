@@ -51,7 +51,7 @@ The image tag taxonomy — which determines what a user pulling from GHCR actual
 
 | Tag | Type | Who pushes | Purpose |
 |---|---|---|---|
-| `:latest` | moving | `build-image.yml` on every `main` push | dogfood track — bleeding edge, what the maintainer's `docker.lan` stack runs |
+| `:latest` | moving | `build-image.yml` on every `main` push | dogfood track — bleeding edge, what the maintainer's `<deployment-host>` stack runs |
 | `:main-<sha>` | immutable | `build-image.yml` on every `main` push | bisecting, precise pinning for diagnosis |
 | `:v0.1.0` | immutable | `build-image.yml` on `v*.*.*` tag push | pinned release, never moves |
 | `:v0.1` | moving | `build-image.yml` on `v*.*.*` tag push | auto-advances to the latest `v0.1.x` — the recommended user pin |
@@ -107,13 +107,13 @@ install procedure end-to-end, triggers `triage.py`, and asserts:
    the #118 entrypoint seed is working)
 
 Run locally on a docker-equipped host before proposing the tag. From the
-maintainer's dev laptop, the workflow is: build the image on `docker.lan` (or
+maintainer's dev laptop, the workflow is: build the image on `<deployment-host>` (or
 any docker-equipped host), then run the smoke script against it. Two env vars
 are required — the Google Sheet ID and the path to the service-account creds
 JSON (both from the operator's existing stack):
 
 ```bash
-# On docker.lan (or any host with docker + this repo checked out)
+# On <deployment-host> (or any host with docker + this repo checked out)
 cd /path/to/findajob
 docker build -t findajob:local .
 FINDAJOB_SMOKE_SHEET_ID=<sheet-id> \
@@ -152,7 +152,7 @@ one-line correction rather than a 60s startup timeout to debug.
 and Claude may propose the cut.** No time window, no 24h/48h observation. A
 binary signal tied to what a fresh tester actually exercises.
 
-The `findajob-test` stack on `docker.lan` is a separate clean-NUX simulator
+The `findajob-test` stack on `<deployment-host>` is a separate clean-NUX simulator
 (distinct from the smoke script's throwaway stack). Reset it after any release
 that touches onboarding, schema, config layout, or entrypoint — full procedure
 in [`findajob-test-reset.md`](findajob-test-reset.md).
@@ -296,10 +296,10 @@ cleanly.
 
    Status `completed`, conclusion `success`.
 
-4. Verify the image is pullable on `docker.lan`:
+4. Verify the image is pullable on `<deployment-host>`:
 
    ```bash
-   ssh docker.lan "docker pull ghcr.io/brockamer/findajob:v${VERSION}"
+   ssh <deployment-host> "docker pull ghcr.io/brockamer/findajob:v${VERSION}"
    ```
 
    Expected: clean pull, no 401 (auth) or 404 (tag missing).

@@ -8,7 +8,7 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class StackPath:
-    """Filesystem locator for one findajob stack on docker.lan."""
+    """Filesystem locator for one findajob stack on the deployment host."""
 
     handle: str
     root: Path

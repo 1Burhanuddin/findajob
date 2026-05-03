@@ -61,7 +61,7 @@ config/active_sources.txt
 
 # ── Leak prevention (#430) — categorical safety nets ───────────────────────
 # Specific named files appear above; these patterns catch broader categories
-# to keep operator-private / homelab content out of public commits.
+# to keep operator-private / topology content out of public commits.
 # When adding a new pattern here, also extend .git/hooks/pre-commit if the
 # leak shape is content-based rather than filename-based.
 
@@ -123,6 +123,14 @@ pii-findings*
 *-findings.md
 *-findings.txt
 *-leak-scan.*
+
+# Implementation plans, specs, and experiments (#430) — operator-private.
+# These are session-execution diaries written for ralph-loop / Claude Code,
+# not pedagogical artifacts. Keeping them out of public commits eliminates
+# the largest topology-leak surface in the repo. Files stay on disk for
+# local session use; just no longer tracked. See CLAUDE.md "Plans and specs"
+# rule for placement guidance.
+docs/superpowers/
 
 # Editor / IDE state (may contain absolute paths or partial edits)
 .idea/

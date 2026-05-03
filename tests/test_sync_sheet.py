@@ -235,34 +235,34 @@ class TestMaterialsCompanyCell:
             company="Acme Corp",
             fingerprint="abc123",
             stage="applied",
-            base_url="http://docker.lan:8090",
+            base_url="http://test-host:8090",
         )
-        assert result == '=HYPERLINK("http://docker.lan:8090/materials/abc123","Acme Corp")'
+        assert result == '=HYPERLINK("http://test-host:8090/materials/abc123","Acme Corp")'
 
     def test_materials_drafted_stage_returns_hyperlink(self):
         result = materials_company_cell(
             company="Acme",
             fingerprint="fp-1",
             stage="materials_drafted",
-            base_url="http://docker.lan:8090",
+            base_url="http://test-host:8090",
         )
-        assert result == '=HYPERLINK("http://docker.lan:8090/materials/fp-1","Acme")'
+        assert result == '=HYPERLINK("http://test-host:8090/materials/fp-1","Acme")'
 
     def test_waitlisted_stage_returns_hyperlink(self):
         result = materials_company_cell(
             company="Acme",
             fingerprint="fp-w",
             stage="waitlisted",
-            base_url="http://docker.lan:8090",
+            base_url="http://test-host:8090",
         )
-        assert result == '=HYPERLINK("http://docker.lan:8090/materials/fp-w","Acme")'
+        assert result == '=HYPERLINK("http://test-host:8090/materials/fp-w","Acme")'
 
     def test_scored_stage_no_folder_returns_plain(self):
         result = materials_company_cell(
             company="Acme Corp",
             fingerprint="abc123",
             stage="scored",
-            base_url="http://docker.lan:8090",
+            base_url="http://test-host:8090",
         )
         assert result == "Acme Corp"
 
@@ -271,7 +271,7 @@ class TestMaterialsCompanyCell:
             company="Acme",
             fingerprint="fp-m",
             stage="manual_review",
-            base_url="http://docker.lan:8090",
+            base_url="http://test-host:8090",
         )
         assert result == "Acme"
 
@@ -298,18 +298,18 @@ class TestMaterialsCompanyCell:
             company="Acme",
             fingerprint="fp-1",
             stage="applied",
-            base_url="http://docker.lan:8090/",
+            base_url="http://test-host:8090/",
         )
-        assert result == '=HYPERLINK("http://docker.lan:8090/materials/fp-1","Acme")'
+        assert result == '=HYPERLINK("http://test-host:8090/materials/fp-1","Acme")'
 
     def test_company_name_with_double_quote_is_escaped(self):
         result = materials_company_cell(
             company='O"Reilly Media',
             fingerprint="fp-q",
             stage="applied",
-            base_url="http://docker.lan:8090",
+            base_url="http://test-host:8090",
         )
-        assert result == '=HYPERLINK("http://docker.lan:8090/materials/fp-q","O""Reilly Media")'
+        assert result == '=HYPERLINK("http://test-host:8090/materials/fp-q","O""Reilly Media")'
 
 
 # ---------------------------------------------------------------------------

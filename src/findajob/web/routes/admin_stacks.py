@@ -45,6 +45,7 @@ def stacks_index(request: Request) -> HTMLResponse:
             "health": sorted_health,
             "rendered_at": datetime.now(UTC),
             "stacks_root_display": str(stacks_root),
+            "deployment_host": os.environ.get("FINDAJOB_DEPLOYMENT_HOST", "localhost"),
             "elapsed_ms": elapsed_ms,
         },
     )

@@ -63,7 +63,7 @@ These were moved out so GA could close inside the May 12 date. Don't pull them b
 
 ## Standing checks for every Jared session this week
 
-1. **Apply gate.** Query `audit_log` on docker.lan for today's PT applies. If under 3, no Medium/Low scope-pulls.
+1. **Apply gate.** Query `audit_log` on <deployment-host> for today's PT applies. If under 3, no Medium/Low scope-pulls.
 2. **GA pulse.** Are all 5 GA issues still in motion? Anything aged > 7 days with no commits / comments → flag for the operator.
 3. **Tester pulse (#373).** Any of dave/judy/tango onboarded since last check? Update checklist.
 4. **Spec drift.** New untracked spec at `docs/superpowers/specs/2026-05-01-362-rejection-detection-design.md` (#362) — committed yet? If no, surface.

@@ -41,11 +41,9 @@ NTFY_TOPIC = _env.get("NTFY_TOPIC") or os.environ.get("NTFY_TOPIC", "jobsearch-p
 NTFY_URL = f"https://ntfy.sh/{NTFY_TOPIC}"
 
 # Base URL for links into the web UI (ntfy bodies). Operator-specific; defaults
-# to the docker.lan deployment port. Override via FINDAJOB_WEB_URL in data/.env
+# to the <deployment-host> deployment port. Override via FINDAJOB_WEB_URL in data/.env
 # or the process env.
-WEB_BASE_URL = (_env.get("FINDAJOB_WEB_URL") or os.environ.get("FINDAJOB_WEB_URL", "http://docker.lan:8090")).rstrip(
-    "/"
-)
+WEB_BASE_URL = (_env.get("FINDAJOB_WEB_URL") or os.environ.get("FINDAJOB_WEB_URL", "http://localhost:8090")).rstrip("/")
 
 
 def send(title, body, priority="default", tags=None):

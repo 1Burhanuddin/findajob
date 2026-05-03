@@ -41,7 +41,7 @@ jobs:
               -f previous_tag_name="$PREV" \
               --jq .body)
           else
-            NOTES="First release of the containerized pipeline. See the commit history and docs/superpowers/specs/ for design decisions."
+            NOTES="First release of the containerized pipeline. See the commit history for design decisions."
           fi
 
           # Surface migration-required PRs at the top, if any

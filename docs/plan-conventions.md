@@ -1,6 +1,6 @@
 # Plan Conventions
 
-Implementation plans live in `docs/superpowers/plans/`. They are the bridge between a brainstormed spec and the actual commits. This doc describes what every plan must contain so the work is reviewable, doc updates aren't forgotten, and post-merge verification has a clear acceptance gate.
+Implementation plans live in an operator-private location (`docs/superpowers/plans/` — gitignored; files on disk but not tracked, per #430). They are the bridge between a brainstormed spec and the actual commits. This doc describes what every plan must contain so the work is reviewable, doc updates aren't forgotten, and post-merge verification has a clear acceptance gate. The storage location is operator-private; the content discipline below is unchanged.
 
 ## Required sections
 

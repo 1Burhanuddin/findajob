@@ -30,10 +30,20 @@ This repo is intended to eventually be public and useful for job seekers in any 
 - [ ] Specific city/region ties to the user (e.g., "based in LA")
 - [ ] The user's ntfy topic, Google Form URL, or other personal service handles
 - [ ] Git email addresses or usernames that contain the user's real name (handled by git config, not code)
+- [ ] **Operator topology** — hostnames, deployment paths (`/opt/stacks/...`), backup destinations (NAS / FTP / cloud-bucket specifics), secrets-file locations, port numbers tied to a specific stack, cron-window specifics, the operator's domain, and consumer-grade infra brand names (hypervisor / NAS / VPN mesh products) — see `.git/hooks/pre-commit` for the canonical pattern list. Setup docs use placeholders like `<deployment-host>`, `<operator-handle>`, `<operator-domain>`.
 
 If personal content must exist in the pipeline (e.g., name enforcement in a role prompt),
 move it to a **gitignored** file such as `candidate_context/profile.md`, `CLAUDE.local.md`, or
 `config/` (credentials), and have the tracked file reference it instead.
+
+### Plans, specs, experiments — operator-private
+Implementation plans, design specs, and experiment notes live under `docs/superpowers/`
+which is **gitignored** (#430). Files stay on disk for local session use; they are not
+tracked. Never re-add them to the index, even temporarily for "just this PR." They are
+session-execution diaries, not pedagogical artifacts — outsiders aren't the audience and
+the operator-topology leak surface is too large to police line-by-line. See
+`docs/plan-conventions.md` for what every plan must contain (the *content* discipline
+remains; only the *storage location* changed).
 
 ### Never hardcode field-specific content in tracked files
 - [ ] Company lists (Meta, Google, OpenAI, etc.) — belong in `config/target_companies.md` or `config/tier1.txt` (gitignored)
@@ -218,7 +228,7 @@ When the pipeline runs inside the `ghcr.io/brockamer/findajob` image, paths shif
 
 Lives at `src/findajob/web/`. One file per URL group in `routes/` (e.g. `routes/materials.py`, `routes/board.py`, `routes/landing.py`). Shared partials (`_nav.html`, `_job_row.html`) live in `templates/`.
 
-Foundational decisions (from `docs/superpowers/specs/2026-04-21-web-frontend-14b-design.md`):
+Foundational decisions (design rationale lives in operator-private specs):
 - Server-rendered HTML + HTMX (no SPA)
 - Grouped URL IA — top-nav = `/`, `/board/`, `/materials/`, `/ingest/`, `/stats/`, `/tools/`, `/config/`, `/docs/`
 - Tailwind via CDN + `static/app.css` design tokens
@@ -319,7 +329,7 @@ Some `jobs` rows are *synthetic* — produced by the speculative ingest path (`/
 
 **Folder layout:** `companies/{Company}_SPECULATIVE_{YYYY-MM-DD}_{HHMMSS}/briefing.md`; per-role prep folders use the regular convention.
 
-Full spec: `docs/superpowers/specs/2026-04-28-speculative-ingest-131-design.md`.
+Full spec lives in operator-private notes (`docs/superpowers/`, gitignored).
 
 ### Abbreviation Clarifications
 Any internally-branded teams, programs, or org names with ambiguous abbreviations must be
@@ -428,7 +438,7 @@ responds in the same request. No poll cycle, no Sheet readback.
 
 ### Gmail Integration
 
-Gmail ingestion uses IMAP + app password, configured per-stack at `/config/gmail/`. Transparency contract spelled out in `docs/superpowers/specs/2026-04-30-330-design.md` §4 and codified as executable assertions in `tests/test_transparency_invariants.py` — failures there mean the disclosure banner is lying.
+Gmail ingestion uses IMAP + app password, configured per-stack at `/config/gmail/`. Transparency contract codified as executable assertions in `tests/test_transparency_invariants.py` — failures there mean the disclosure banner is lying.
 
 ---
 
@@ -453,7 +463,7 @@ Core rules (enforced — see the doc for detail):
 
 ## Plan Conventions
 
-Implementation plans live in `docs/superpowers/plans/`. Conventions are documented in [`docs/plan-conventions.md`](docs/plan-conventions.md).
+Implementation plans live in an operator-private location (`docs/superpowers/plans/` is gitignored — files exist on disk for session use, but are not tracked). Conventions for plan *content* are documented in [`docs/plan-conventions.md`](docs/plan-conventions.md).
 
 **Hard requirements for every plan:**
 - Numbered tasks with files, steps, verification commands, commit messages
