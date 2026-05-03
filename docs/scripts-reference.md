@@ -1,29 +1,29 @@
 # Scripts Reference
 
-> **Docker users:** Invocations shown are for the native install. Prefix with
-> `docker compose exec scheduler` to run inside a Compose stack.
-> Docker-specific rewrite tracked in #76.
->
-
 All scripts live in `scripts/`. Diag scripts live in `scripts/diag/` and are run manually only.
 
 All scripts import `BASE`, `AICHAT`, and/or `PANDOC` from `findajob.paths` (`src/findajob/paths.py`).
 Never hardcode binary paths in scripts — add overrides to `config/paths.env` instead.
+
+Each entry below carries a **Manual run** line in the Docker form
+(`docker compose exec scheduler …`). For native installs, drop that prefix and
+run from the repo root with the project venv active (`uv run python3 …`).
 
 ---
 
 ## Core Pipeline Scripts
 
 ### `triage.py`
-**Run by:** scheduler (daily 7:00 AM)
+**Run by:** scheduler (daily 00:00 PT)
 **No arguments.**
+**Manual run:** `docker compose exec scheduler python3 scripts/triage.py`
 
 Fetches jobs from all sources, deduplicates, enriches with JD text, then scores with LLM in parallel (6 concurrent threads), writes to SQLite. Calls `sync_sheet.py` at the end.
 
 **Sources:**
-- LinkedIn and Indeed via RapidAPI jobs-api14
-- Gmail OAuth2 (LinkedIn job emails, Indeed digests, recruiter messages)
-- Greenhouse JSON API (slugs from `config/feed_urls.txt`)
+- LinkedIn / Indeed via RapidAPI jobs-api14 + JSearch (per `config/active_sources.txt`)
+- Gmail IMAP (LinkedIn job alerts, Indeed digests, recruiter messages — config at `/config/gmail/`)
+- Greenhouse / Lever / Ashby JSON APIs (slugs / URLs in `config/feed_urls.txt`)
 
 **Key events logged:** `triage_started`, `job_ingested`, `job_deduplicated`, `job_scored`, `pipeline_complete`
 
@@ -32,6 +32,7 @@ Fetches jobs from all sources, deduplicates, enriches with JD text, then scores 
 ### `prep_application.py`
 **Run by:** `POST /board/jobs/{fp}/prep` or `/regenerate` (detached subprocess); also callable manually
 **Args:** `company title url job_id`
+**Manual run:** `docker compose exec scheduler python3 scripts/prep_application.py "Acme" "Engineer" "https://..." "<job_id>"`
 
 Generates a full application package for one job. LLM calls run sequentially.
 
@@ -51,6 +52,7 @@ Generates a full application package for one job. LLM calls run sequentially.
 ### `watchdog.py`
 **Run by:** scheduler (every 10 min)
 **No arguments.**
+**Manual run:** `docker compose exec scheduler python3 scripts/watchdog.py`
 
 Single responsibility: resets any job stuck in `stage='prep_in_progress'` for more than 60 minutes back to `scored`. Calls `findajob.actions.reset_prep_to_scored()` which writes an `audit_log` row and emits `prep_failed_reset`. Emits a `watchdog_run` summary event at the end of each run.
 
@@ -61,6 +63,7 @@ Replaced `poll_flags.py` in #61 PR-B — transition logic now lives in `findajob
 ### `sync_sheet.py`
 **Run by:** end of triage, end of prep; also callable manually
 **No arguments.**
+**Manual run:** `docker compose exec scheduler python3 scripts/sync_sheet.py`
 
 One-way DB → Sheet. Reads SQLite, writes Dashboard (pre-application queue), Applied (post-application), Review (manual triage), Waitlist (deferred), and Rejected Applications. As of #61 PR-B, no reads from Sheets — the Sheet is a synced view, not a write surface.
 
@@ -77,6 +80,7 @@ One-way DB → Sheet. Reads SQLite, writes Dashboard (pre-application queue), Ap
 ### `setup_sheets.py`
 **Run by:** manually (once on new sheet; safe to re-run)
 **No arguments.**
+**Manual run:** `docker compose exec scheduler python3 scripts/setup_sheets.py`
 
 Creates and formats every tab (Dashboard, Review, Waitlist, Rejected Applications, Applied). One-time: if a legacy `Active` tab exists (from before #43), it is renamed to `Applied` on first run. Sets up:
 - STATUS dropdown (col A) with conditional row highlighting — per-tab option set
@@ -92,6 +96,7 @@ Creates and formats every tab (Dashboard, Review, Waitlist, Rejected Application
 ### `notify.py`
 **Run by:** scheduler (5 scheduled subcommands) + 2 manual-only; also all callable manually
 **Args:** one subcommand
+**Manual run:** `docker compose exec scheduler python3 scripts/notify.py <subcommand>`
 
 | Subcommand | What it sends |
 |---|---|
@@ -111,6 +116,7 @@ ntfy topic is read from `NTFY_TOPIC` in `data/.env`.
 ### `find_contacts.py`
 **Run by:** `prep_application.py` (step 5)
 **Args:** `company jd_text_excerpt outdir`
+**Manual run:** `docker compose exec scheduler python3 scripts/find_contacts.py "Acme" "<jd-excerpt>" companies/<folder>`
 
 Reads `data/connections.csv`, finds LinkedIn connections at the target company, generates personalized outreach drafts for each match via aichat-ng.
 
@@ -123,6 +129,7 @@ Reads `data/connections.csv`, finds LinkedIn connections at the target company, 
 ### `ingest_form.py` (retired)
 **Run by:** manually, only. Scheduled timer removed in #62.
 **No arguments.**
+**Manual run:** `docker compose exec scheduler python3 scripts/ingest_form.py`
 
 Superseded by the `/ingest/` web form (`src/findajob/web/routes/ingest.py`), which is now the operator write surface for manual job submissions. New submissions use `source='web_manual'`.
 
@@ -133,6 +140,7 @@ The script is kept in place as a manual-run fallback in case any Google Form res
 ### `manual_prep.py`
 **Run by:** manually (when you have a job outside the pipeline)
 **Args:** optional path to job file (default: `manual_job.txt`)
+**Manual run:** `docker compose exec scheduler python3 scripts/manual_prep.py [path/to/job.txt]`
 
 File format:
 ```
@@ -162,6 +170,7 @@ Returns `None` if the job should proceed to LLM scoring.
 ### `rescore_all.py`
 **Run by:** manually (after model or prompt changes)
 **No arguments.**
+**Manual run:** `docker compose exec scheduler python3 scripts/rescore_all.py`
 
 Re-runs the scorer on all jobs that have JD text. Use after changing `job_scorer` role or switching scorer model.
 
@@ -170,6 +179,7 @@ Re-runs the scorer on all jobs that have JD text. Use after changing `job_scorer
 ### `rename_folders.py`
 **Run by:** manually (idempotent)
 **No arguments.**
+**Manual run:** `docker compose exec scheduler python3 scripts/rename_folders.py`
 
 Renames `companies/` folders from old format (`{Company}_{date}_{time}`) to new format (`{Company}_{AbbrevTitle}_{date}_{time}`). Looks up DB for title. Updates `prep_folder_path` in DB. Safe to re-run — skips already-renamed folders.
 
@@ -178,6 +188,7 @@ Renames `companies/` folders from old format (`{Company}_{date}_{time}`) to new 
 ### `init_db.py`
 **Run by:** once on new install
 **No arguments.**
+**Manual run:** `docker compose exec scheduler python3 scripts/init_db.py`
 
 Creates `data/pipeline.db` with all tables: `jobs`, `audit_log`, `feedback_log`. Safe to re-run — uses `CREATE TABLE IF NOT EXISTS`.
 
@@ -189,9 +200,12 @@ Run manually for debugging. Not part of normal pipeline operation.
 
 ### `probe_scorer.py`
 Shows raw aichat-ng scorer output for `manual_review` rows. Prints title, company, raw stdout, parsed score.
+**Manual run:** `docker compose exec scheduler python3 scripts/diag/probe_scorer.py`
 
 ### `regen_resumes.py`
 Re-runs `resume_tailor` for every folder in `companies/`. Outputs `tailored_resume_DRAFT_v2.md` and `.docx` alongside existing files. Does not overwrite originals.
+**Manual run:** `docker compose exec scheduler python3 scripts/diag/regen_resumes.py`
 
 ### `debug_contacts.py`
 Shows contact matching diagnostics for a batch of jobs. Useful for debugging false positive/negative company name matches.
+**Manual run:** `docker compose exec scheduler python3 scripts/diag/debug_contacts.py`

@@ -1,12 +1,25 @@
 # Architecture
 
-> **Docker users:** This document describes system design using native-install
-> terminology. Pipeline structure is identical under Docker; the scheduler is
-> supercronic reading `ops/crontab` rather than systemd timers. The container
-> also runs uvicorn alongside supercronic as a co-process, serving the
-> materials viewer on `FINDAJOB_MATERIALS_PORT`.
-> Docker-specific refresh tracked in #76.
->
+The same Python codebase runs identically under Docker and native installs.
+What differs is the **scheduler layer** (supercronic in the container vs.
+systemd timers natively) and the **process model** (uvicorn co-process inside
+the same container under Docker; separate user service natively). Everything
+described below — fetchers, prefilter, scorer, prep, DB schema — is platform-
+agnostic.
+
+For setup, see [`setup/install-docker.md`](setup/install-docker.md) (canonical)
+or [`setup/install-linux.md`](setup/install-linux.md) (fallback).
+
+## Scheduler
+
+Schedules live in **`ops/scheduled-jobs.yaml`** (canonical, repo-tracked). Under
+Docker, `scripts/render_crontab.py` renders that YAML to `/app/crontab` at
+entrypoint, and **supercronic** runs the resulting cron file in the foreground
+of the container. Under native installs, the same YAML is materialized into
+`systemctl --user` timers. Per-job overrides (`FINDAJOB_<JOB>_SCHEDULE`,
+`FINDAJOB_<JOB>_ENABLED`) work in either mode — they're consumed by the
+crontab renderer / unit-file generator. See CLAUDE.md§"Container Context" for
+the full env-override surface.
 
 ## Overview
 
@@ -14,10 +27,10 @@ Two distinct workflows, both scheduler-driven:
 
 | Workflow | Trigger | Duration | Output |
 |---|---|---|---|
-| **Daily Triage** | 00:00 daily via scheduler | 30–60 min | 100–500 jobs scored and written to SQLite |
+| **Daily Triage** | 00:00 daily (supercronic / systemd timer) | 30–60 min | 100–500 jobs scored and written to SQLite |
 | **Prep** | User flags a job in the Dashboard | 5–10 min | Folder with resume, cover letter, briefing, outreach drafts |
 
-Everything between them is mediated by SQLite. The Google Sheet is a synced view — not the source of truth.
+Everything between them is mediated by SQLite. The Google Sheet is a synced view — not the source of truth (sync path slated for retirement, #331).
 
 ---
 
@@ -25,7 +38,7 @@ Everything between them is mediated by SQLite. The Google Sheet is a synced view
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    triage.py (00:00 daily)              │
+│  triage.py (00:00 daily — supercronic / systemd timer)  │
 └──────────────────────┬──────────────────────────────────┘
                        │
           ┌────────────┴────────────┐
