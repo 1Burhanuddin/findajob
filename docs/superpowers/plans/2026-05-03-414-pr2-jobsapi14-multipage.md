@@ -24,12 +24,17 @@ yield against current sources.
 
 ## 2. Tasks
 
-### Task 1 — Empirical billing probe (manual, before implementation)
+### Task 1 — Empirical billing probe (DONE — see #414 comment 4366298476's successor)
 
-**Why first:** the handoff and #414 issue body both flag this as a precondition.
-We assume each `nextToken` call is a separate billed RapidAPI request, but one
-empirical confirmation costs 1 quota unit and avoids designing the env-var
-ceiling around a wrong cost model.
+**Result (2026-05-03):** Per-call billing confirmed. Two sequential calls (one
+search + one `token`-only) cost exactly 1 quota unit each. No batch discount on
+nextToken pagination. PRO quota at 20,000/mo gives ample headroom for
+MAX_PAGES=3 (450 calls/month = 2.25%). Cost model assumed by the rest of the
+plan stands.
+
+**Original framing kept below for archival** — the implementation tasks no
+longer depend on it but the methodology is reusable for future probes
+(JSearch num_pages billing, Bing endpoint cost). Skip to Task 2 to start work.
 
 **Steps:**
 
