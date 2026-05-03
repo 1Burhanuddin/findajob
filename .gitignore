@@ -58,3 +58,89 @@ config/gmail_state.json
 # Per-stack pipeline config — gitignored, .example tracked
 config/rapidapi_feeds.yaml
 config/active_sources.txt
+
+# ── Leak prevention (#430) — categorical safety nets ───────────────────────
+# Specific named files appear above; these patterns catch broader categories
+# to keep operator-private / homelab content out of public commits.
+# When adding a new pattern here, also extend .git/hooks/pre-commit if the
+# leak shape is content-based rather than filename-based.
+
+# Per-checkout / per-operator local files (.local.* convention; matches CLAUDE.local.md)
+*.local.md
+*.local.json
+*.local.yaml
+*.local.yml
+*.local.txt
+*.local.sh
+*.local.toml
+*.local.env
+*.local
+
+# Secrets / credentials (any depth)
+.env
+.envrc
+.envrc.*
+.secrets
+*.secrets
+*.secret
+.netrc
+.netrc.*
+_netrc
+*.netrc
+secrets.yaml
+secrets.yml
+secrets.json
+secrets.txt
+*.backup
+
+# SSH / PGP / TLS material
+.ssh/
+id_rsa*
+id_ed25519*
+id_ecdsa*
+id_dsa*
+*.pem
+*.p12
+*.pfx
+*.gpg
+*.asc
+
+# Operator-private scratch / personal directories
+private/
+_private/
+personal/
+_personal/
+scratch/
+_scratch/
+_local/
+.local/
+notes/
+
+# PII-sweep findings storage (#430-style work — findings stay operator-private)
+_audit/
+_findings/
+pii-findings*
+*-findings.md
+*-findings.txt
+*-leak-scan.*
+
+# Editor / IDE state (may contain absolute paths or partial edits)
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS metadata (reveals local FS structure)
+Thumbs.db
+desktop.ini
+
+# Test / build cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
