@@ -32,7 +32,7 @@ The fix is to introduce a **reasoned, regenerable, field-agnostic discovered set
 |---|---|---|
 | **Primary objective** | Operator's applies-from-discovered-companies in 30 days post-deploy | ≥1 application to a company appearing only on the discovered list (not in the static `## Target Companies`) |
 | **Generalization gate** | Same role prompt produces sensibly different outputs | Eyeballed PR-time smoke against the operator's real profile; expected output reads as field-appropriate |
-| **Cost ceiling (soft)** | Per-run reported cost on `openrouter:perplexity/sonar-reasoning-pro` | ntfy warning if any single run reports >$10; does not block run. **Empirical (smoke #5):** ~$0.10/run, far under threshold; envelope (~$260/year/stack) is overstated by ~50× and can be revisited in a follow-up. |
+| **Cost ceiling (soft)** | Per-run reported cost on `openrouter:perplexity/sonar-reasoning-pro` | ntfy warning if any single run reports >$1; does not block run. **Empirical:** ~$0.10/run; annual envelope ~$5/year/stack at 52 runs. **Updated 2026-05-03 (#287):** threshold lowered from $10 → $1 (10× headroom over empirical); annual envelope revised from ~$260/year/stack down to ~$5/year/stack. |
 | **Failure semantics** | Network/parse/garbage failure | Last-good output preserved; ntfy alert sent; cron exit non-zero |
 | **Onboarding latency** | Time added to fresh-stack onboarding completion | <60s budgeted for the post-injection LLM call; soft-fail if exceeded |
 | **Atomicity** | Disk-state during failed write | Either both `.md` and `.json` sidecar update, or neither; previous good output preserved |
@@ -257,9 +257,9 @@ The `last-good preserved` invariant is the architectural guarantee: at no point 
 
 `sonar-reasoning-pro` reports per-request token counts and cost in the response metadata. The runner extracts the cost field and compares against a configurable threshold:
 
-- **Default threshold:** $10 per run (configurable via `DISCOVERY_COST_THRESHOLD_USD` env var).
+- **Default threshold:** $1 per run (configurable via `DISCOVERY_COST_THRESHOLD_USD` env var). *Updated 2026-05-03 from initial $10 default per #287, after PR-time smoke for #284 measured ~$0.10/run across all 5 iterations. The new $1 default keeps 10× headroom over empirical.*
 - **Behavior on threshold breach:** ntfy warning of the form `discovery: run cost $X.XX exceeds threshold $Y.YY (still wrote N companies)`. The run still writes its output; the warning is informational.
-- **Annual budget envelope** (per stack): 52 runs × ~$5/run = ~$260/year operator-side, ~$260/year on the Alice stack. Combined ~$520/year for both stacks. Within acceptable limits.
+- **Annual budget envelope** (per stack): 52 runs × ~$0.10/run = ~$5/year/stack. Across operator + N tester stacks the combined envelope stays well under the original ~$520/year estimate.
 - **Hard cap:** none. OpenRouter's per-key budget controls are the safety net of last resort.
 
 ## 9. Testing
