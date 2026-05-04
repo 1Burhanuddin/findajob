@@ -300,9 +300,10 @@ def check_violations(filepath):
 
     # Role-level checks
     # Primary = the role with the most bullets (not necessarily the first).
-    # In resumes where a past employer is the crown jewel (e.g. long Meta tenure
-    # followed by brief consulting), the model correctly gives it 8 bullets even
-    # though it appears later in reverse-chron order.
+    # In resumes where a past employer is the crown jewel (e.g. a long
+    # decade-plus tenure at one company followed by brief consulting), the
+    # model correctly gives it 8 bullets even though it appears later in
+    # reverse-chron order.
     if role_blocks:
         bullet_counts = [sum(1 for _, line in b["lines"] if re.match(r"^- ", line)) for b in role_blocks]
         primary_idx = bullet_counts.index(max(bullet_counts))

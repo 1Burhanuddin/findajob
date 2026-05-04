@@ -6,7 +6,7 @@ operator's prior dealings with the same company: how many applications are
 currently pending, and how many have been marked not_selected by the company.
 
 Company matching uses the first normalized word (`normalize(company).split()[0]`)
-so "Meta" and "Meta Platforms" collapse (AC5). Operator-side `rejected` jobs
+so "{CompanyA}" and "{CompanyA Subsidiaries}" collapse (AC5). Operator-side `rejected` jobs
 are excluded (AC7 — noise for this decision, not signal). Not_selected within
 90 days flags yellow; an offer anywhere at the company flags green (AC3).
 """
@@ -30,7 +30,7 @@ _NOT_SELECTED_RECENT_DAYS = 90
 def _company_key(company: str | None) -> str:
     """First normalized word — the loose-match key for company history.
 
-    Collapses "Meta" and "Meta Platforms", "Google" and "Google Cloud", etc.
+    Collapses "{CompanyA}" and "{CompanyA Subsidiaries}", "{CompanyB}" and "{CompanyB Cloud}", etc.
     Returns an empty string for blank input.
     """
     if not company:
