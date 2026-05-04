@@ -48,7 +48,17 @@ Google app password and wiring it into `/config/gmail/`. The pipeline runs
 without it — Greenhouse / Ashby / Lever and RapidAPI LinkedIn search still
 cover most ingestion volume.
 
-## 6. What's next
+## 6. Restore from backup → [`restore.md`](restore.md)
+
+If you have a backup mechanism in place (sibling-host tarballs, S3 sync, or
+similar), you also need a documented restore procedure — and you need to have
+exercised it at least once. The guide walks through the layout a backup tarball
+must capture, the step-by-step restore on a fresh stack, and the verification
+gate that confirms the restored stack is operationally identical to the source.
+Re-run the exercise on every release that touches schema, onboarding, mounts,
+or the entrypoint.
+
+## 7. What's next
 
 - [`../usage.md`](../usage.md) — the daily workflow: web UI tab by tab.
 - `/config/` in the web UI — edit `profile.md`, `prefilter_rules.yaml`, `jsearch_queries.txt`, and the role prompts without touching disk.
