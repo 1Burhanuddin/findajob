@@ -540,10 +540,10 @@ def test_finalize_calls_inject_and_marks_complete(
 
     resp = client_with_key.post(f"/onboarding/interview/{sid}/finalize")
 
-    # Either renders complete page directly (200) or redirects to /onboarding/complete
-    assert resp.status_code in (200, 303)
-    if resp.status_code == 303:
-        assert "/onboarding/complete" in resp.headers["location"]
+    # Per #407 finalize redirects to the universal gmail-config gate. The
+    # sentinel is written by gmail-config /finish (or /skip), not here.
+    assert resp.status_code == 303
+    assert resp.headers["location"] == f"/onboarding/gmail-config/{sid}/"
 
     # inject was called with the captured blocks + the user's key (from creds)
     assert len(inject_calls) == 1

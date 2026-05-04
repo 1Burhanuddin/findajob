@@ -90,13 +90,20 @@ class DiscoveryStatus(NamedTuple):
 class InjectionDecision:
     """Gate decision produced by :func:`inject`.
 
-    When ``gate_to_feed_config`` is True the filesystem sentinel was NOT
-    written — the caller must redirect the user to ``/onboarding/feed-config/``
-    to collect the missing adapter key before the sentinel is written.
-    ``pending_adapter`` is the first adapter name whose env var is absent.
+    The sentinel is **never** written by :func:`inject` itself — every onboarding
+    flow now ends at the Gmail-config gate (``/onboarding/gmail-config/{sid}/``),
+    which writes the sentinel on its ``/finish`` endpoint after the user either
+    saves+verifies an IMAP credential pair or explicitly skips. This guarantees
+    "IMAP connection test before sentinel success" (#407 acceptance) regardless
+    of whether feed-config also gated.
 
-    When ``gate_to_feed_config`` is False the sentinel was written by inject()
-    and the normal onboarding completion flow applies.
+    When ``gate_to_feed_config`` is True the caller redirects the user to
+    ``/onboarding/feed-config/{sid}/`` first; that route's ``/finish`` redirects
+    onward to the Gmail gate. ``pending_adapter`` is the first adapter name
+    whose env var is absent.
+
+    When ``gate_to_feed_config`` is False the caller redirects directly to
+    ``/onboarding/gmail-config/{sid}/``.
     """
 
     gate_to_feed_config: bool
@@ -394,12 +401,18 @@ def inject(
             if not ok:
                 raise OnboardingSmokeCheckFailed(err or "OpenRouter verification failed.")
 
-        # Decide whether to write the sentinel immediately or gate to feed-config.
-        # Gate fires when active_sources.txt names an adapter whose env var is blank.
+        # Decide whether to gate to feed-config first. The sentinel is always
+        # deferred to the Gmail-config gate's /finish endpoint (#407) — inject()
+        # never writes it directly.  Delete any pre-existing sentinel so re-runs
+        # are enforcing, not advisory; without this a re-run user could navigate
+        # directly to /board/ and bypass the gates.
+        sentinel_path = base_root / _SENTINEL_RELPATH
+        if sentinel_path.exists():
+            sentinel_path.unlink()
+
         active_path = base_root / "config" / "active_sources.txt"
         if not active_path.exists():
-            # No picker emission → existing behavior (write sentinel).
-            mark_complete(base_root)
+            # No picker emission → straight to Gmail-config gate.
             decision = InjectionDecision(gate_to_feed_config=False, pending_adapter=None)
         else:
             from findajob.fetchers.adapters.registry import REGISTERED_ADAPTERS  # noqa: PLC0415
@@ -420,15 +433,8 @@ def inject(
                     break
 
             if needs_gate:
-                # Delete the existing sentinel so the gate is enforcing, not
-                # advisory. Without this, a re-run user could navigate directly
-                # to /board/ and bypass /onboarding/feed-config/ (#408).
-                sentinel_path = base_root / _SENTINEL_RELPATH
-                if sentinel_path.exists():
-                    sentinel_path.unlink()
                 decision = InjectionDecision(gate_to_feed_config=True, pending_adapter=pending)
             else:
-                mark_complete(base_root)
                 decision = InjectionDecision(gate_to_feed_config=False, pending_adapter=None)
     except OnboardingSmokeCheckFailed:
         # Files have been committed; tempfiles list is already empty. Do NOT

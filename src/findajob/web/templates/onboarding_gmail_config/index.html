@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Gmail IMAP setup — findajob onboarding{% endblock %}
+
+{% block content %}
+<section class="max-w-2xl mx-auto py-10 px-6 space-y-6">
+
+  {% if validation_error %}
+    <p class="rounded bg-rose-50 border border-rose-200 p-3 text-sm text-rose-800">
+      {{ validation_error }}
+    </p>
+  {% endif %}
+
+  <div class="space-y-2">
+    <p class="text-xs uppercase tracking-wide text-slate-500">Onboarding · last step</p>
+    <h1 class="text-2xl font-semibold">Set up Gmail job-alert ingestion</h1>
+    <p class="text-slate-700">
+      If you've enabled job-alert emails (LinkedIn, Indeed, or any other source) and
+      want findajob to ingest them automatically, connect your Gmail account here. This
+      step is optional — every other ingestion path (career-page feeds, the search APIs
+      you've already configured) keeps working without it.
+    </p>
+  </div>
+
+  <details class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm">
+    <summary class="cursor-pointer font-medium">Prerequisites — 2-Factor Authentication on the Google account</summary>
+    <div class="mt-2 space-y-2 text-slate-700">
+      <p>
+        Google requires 2FA to be enabled on your account before app passwords can
+        be generated. If your account isn't yet on 2FA, enable it at
+        <a class="text-blue-700 underline" target="_blank" rel="noopener"
+           href="https://myaccount.google.com/security">myaccount.google.com/security</a>
+        first, then return to this page.
+      </p>
+      <p>
+        Once 2FA is on, generate a new app password labeled "findajob" at
+        <a class="text-blue-700 underline" target="_blank" rel="noopener"
+           href="https://myaccount.google.com/apppasswords">myaccount.google.com/apppasswords</a>
+        and paste it into the form below.
+      </p>
+    </div>
+  </details>
+
+  {% include 'gmail_config/_card.html' %}
+
+  <div class="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+    <p class="text-sm text-slate-700">
+      <strong>When you're done:</strong> click <em>Test connection</em> above. Once
+      the status pill shows <em>Authorized</em>, click <em>Continue to dashboard</em>
+      below. If you'd rather skip Gmail ingestion entirely (or come back to this
+      later), use <em>Skip for now</em> — you can re-open this step any time via
+      <code>/onboarding/?mode=rerun</code> or directly at <code>/config/gmail/</code>.
+    </p>
+
+    <div class="flex flex-wrap gap-2">
+      <form method="post" action="/onboarding/gmail-config/{{ session_id }}/finish">
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-700">
+          Continue to dashboard &rarr;
+        </button>
+      </form>
+      <form method="post" action="/onboarding/gmail-config/{{ session_id }}/skip">
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200">
+          Skip for now
+        </button>
+      </form>
+    </div>
+  </div>
+
+</section>
+{% endblock %}

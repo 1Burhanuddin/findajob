@@ -160,8 +160,11 @@ def post_feed_config(
 
 @router.post("/{session_id}/finish")
 def post_finish(session_id: str, request: Request) -> Response:
-    """Write the onboarding sentinel and redirect to /board/."""
-    base = Path(request.app.state.base_root)
-    sentinel = base / "data" / ".onboarding-complete"
-    sentinel.touch()
-    return RedirectResponse("/board/", status_code=303)
+    """Hand off to the Gmail-config gate (#407).
+
+    The sentinel is no longer written here — every onboarding flow now ends at
+    ``/onboarding/gmail-config/{session_id}/``, which writes the sentinel on
+    its own ``/finish`` after the user saves+verifies a Gmail IMAP credential
+    pair or explicitly skips.
+    """
+    return RedirectResponse(f"/onboarding/gmail-config/{session_id}/", status_code=303)

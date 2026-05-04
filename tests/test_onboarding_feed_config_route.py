@@ -163,3 +163,13 @@ def test_post_auth_failure_does_not_write_key(
     assert "couldn't connect" in body.lower() or "didn't recognize" in body.lower()
     # Key was NOT written
     assert "JSEARCH_API_KEY" not in (base_root / "data" / ".env").read_text()
+
+
+def test_post_finish_redirects_to_gmail_config_gate(client: TestClient, base_root: Path) -> None:
+    """Per #407, feed-config /finish hands off to the universal Gmail-config
+    gate instead of writing the sentinel itself.  Sentinel must NOT be written
+    here — gmail-config /finish (or /skip) is the single sentinel-write site."""
+    response = client.post("/onboarding/feed-config/test-session-id/finish")
+    assert response.status_code == 303
+    assert response.headers["location"] == "/onboarding/gmail-config/test-session-id/"
+    assert not (base_root / "data" / ".onboarding-complete").exists()

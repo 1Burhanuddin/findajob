@@ -479,23 +479,13 @@ def finalize_interview(
         conn.close()
 
     # When the chosen adapter's env var is missing, gate to the feed-config
-    # step where the user can enter the key and run a live test. The filesystem
-    # sentinel has NOT been written yet — post_finish() on /onboarding/feed-config/
-    # writes it after the key is collected and verified.
+    # step where the user can enter the key and run a live test. From there
+    # the user proceeds to the Gmail-config gate (#407), which is the
+    # universal terminal step that writes the sentinel.
     if inject_result.decision.gate_to_feed_config:
         return RedirectResponse(f"/onboarding/feed-config/{session_id}", status_code=303)
 
-    # Mirror the existing /onboarding/inject contract: clear the cached guard
-    # state and render complete.html inline. No /onboarding/complete GET
-    # route exists yet, so a redirect would 404.
-    request.app.state.onboarding_complete = True
-    templates = request.app.state.templates
-    return templates.TemplateResponse(
-        request=request,
-        name="onboarding/complete.html",
-        context={
-            "discovery_success": inject_result.discovery.success,
-            "discovery_count": inject_result.discovery.count,
-            "discovery_error": inject_result.discovery.error,
-        },
-    )
+    # No feed-config gate — redirect straight to the Gmail-config gate (#407).
+    # The sentinel is not yet written; gmail-config /finish writes it after
+    # the user saves+verifies an IMAP credential pair or explicitly skips.
+    return RedirectResponse(f"/onboarding/gmail-config/{session_id}/", status_code=303)

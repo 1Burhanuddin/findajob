@@ -242,13 +242,17 @@ def test_full_interview_flow_writes_all_files_and_sentinel(
 
     # ── /finalize ────────────────────────────────────────────────────
     # No form data — /finalize reads keys from the session's credentials,
-    # which we planted before /start.
+    # which we planted before /start.  Per #407, finalize redirects to the
+    # Gmail-config gate; the sentinel is written when that gate's /finish
+    # (or /skip) endpoint is hit.
     resp_fin = client.post(f"/onboarding/interview/{sid}/finalize")
-    assert resp_fin.status_code == 200, resp_fin.text
-    assert "Onboarding complete" in resp_fin.text or "complete" in resp_fin.text.lower()
+    assert resp_fin.status_code == 303, resp_fin.text
+    assert resp_fin.headers["location"] == f"/onboarding/gmail-config/{sid}/"
 
     # ── Filesystem assertions ────────────────────────────────────────
     # Every destination file the inject() path writes must be present.
+    # (The sentinel itself is intentionally absent — gmail-config gate writes
+    # it after the user completes or skips that step.)
     expected_files = [
         base_root / "candidate_context" / "profile.md",
         base_root / "candidate_context" / "master_resume.md",
@@ -260,10 +264,18 @@ def test_full_interview_flow_writes_all_files_and_sentinel(
         base_root / "config" / "in_domain_patterns.yaml",
         base_root / "data" / "timezone",
         base_root / "data" / ".env",  # ntfy_topic merged here
-        base_root / "data" / ".onboarding-complete",  # sentinel
     ]
     for f in expected_files:
         assert f.is_file(), f"expected file missing: {f}"
+    assert not (base_root / "data" / ".onboarding-complete").exists(), (
+        "sentinel must be deferred to the Gmail-config gate's /finish (#407)"
+    )
+
+    # Hitting gmail-config /skip closes the loop and writes the sentinel.
+    resp_skip = client.post(f"/onboarding/gmail-config/{sid}/skip")
+    assert resp_skip.status_code == 303, resp_skip.text
+    assert resp_skip.headers["location"] == "/board/dashboard"
+    assert (base_root / "data" / ".onboarding-complete").is_file()
 
     # Session is marked complete
     conn = sqlite3.connect(base_root / "data" / "pipeline.db")

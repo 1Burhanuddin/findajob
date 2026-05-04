@@ -134,11 +134,15 @@ def test_inject_deletes_sentinel_when_gating(
     assert not sentinel.exists(), "sentinel must be deleted when gate fires so /board/ redirect is enforcing"
 
 
-def test_inject_writes_sentinel_when_active_adapter_configured(
+def test_inject_does_not_gate_to_feed_config_when_active_adapter_configured(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """If active adapter's env var is set, sentinel is written immediately."""
+    """If active adapter's env var is set, inject() doesn't gate to feed-config.
+    Per #407 the sentinel is always deferred to the gmail-config gate's /finish,
+    regardless of the feed-config branch — so we don't assert sentinel existence
+    here, only that gate_to_feed_config is False (the user proceeds straight to
+    gmail-config)."""
     monkeypatch.setenv("JOBS_API14_KEY", "existing-key")
     (tmp_path / "config").mkdir()
     (tmp_path / "data").mkdir()
@@ -148,5 +152,5 @@ def test_inject_writes_sentinel_when_active_adapter_configured(
     result = inject(tmp_path, parsed.found, skip_smoke_check=True)
 
     sentinel = tmp_path / "data" / ".onboarding-complete"
-    assert sentinel.exists()
+    assert not sentinel.exists()
     assert result.decision.gate_to_feed_config is False

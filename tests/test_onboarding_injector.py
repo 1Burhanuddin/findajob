@@ -166,9 +166,12 @@ def test_inject_writes_required_files_and_sentinel_and_derivation(tmp_path: Path
     # ntfy_topic.txt merges into data/.env, not a standalone file
     env_content = (tmp_path / "data" / ".env").read_text()
     assert "NTFY_TOPIC=tester-jobsearch-2026-17" in env_content
-    # Sentinel
+    # Sentinel: per #407, inject() never writes the sentinel directly — every
+    # onboarding flow now ends at the Gmail-config gate's /finish endpoint,
+    # which writes the sentinel after the user verifies+saves an IMAP
+    # credential pair (or explicitly skips).
     sentinel = tmp_path / "data" / ".onboarding-complete"
-    assert sentinel.is_file()
+    assert not sentinel.exists()
 
 
 def test_inject_staging_failure_rolls_back(tmp_path: Path) -> None:
@@ -323,8 +326,10 @@ def test_inject_discovery_hook_soft_fails_when_aichat_missing(tmp_path: Path, mo
     monkeypatch.setattr(run_mod.subprocess, "run", boom)
 
     result = inject(tmp_path, _MIN_FILES, skip_smoke_check=True)
-    # Sentinel was written (onboarding succeeded)
-    assert (tmp_path / "data" / ".onboarding-complete").is_file()
+    # Sentinel deferred to the Gmail-config gate's /finish (#407) — onboarding
+    # success up to inject() is signalled by the absence of an exception, not
+    # by sentinel existence.
+    assert not (tmp_path / "data" / ".onboarding-complete").exists()
     # Discovery soft-failed
     assert result.discovery.success is False
     assert result.discovery.error is not None
@@ -408,8 +413,10 @@ def test_inject_smoke_check_failure_raises_and_skips_sentinel(tmp_path: Path, mo
     assert not (tmp_path / "data" / ".onboarding-complete").exists()
 
 
-def test_inject_smoke_check_pass_writes_sentinel(tmp_path: Path, monkeypatch) -> None:
-    """When verify_openrouter_key returns (True, None), sentinel is written."""
+def test_inject_smoke_check_pass_does_not_write_sentinel(tmp_path: Path, monkeypatch) -> None:
+    """When verify_openrouter_key returns (True, None), inject() succeeds but
+    does NOT write the sentinel. Per #407 the sentinel is deferred to the
+    Gmail-config gate's /finish — every onboarding flow ends there."""
     import findajob.onboarding.injector as inj_mod
 
     def fake_verify(_key):
@@ -418,7 +425,7 @@ def test_inject_smoke_check_pass_writes_sentinel(tmp_path: Path, monkeypatch) ->
     monkeypatch.setattr(inj_mod, "verify_openrouter_key", fake_verify)
 
     inject(tmp_path, _MIN_FILES, openrouter_api_key="sk-or-v1-good")
-    assert (tmp_path / "data" / ".onboarding-complete").is_file()
+    assert not (tmp_path / "data" / ".onboarding-complete").exists()
 
 
 def test_inject_writes_display_name_file(tmp_path: Path) -> None:
@@ -648,8 +655,9 @@ def test_inject_manual_only_path_emits_no_optional_source_config(tmp_path: Path)
     found = _minimal_found_dict()
     # No jsearch_queries.txt, no feed-urls.txt, no linkedin-alerts.md
     inject(tmp_path, found, openrouter_api_key="sk-test", skip_smoke_check=True)
-    # Sentinel set, ALLOWED files committed, no optional source-config files written
-    assert (tmp_path / "data" / ".onboarding-complete").is_file()
+    # Sentinel deferred to gmail-config gate (#407); ALLOWED files committed;
+    # no optional source-config files written.
+    assert not (tmp_path / "data" / ".onboarding-complete").exists()
     assert not (tmp_path / "config" / "jsearch_queries.txt").is_file()
     assert not (tmp_path / "config" / "feed_urls.txt").is_file()
     assert not (tmp_path / "candidate_context" / "linkedin-alerts.md").is_file()

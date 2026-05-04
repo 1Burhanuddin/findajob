@@ -1,9 +1,21 @@
 # Gmail job-alert ingestion
 
 findajob can ingest LinkedIn (and, via a configurable allowlist, other)
-job-alert emails from your Gmail. The integration is configured at
-`/config/gmail/` on your stack. This page walks you through the one-time
-setup.
+job-alert emails from your Gmail.
+
+There are two entry points for the one-time setup:
+
+- **During onboarding** — fresh stacks land at the Gmail-config gate as the
+  final step of the in-app interview (after the chat-emit phase and any
+  feed-source key collection). You can save+verify your IMAP credentials
+  there or click **Skip for now** to defer; either way the onboarding
+  sentinel writes and you continue to the dashboard.
+- **At any later time** — `/config/gmail/` on your stack is the same page
+  outside the onboarding chrome. You can also re-enter the onboarding gate
+  via `/onboarding/?mode=rerun` if you'd rather walk the structured flow.
+
+The instructions below apply to both paths — the form fields and the IMAP
+test mechanic are identical.
 
 ## What findajob will and won't access
 
