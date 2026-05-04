@@ -65,8 +65,10 @@ if [ -d /opt/findajob/bundled-aichat ]; then
     if [ ! -f "$AICHAT_CFG_DIR/config.yaml" ] && [ -f /opt/findajob/bundled-aichat/config.yaml.example ]; then
         cp /opt/findajob/bundled-aichat/config.yaml.example "$AICHAT_CFG_DIR/config.yaml"
         # aichat-ng does not perform ${VAR} substitution at load time — inject keys now.
-        for _var in OPENAI_API_KEY GOOGLE_API_KEY \
-                    OPENROUTER_API_KEY GROQ_API_KEY XAI_API_KEY; do
+        # Per #67 (post-OpenRouter cutover) the only direct clients in the
+        # template are openrouter + gemini-embed; openai / groq / xai placeholders
+        # were retired with their client blocks.
+        for _var in OPENROUTER_API_KEY GOOGLE_API_KEY; do
             eval "_val=\"\${${_var}:-}\""
             sed -i "s|\${${_var}}|${_val}|g" "$AICHAT_CFG_DIR/config.yaml"
         done

@@ -1,11 +1,20 @@
 # aichat-ng config — seeded by ops/entrypoint.sh when state/aichat_ng/config.yaml
-# is absent. Re-pulling :v0.1.x will NOT overwrite your local edits; delete
+# is absent. Re-pulling the image will NOT overwrite your local edits; delete
 # the file first if you want to re-seed from this template.
 #
 # API key placeholders (${VAR}) are substituted by ops/entrypoint.sh at
 # seed time from the container environment. Do not paste keys directly
 # into this template — they are injected once when config.yaml is first
 # created and live only in the gitignored state/aichat_ng/config.yaml.
+#
+# As of #67 (2026-05-04), the only direct provider clients the pipeline
+# uses are:
+#   - openrouter (every chat call: scoring, prep, briefing, outreach, ...)
+#   - gemini-embed (RAG embeddings only — opt-in REPL feature)
+# Direct openai / claude / perplexity / gemini-chat / groq / xai clients
+# were retired (#250 + #251 + #67); all chat models now reach those
+# providers through the openrouter client.  This collapses the plaintext-
+# keys surface from 7 → 2 keys at first-seed.
 #
 # See https://github.com/sigoden/aichat/blob/main/config.example.yaml
 # for the full set of supported options.
@@ -34,32 +43,16 @@ function_calling: false
 # $AICHAT_CFG_DIR/roles -> /app/config/roles on first container start.
 
 clients:
-  - type: openai
-    api_key: ${OPENAI_API_KEY}
+  - type: openai-compatible
+    name: openrouter
+    api_base: https://openrouter.ai/api/v1
+    api_key: ${OPENROUTER_API_KEY}
 
-  - type: gemini
-    api_base: https://generativelanguage.googleapis.com/v1beta
-    api_key: ${GOOGLE_API_KEY}
-    # Disable content filters so the pipeline can score job postings that
-    # mention sensitive topics (harassment lawsuits, safety incidents, etc.)
-    # without silent blocks.
-    patch:
-      chat_completions:
-        '.*':
-          body:
-            safetySettings:
-              - category: HARM_CATEGORY_HARASSMENT
-                threshold: BLOCK_NONE
-              - category: HARM_CATEGORY_HATE_SPEECH
-                threshold: BLOCK_NONE
-              - category: HARM_CATEGORY_SEXUALLY_EXPLICIT
-                threshold: BLOCK_NONE
-              - category: HARM_CATEGORY_DANGEROUS_CONTENT
-                threshold: BLOCK_NONE
-
-  # gemini-embed: embedding endpoint. models-override.yaml ships
-  # text-embedding-004 under the gemini provider, but the pipeline uses
-  # gemini-embedding-001 — declare it inline so the catalog knows about it.
+  # gemini-embed: dedicated embedding endpoint. Declared inline (not
+  # cataloged in models-override.yaml) because the pipeline uses
+  # gemini-embedding-001, which differs from the upstream catalog's
+  # gemini text-embedding-004. RAG is the only consumer; see #267 for
+  # the deprecation track.
   - type: gemini
     name: gemini-embed
     api_base: https://generativelanguage.googleapis.com/v1beta
@@ -69,18 +62,3 @@ clients:
         type: embedding
         default_chunk_size: 1500
         max_batch_size: 100
-
-  - type: openai-compatible
-    name: openrouter
-    api_base: https://openrouter.ai/api/v1
-    api_key: ${OPENROUTER_API_KEY}
-
-  - type: openai-compatible
-    name: groq
-    api_base: https://api.groq.com/openai/v1
-    api_key: ${GROQ_API_KEY}
-
-  - type: openai-compatible
-    name: xai
-    api_base: https://api.x.ai/v1
-    api_key: ${XAI_API_KEY}

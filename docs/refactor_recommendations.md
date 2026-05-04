@@ -11,8 +11,8 @@ The core architecture is sound. Three-stage scoring (deterministic prefilter →
 
 ## Critical Issues (Fix Now)
 
-**1. API keys in aichat-ng's config.yaml are plaintext**
-Every key you use (Anthropic, Gemini, OpenAI, xAI, Groq, Perplexity, OpenRouter) is in a single unencrypted file. If you back up your home directory or run anything that can read `~/.config/`, those keys are exposed. The fix is to move them to a `chmod 600` env-var file and reference them via `env:VARIABLE_NAME` in the aichat-ng config, which it supports natively. See #67.
+**1. ~~API keys in aichat-ng's config.yaml are plaintext~~** *(largely resolved 2026-05-04 via #67; final shoe drops with #267)*
+Originally seven keys lived in one file (Anthropic, Gemini, OpenAI, xAI, Groq, Perplexity, OpenRouter). After the OpenRouter Phase 2 cutover (#250 + #251) every chat call routes through one provider; the dead direct-client blocks were removed in #67. The seeded config now contains **two** keys (`OPENROUTER_API_KEY`, `GOOGLE_API_KEY`); `GOOGLE_API_KEY` is consumed only by the optional RAG-embedding client and goes away when #267 lands. Note that `env:VARIABLE_NAME` substitution does NOT work in the installed `blob42/aichat-ng` binary (verified empirically) — keys are sed-substituted into a `chmod 600` config at first-seed by `ops/entrypoint.sh`, which is the only practical path until aichat-ng grows native env support.
 
 **~~2. No retry logic anywhere~~** *(fixed 2026-04-12)*
 Fetch retry loop added to `triage.py main()`: 3 attempts with 120s gaps and connectivity probing. Covers the "DNS is down at 7 AM" failure mode that caused a total whiff on 2026-04-12.

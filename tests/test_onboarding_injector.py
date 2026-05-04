@@ -488,7 +488,6 @@ def test_inject_preserves_other_env_keys(tmp_path: Path) -> None:
 _ENV_EXAMPLE_CONTENT = (
     "OPENROUTER_API_KEY=your_key_here\n"
     "GOOGLE_API_KEY=your_key_here\n"
-    "GROQ_API_KEY=your_key_here\n"
     "RAPIDAPI_KEY=your_key_here\n"
     "NTFY_TOPIC=your-ntfy-topic\n"
 )
