@@ -139,6 +139,32 @@ When the pipeline runs inside the `ghcr.io/brockamer/findajob` image, paths shif
 
 ---
 
+## Data Ownership
+
+Audit anchor — classifies persisted state by ownership and recoverability. When backup work lands (#426), update the "Backup-critical?" column to reflect what's actually included in the nightly tarball. Deep reference: `docs/superpowers/specs/2026-05-03-301-data-model-audit.md` §1.
+
+| Path | Source | Backup-critical? | Rebuildable if lost? |
+|---|---|---|---|
+| `data/pipeline.db` | Pipeline-generated; operator-curated via stage transitions, notes, score corrections | **Yes** | **No** — fetcher results from past dates aren't retrievable; transitions are operator decisions |
+| `candidate_context/profile.md`, `master_resume.md`, `voice_samples/` | Operator-authored | **Yes** | **No** — re-interview loses weeks of hand-tuning |
+| `candidate_context/discovered_companies.{md,json}` | Pipeline-generated (weekly cron) | No | **Yes** — next Sunday discoverer run reproduces |
+| `config/` (operator-curated subset: `target_companies.md`, `prefilter_rules.yaml`, `excluded_employers.yaml`, `feed_urls.txt`, `jsearch_queries.txt`, `feedback_weights.yaml`, `gmail.json`, `gsheets_creds.json`, etc.) | Operator-curated (interview-emitted seed + accumulated edits) | **Yes** | **No** — re-interview emits ~half; hand-curation gone |
+| `config/gmail_state.json` | Pipeline-generated (IMAP UID checkpoint) | No | **Yes** — re-syncs on next poll |
+| `config/roles/`, `config/scoring_schema.json`, `config/model_pricing.yaml`, `config/reference.docx`, `config/strip-bookmarks.lua` | Repo-baked (in image, not bind-mount) | No | **Yes** — `docker compose pull` restores |
+| `data/.env` | Operator-curated (API keys, NTFY_TOPIC) | **Yes** | **No** — rotation-grade pain to re-collect |
+| `data/.onboarding-complete` | Pipeline-generated sentinel | No | **Yes** — re-emit on next interview |
+| `data/connections.csv` | Operator-uploaded (LinkedIn export) | No | **Yes** — re-export from LinkedIn (minutes) |
+| `companies/` (active + `_applied/` + `_waitlisted/` + `_rejected/` + `.stale/`) | Pipeline-generated | Selective (skip `.stale/`) | **Partially** — re-runnable per-job, but stale JD URLs no longer reachable |
+| `logs/pipeline.jsonl` | Pipeline-generated | No (observability, not state) | **No** — historical observability lost if dropped |
+| `logs/{form-ingest,jobsync,poller,triage,notify,ci-check,rescore_backfill}.log` | Legacy / pipeline-generated | No | **Yes** — mostly stale; safe to drop |
+| `aichat_ng/config.yaml` | Operator-curated mirror of `data/.env` | No (duplicates `data/.env`) | **Yes** — `data/.env` is source of truth |
+| `aichat_ng/models-override.yaml` | Repo-shipped + operator overrides | No | **Yes** — repo-shipped baseline |
+| `aichat_ng/rags/` | Pipeline-generated (REPL RAG index) | No | **Yes** — rebuilt weekly Sun 03:00 cron |
+
+The data layer is the only thing `docker compose pull` + a fresh interview can't regenerate.
+
+---
+
 ## Key File Locations
 
 The full file map lives at [`docs/architecture/file-map.md`](docs/architecture/file-map.md). Update that file when files are added, renamed, or retired.
