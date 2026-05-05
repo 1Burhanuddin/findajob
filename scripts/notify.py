@@ -317,16 +317,20 @@ def cmd_health_check():
         issues.append(f"INFO: {len(null_score)} jobs scored None (likely LLM timeout)")
 
     # ── Dead feed detection ─────────────────────────────────────────────
-    # Warn if any source returned 0 jobs in the latest triage but had >0 in
-    # the last 7 days — indicates a feed silently broke.
-    # Sources monitored: keys in the jobs_fetched event.
+    # Warn if a source returned 0 jobs across ALL runs in the 25h window but
+    # had >0 in the last 7 days — indicates a feed silently broke.
+    # Using the window max (not latest-only) avoids false positives when a
+    # mid-day manual run follows a healthy scheduled run: if any run in the
+    # window produced jobs, the source is not dead.
     SOURCE_KEYS = ("greenhouse", "ashby", "lever", "jobsapi", "gmail")
-    latest_fetch = None
-    for e in reversed(events):
-        if e.get("event") == "jobs_fetched":
-            latest_fetch = e
-            break
-    if latest_fetch:
+    fetch_events = [e for e in events if e.get("event") == "jobs_fetched"]
+    if fetch_events:
+        window_max_per_source = {k: 0 for k in SOURCE_KEYS}
+        for e in fetch_events:
+            for k in SOURCE_KEYS:
+                v = e.get(k)
+                if isinstance(v, int) and v > window_max_per_source[k]:
+                    window_max_per_source[k] = v
         # Look back 7 days for the baseline — the source had to have produced
         # jobs at some point recently for its zero today to be suspicious.
         week_events = recent_log_events(hours=24 * 7)
@@ -338,14 +342,14 @@ def cmd_health_check():
                 v = e.get(k)
                 if isinstance(v, int) and v > week_max_per_source[k]:
                     week_max_per_source[k] = v
-        dead_feeds = [k for k in SOURCE_KEYS if latest_fetch.get(k, 0) == 0 and week_max_per_source[k] > 0]
+        dead_feeds = [k for k in SOURCE_KEYS if window_max_per_source[k] == 0 and week_max_per_source[k] > 0]
         if dead_feeds:
             issues.append(
-                f"WARN: {len(dead_feeds)} source(s) returned 0 jobs in latest triage "
+                f"WARN: {len(dead_feeds)} source(s) returned 0 jobs across all runs in the last 25h "
                 f"despite producing jobs in the last 7d — likely silent feed failure:"
             )
             for k in dead_feeds:
-                issues.append(f"  • {k}: 0 today, peak {week_max_per_source[k]} in last 7d")
+                issues.append(f"  • {k}: 0 across all runs today, peak {week_max_per_source[k]} in last 7d")
 
     # ── System resource checks ──────────────────────────────────────────
     try:
