@@ -20,6 +20,7 @@ import sys
 import time
 from datetime import UTC, datetime
 
+from findajob.cost_tracking import log_call, role_model
 from findajob.paths import AICHAT, BASE
 from findajob.scorer_prefilter import prefilter_score
 from findajob.utils import jd_is_usable, load_env, log_event, validate_llm_json, write_audit
@@ -29,24 +30,7 @@ SCHEMA_PATH = f"{BASE}/config/scoring_schema.json"
 PROFILE_PATH = f"{BASE}/candidate_context/profile.md"
 
 
-def _role_model(role_name):
-    """Read the model: field from a role's YAML frontmatter."""
-    role_path = f"{BASE}/config/roles/{role_name}.md"
-    try:
-        with open(role_path) as f:
-            in_front = False
-            for line in f:
-                if line.strip() == "---":
-                    in_front = not in_front
-                    continue
-                if in_front and line.startswith("model:"):
-                    return line.split(":", 1)[1].strip()
-    except OSError:
-        pass
-    return "unknown"
-
-
-SCORER_MODEL = _role_model("job_scorer")
+SCORER_MODEL = role_model("job_scorer")
 
 load_env()
 
@@ -89,13 +73,19 @@ _FEEDBACK_BLOCK = _build_feedback_block()
 
 
 def score_job(title, company, location, jd_text, candidate_profile=""):
+    """Re-score a job. Returns ``(parsed, latency_ms, prompt, raw_output)``.
+
+    Prefilter path: ``prompt`` and ``raw_output`` are empty strings (no LLM
+    call was made). LLM path: both are populated so the caller can pass
+    them to ``log_call`` for cost_usd estimation.
+    """
     usable = jd_is_usable(jd_text)
 
     # Stage 1 & 2: deterministic pre-filter — no LLM call
     pre, reason = prefilter_score(title, company, usable)
     if pre is not None:
         log_event("rescore_prefilter", title=title, company=company, reason=reason, score=pre.get("relevance_score"))
-        return pre, 0
+        return pre, 0, "", ""
 
     # Stage 3: LLM scoring
     effective_jd = jd_text if usable else "[Job description unavailable — score from title and company only]"
@@ -114,6 +104,7 @@ JD:
     start = time.time()
     result = subprocess.run([AICHAT, "--role", "job_scorer", "-S", prompt], capture_output=True, text=True, timeout=60)
     latency_ms = int((time.time() - start) * 1000)
+    raw_output = result.stdout or ""
 
     from findajob.scoring import _normalize_llm_output
 
@@ -124,30 +115,40 @@ JD:
         from findajob.scorer_prefilter import _hard_reject_match
 
         if _hard_reject_match(title):
-            return {
-                "score_status": "scored",
+            return (
+                {
+                    "score_status": "scored",
+                    "score_flag_reason": f"Validation: {error}",
+                    "relevance_score": 1,
+                    "interview_likelihood": 1,
+                    "strengths_alignment": "LLM failed + title is outside candidate domain.",
+                    "industry_sector": "",
+                    "comp_estimate": "",
+                    "ai_notes": "LLM validation failed; hard-reject title pattern matched",
+                    "remote_status": "Unknown",
+                },
+                latency_ms,
+                prompt,
+                raw_output,
+            )
+        return (
+            {
+                "score_status": "manual_review",
                 "score_flag_reason": f"Validation: {error}",
-                "relevance_score": 1,
-                "interview_likelihood": 1,
-                "strengths_alignment": "LLM failed + title is outside candidate domain.",
+                "relevance_score": None,
+                "interview_likelihood": None,
+                "strengths_alignment": None,
                 "industry_sector": "",
                 "comp_estimate": "",
-                "ai_notes": "LLM validation failed; hard-reject title pattern matched",
+                "ai_notes": "Scorer output failed validation",
                 "remote_status": "Unknown",
-            }, latency_ms
-        return {
-            "score_status": "manual_review",
-            "score_flag_reason": f"Validation: {error}",
-            "relevance_score": None,
-            "interview_likelihood": None,
-            "strengths_alignment": None,
-            "industry_sector": "",
-            "comp_estimate": "",
-            "ai_notes": "Scorer output failed validation",
-            "remote_status": "Unknown",
-        }, latency_ms
+            },
+            latency_ms,
+            prompt,
+            raw_output,
+        )
 
-    return parsed, latency_ms
+    return parsed, latency_ms, prompt, raw_output
 
 
 def main():
@@ -242,7 +243,9 @@ def main():
         print(f"[{i}/{total}] {title} @ {company}", flush=True)
 
         try:
-            scored, latency_ms = score_job(title, company, location, jd_text, candidate_profile)
+            scored, latency_ms, score_prompt, score_output = score_job(
+                title, company, location, jd_text, candidate_profile
+            )
         except Exception as e:
             print(f"  ERROR: {e}")
             log_event("rescore_error", job_id=job_id, error=str(e))
@@ -284,12 +287,15 @@ def main():
         if old_stage != new_stage:
             write_audit(conn, job_id, "stage", old_stage, new_stage)
 
-        conn.execute(
-            """
-            INSERT INTO cost_log (job_id, operation, model, latency_ms, success)
-            VALUES (?, 'rescore', ?, ?, 1)
-        """,
-            (job_id, SCORER_MODEL, latency_ms),
+        log_call(
+            conn,
+            job_id=job_id,
+            operation="rescore",
+            model=SCORER_MODEL,
+            input_text=score_prompt,
+            output_text=score_output,
+            latency_ms=latency_ms,
+            success=True,
         )
         conn.commit()
 

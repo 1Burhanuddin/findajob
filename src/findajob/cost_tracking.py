@@ -1,13 +1,22 @@
 """Per-LLM-call cost tracking.
 
-Scoped to #32 "Option D": char-based token estimation + pricing lookup.
-Not precise — does not read actual API token counts — but gives a
-first-order estimate good enough for weekly trend visibility.
+Char-based token estimation + pricing lookup (#32 "Option D"). Not precise
+— does not read actual API token counts — but gives a first-order estimate
+good enough for weekly trend visibility (±20-30% absolute, reliable for
+relative comparisons).
+
+Wrap-pattern for new aichat-ng call sites: after the subprocess returns
+successfully, call ``log_call(conn, job_id=..., operation=role_name,
+model=role_model(role_name), input_text=prompt, output_text=raw_output,
+latency_ms=..., success=True)``. Used at every production aichat-ng
+invocation site after #48: scoring (triage.py), prep_application (8
+roles), find_contacts (outreach_drafter), interview_prep, speculative
+research (briefing + synth), company_discoverer, and rescore_all.
 
 Usage:
-    from findajob.cost_tracking import log_call
+    from findajob.cost_tracking import log_call, role_model
     log_call(conn, job_id="...", operation="score",
-             model="openrouter:deepseek/deepseek-v3.2",
+             model=role_model("job_scorer"),
              input_text=prompt, output_text=response,
              latency_ms=2300, success=True)
 
@@ -25,6 +34,33 @@ import yaml
 from findajob.paths import BASE
 
 _PRICING_PATH = Path(BASE) / "config" / "model_pricing.yaml"
+_ROLES_DIR = Path(BASE) / "config" / "roles"
+
+
+def role_model(role_name: str, roles_dir: Path | None = None) -> str:
+    """Read the ``model:`` field from a role's YAML frontmatter.
+
+    Returns ``"unknown"`` if the role file is missing or has no ``model:``
+    line; the heuristic in ``estimate_cost_usd`` then falls back to the
+    conservative default rate from ``config/model_pricing.yaml``.
+
+    ``roles_dir`` is for tests; production callers omit it and read from
+    ``$BASE/config/roles/``.
+    """
+    base = roles_dir if roles_dir is not None else _ROLES_DIR
+    role_path = base / f"{role_name}.md"
+    try:
+        with open(role_path) as f:
+            in_front = False
+            for line in f:
+                if line.strip() == "---":
+                    in_front = not in_front
+                    continue
+                if in_front and line.startswith("model:"):
+                    return line.split(":", 1)[1].strip()
+    except OSError:
+        pass
+    return "unknown"
 
 
 def _load_pricing() -> tuple[dict, dict]:
