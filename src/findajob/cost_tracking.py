@@ -22,6 +22,25 @@ Usage:
 
 The cost_usd is computed at insert time from prompt/response character
 length and the model's rate in config/model_pricing.yaml.
+
+Empirical precision floor (verified 2026-05-05, 3-run series on the
+operator's stack against OpenRouter dashboard):
+
+- Heuristic systematically underestimates by ~25–30% on real prep runs.
+- Source: ``estimate_tokens`` uses ``chars / 4`` but Anthropic's
+  tokenizer is ~chars/3.3 for English. The ~20% input-token undercount
+  compounds slightly through the pricing math.
+- Per-stage attribution IS correct: every Opus call lands at the same
+  ~30-35% under ratio, every Sonar call within ±15%, Gemini within ±20%.
+- Consumers should treat absolute amounts as biased ~25% low; relative
+  comparisons (which prep stage cost most, week-over-week trend, per-job
+  total comparisons) are reliable.
+
+A future tokenizer refinement (chars/3.5 instead of chars/4) would close
+the gap to ~10% but was deferred — the bias is documented, predictable,
+and consistently in one direction. Migrate to direct-HTTP
+``usage:{include:true}`` (#32 Option B) only if absolute precision
+becomes load-bearing for tuning decisions.
 """
 
 from __future__ import annotations
