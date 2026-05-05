@@ -245,7 +245,7 @@ def _parse_search_uids(response: list) -> list[int]:
 _COLDSTART_WINDOW_DAYS = 30
 
 
-def fetch_new_messages(config: GmailConfig, state: GmailState) -> FetchOutcome:
+def fetch_new_messages(config: GmailConfig, state: GmailState, since_days: int | None = None) -> FetchOutcome:
     """Fetch unread-by-us messages from Gmail via incremental UID tracking.
 
     Behavior:
@@ -256,6 +256,10 @@ def fetch_new_messages(config: GmailConfig, state: GmailState) -> FetchOutcome:
         long-lived inbox with years of LinkedIn / Indeed / ZipRecruiter alerts
         doesn't ingest thousands of stale jobs on first connect.
       - Otherwise: ``SEARCH (UID <last_uid+1>:* FROM "<sender>")`` per sender.
+      - ``since_days`` overrides both paths with ``SEARCH SINCE <N days ago>``
+        per sender (diagnostic/backfill use). Logs ``gmail_since_override``.
+        State is still advanced to the highest UID found so the next
+        incremental run picks up only new messages.
       - Fetches via ``BODY.PEEK[]`` so the \\Seen flag is never set.
       - Logs out in finally.
     """
@@ -272,7 +276,12 @@ def fetch_new_messages(config: GmailConfig, state: GmailState) -> FetchOutcome:
             uidvalidity_raw = uidvalidity_raw[0]
         current_uidvalidity = int(uidvalidity_raw) if uidvalidity_raw else 0
 
-        cold_start = current_uidvalidity != state.last_uidvalidity
+        override_since_date: str | None = None
+        if since_days is not None:
+            override_since_date = (datetime.now(UTC) - timedelta(days=since_days)).strftime("%d-%b-%Y")
+            log_event("gmail_since_override", days=since_days, since_date=override_since_date)
+
+        cold_start = override_since_date is None and current_uidvalidity != state.last_uidvalidity
         if cold_start:
             log_event(
                 "gmail_uidvalidity_reset",
@@ -286,7 +295,9 @@ def fetch_new_messages(config: GmailConfig, state: GmailState) -> FetchOutcome:
         max_uid = state.last_uid
 
         for sender in config.sender_allowlist:
-            if cold_start:
+            if override_since_date:
+                criteria = f'(SINCE "{override_since_date}" FROM "{sender}")'
+            elif cold_start:
                 criteria = f'(SINCE "{since_date}" FROM "{sender}")'
             else:
                 criteria = f'(UID {state.last_uid + 1}:* FROM "{sender}")'

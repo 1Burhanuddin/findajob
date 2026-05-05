@@ -703,12 +703,15 @@ def parse_jobs_from_email_imap(message) -> list[dict]:
     return _extract_jobs_from_html("".join(html_parts))
 
 
-def fetch_gmail_jobs():
+def fetch_gmail_jobs(since_days: int | None = None):
     """Fetch new job-alert messages via IMAP+app-password and parse to job rows.
 
     Off state (no config/gmail.json) returns [] silently. Auth failures
     increment a streak; on the 2→3 transition we ntfy the user. Transient
     errors (timeouts / SSL) do NOT increment the streak.
+
+    ``since_days`` triggers a SINCE-N-days search instead of the normal
+    incremental UID fetch — for diagnostic/backfill runs only.
 
     See docs/superpowers/specs/2026-04-30-330-design.md §6 for the full
     contract.
@@ -725,7 +728,7 @@ def fetch_gmail_jobs():
         return []
 
     state = gmail_imap.load_state()
-    outcome = gmail_imap.fetch_new_messages(config, state)
+    outcome = gmail_imap.fetch_new_messages(config, state, since_days=since_days)
 
     if outcome.result == gmail_imap.TestResult.AUTH_FAILED:
         new_streak = state.auth_failure_streak + 1
@@ -757,7 +760,11 @@ def fetch_gmail_jobs():
             last_error=None,
         )
     )
-    log_event("gmail_messages_found", count=len(outcome.messages))
+
+    sender_counts: dict[str, int] = {}
+    for sender, _ in outcome.messages:
+        sender_counts[sender] = sender_counts.get(sender, 0) + 1
+    log_event("gmail_messages_found", count=len(outcome.messages), by_sender=sender_counts)
 
     jobs = []
     for sender, raw_bytes in outcome.messages:

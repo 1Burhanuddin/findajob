@@ -5,6 +5,7 @@ Daily triage pipeline. Fetches jobs, deduplicates, enriches, scores,
 and writes results to SQLite. Sheet sync is a separate script called at the end.
 """
 
+import argparse
 import csv
 import os
 import shutil
@@ -187,7 +188,7 @@ def find_contacts(company):
 
 
 # ── Main Pipeline ──
-def main():
+def main(gmail_since_days: int | None = None):
     # Don't crash on stacks where the operator hasn't completed onboarding —
     # cron fires every day regardless. Sentinel-driven no-op keeps
     # pipeline.jsonl clean (was: pipeline_crash on missing profile.md every
@@ -221,7 +222,7 @@ def main():
         greenhouse_jobs = fetch_greenhouse_jobs(feed_urls)
         ashby_jobs = fetch_ashby_jobs(feed_urls)
         lever_jobs = fetch_lever_jobs(feed_urls)
-        gmail_jobs = fetch_gmail_jobs()
+        gmail_jobs = fetch_gmail_jobs(since_days=gmail_since_days)
 
         # Adapter-driven RapidAPI ingestion (#408)
         queries_path = Path(f"{BASE}/config/jsearch_queries.txt")
@@ -647,8 +648,17 @@ def notify(message):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--gmail-since-days",
+        type=int,
+        default=None,
+        metavar="N",
+        help="fetch Gmail messages from the past N days instead of incrementally (diagnostic/backfill)",
+    )
+    args = parser.parse_args()
     try:
-        main()
+        main(gmail_since_days=args.gmail_since_days)
     except Exception as e:
         log_event("pipeline_crash", error=str(e), traceback=traceback.format_exc())
         raise
