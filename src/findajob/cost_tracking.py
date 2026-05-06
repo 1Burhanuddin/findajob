@@ -41,6 +41,17 @@ the gap to ~10% but was deferred — the bias is documented, predictable,
 and consistently in one direction. Migrate to direct-HTTP
 ``usage:{include:true}`` (#32 Option B) only if absolute precision
 becomes load-bearing for tuning decisions.
+
+Cost-write override (#470 forward):
+
+Callers using the native ``findajob.llm.openrouter`` wrapper pass
+``cost_usd_override=completion_result.cost_usd`` to skip the heuristic
+entirely — the override is the API-authoritative billed amount from
+``response.usage.cost``. Until every call site is on the wrapper
+(Phase 2 #471, Phase 3 #472), the heuristic remains the default for
+aichat-ng-driven calls. The calibration multiplier in
+``cost_rollups`` keeps overall display numbers truthy by averaging
+across both populations.
 """
 
 from __future__ import annotations
@@ -143,9 +154,24 @@ def log_call(
     latency_ms: int | None = None,
     success: bool = True,
     error_message: str | None = None,
+    cost_usd_override: float | None = None,
+    input_tokens_override: int | None = None,
+    output_tokens_override: int | None = None,
 ) -> None:
-    """Insert a cost_log row with estimated token counts and cost."""
-    in_tok, out_tok, cost = estimate_cost_usd(model, input_text, output_text)
+    """Insert a cost_log row.
+
+    By default, every column comes from the chars/4 heuristic + pricing
+    table. Wrapper-driven callers (``findajob.llm.openrouter``) pass the
+    three ``*_override`` kwargs together so the row is fully
+    API-authoritative — billed dollars and token counts both from
+    ``response.usage``. Mixing overrides (e.g. cost from API but tokens
+    from heuristic) creates rows where ``cost / token`` ratios are
+    inconsistent, so use the trio together when on the wrapper path.
+    """
+    heuristic_in, heuristic_out, heuristic_cost = estimate_cost_usd(model, input_text, output_text)
+    in_tok = input_tokens_override if input_tokens_override is not None else heuristic_in
+    out_tok = output_tokens_override if output_tokens_override is not None else heuristic_out
+    cost = cost_usd_override if cost_usd_override is not None else heuristic_cost
     conn.execute(
         """
         INSERT INTO cost_log
