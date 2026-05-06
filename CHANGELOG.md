@@ -32,6 +32,9 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 ### Fixed
 - **`scripts/rescore_all.py` populated cost_usd is no longer NULL (#48 AC 6).** The pre-#48 INSERT at line 271 left `cost_usd` NULL for all 3,384 rescore rows in production. Replaced with `log_call` so the char-heuristic populates the column going forward — non-zero on the LLM path, exactly 0.0 on the prefilter path (no LLM call to bill).
 
+### Removed
+- **Manual-ingest "Generate prep folder immediately" checkbox (#466).** The `/ingest/` form's auto-prep checkbox didn't reliably start prep on submission, and the workaround — clicking Flag-for-Prep on the dashboard like any other job — works fine. Removed `generate_folder` from `submit_manual` and `ingest_manual_job`, the `prep_launched` field on `IngestResult`, and the auto-prep dispatch + concurrency-deferred branch in `routes/ingest.py`. Manual-ingest rows always land at `stage='scored'`; operators flag for prep from the dashboard. Pure subtraction (~140 lines).
+
 ## [0.19.0] — 2026-05-05
 
 Minor bump shipping the embedding/RAG retirement (#267 / #455) plus the operator-mode dashboard hardening for bind-mount edge cases (#359). User-visible: the project's only non-OpenRouter API-key dependency is gone — single-key onboarding (just OpenRouter) is now the entire required surface. The active scrub on existing stacks is fully idempotent and fail-open. Operator's stack and `findajob-test` track `:latest`; tester stacks (alice, papa, dave, judy, tango) currently on `:v0.18` bump to `:v0.19` in this cohort wave.

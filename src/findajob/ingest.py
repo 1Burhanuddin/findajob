@@ -16,9 +16,6 @@ Behavior:
 - Inserts with ``stage='scored'``, ``relevance_score=8``, ``apply_flag=0``.
   Writes ``raw_jd_text`` when provided, so ``prep_application.py`` uses
   the pasted JD directly and never re-curls the URL (#79 absorption).
-- When ``generate_folder=True``, launches ``prep_application.py`` via
-  ``subprocess.Popen(start_new_session=True)`` so the caller returns
-  immediately.
 
 The caller decides the ``source`` label — ``'web_manual'`` for the web
 form, distinct from the legacy script's ``'manual_form'`` so the two
@@ -28,8 +25,6 @@ paths stay distinguishable in ``jobs.source`` post-retirement.
 from __future__ import annotations
 
 import sqlite3
-import subprocess
-import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
@@ -42,7 +37,6 @@ from findajob.cleaning import (
     is_coarse_location,
     loose_fingerprint,
 )
-from findajob.paths import BASE
 from findajob.utils import log_event
 
 
@@ -69,7 +63,6 @@ class IngestResult:
     existing_match: str | None = None  # "strict" / "url" / "loose"
     existing_stage: str | None = None  # stage of the row at submission time
     prep_folder_path: str | None = None  # for not_selected materials link
-    prep_launched: bool = False
 
 
 _APPLIED_STAGES = frozenset({"applied", "interview", "offer", "withdrew"})
@@ -131,7 +124,6 @@ def ingest_manual_job(
     notes: str = "",
     known_contacts: str = "",
     raw_jd_text: str = "",
-    generate_folder: bool = False,
     source: str,
 ) -> IngestResult:
     """Insert one manually-submitted job into ``jobs`` (or report a dup).
@@ -218,26 +210,10 @@ def ingest_manual_job(
         has_jd=bool(raw_jd_text),
     )
 
-    prep_launched = False
-    if generate_folder:
-        subprocess.Popen(
-            [
-                sys.executable,
-                f"{BASE}/scripts/prep_application.py",
-                company,
-                title,
-                url,
-                job_id,
-            ],
-            start_new_session=True,
-        )
-        prep_launched = True
-
     return IngestResult(
         status="ingested",
         job_id=job_id,
         fingerprint=fp,
         company=company,
         title=title,
-        prep_launched=prep_launched,
     )

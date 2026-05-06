@@ -2,8 +2,7 @@
 
 The helper is the shared entry point for manual ingest (web form #62 + the
 legacy Google-Form script). Tests cover fresh inserts, all three dedup
-tiers (strict / url / loose), raw_jd_text storage, and the optional
-generate_folder subprocess launch.
+tiers (strict / url / loose), and raw_jd_text storage.
 """
 
 from __future__ import annotations
@@ -75,20 +74,6 @@ def conn(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> sqlite3.Connection:
     return c
 
 
-@pytest.fixture()
-def popen_calls(monkeypatch) -> list[list[str]]:
-    """Capture the Popen call that generate_folder=True makes — tests must
-    not actually launch prep_application.py."""
-    calls: list[list[str]] = []
-
-    class _FakePopen:
-        def __init__(self, args, **_kw):
-            calls.append(args)
-
-    monkeypatch.setattr(ingest_mod.subprocess, "Popen", _FakePopen)
-    return calls
-
-
 def _submit(conn: sqlite3.Connection, **kwargs):
     defaults: dict = {
         "company": "Acme Data Centers",
@@ -102,11 +87,9 @@ def _submit(conn: sqlite3.Connection, **kwargs):
     return ingest_mod.ingest_manual_job(conn, **defaults)
 
 
-def test_fresh_submission_inserts_row(conn: sqlite3.Connection, popen_calls):
+def test_fresh_submission_inserts_row(conn: sqlite3.Connection):
     result = _submit(conn)
     assert result.status == "ingested"
-    assert result.prep_launched is False
-    assert popen_calls == []
 
     row = conn.execute("SELECT * FROM jobs WHERE id=?", (result.job_id,)).fetchone()
     assert row is not None
@@ -121,13 +104,13 @@ def test_fresh_submission_inserts_row(conn: sqlite3.Connection, popen_calls):
     assert row["loose_fingerprint"] is not None
 
 
-def test_raw_jd_text_blank_stored_as_null(conn: sqlite3.Connection, popen_calls):
+def test_raw_jd_text_blank_stored_as_null(conn: sqlite3.Connection):
     result = _submit(conn, raw_jd_text="   ")
     row = conn.execute("SELECT raw_jd_text FROM jobs WHERE id=?", (result.job_id,)).fetchone()
     assert row["raw_jd_text"] is None
 
 
-def test_clean_title_strips_nbsp_and_whitespace(conn: sqlite3.Connection, popen_calls):
+def test_clean_title_strips_nbsp_and_whitespace(conn: sqlite3.Connection):
     # NBSP (U+00A0) sneaks in via pasted job board titles; clean_title must strip it
     # so the web form produces the same fingerprint as an automated ingest would.
     result = _submit(conn, title="  Senior Operations  Engineer  ")
@@ -135,7 +118,7 @@ def test_clean_title_strips_nbsp_and_whitespace(conn: sqlite3.Connection, popen_
     assert row["title"] == "Senior Operations Engineer"
 
 
-def test_strict_fingerprint_duplicate(conn: sqlite3.Connection, popen_calls):
+def test_strict_fingerprint_duplicate(conn: sqlite3.Connection):
     first = _submit(conn)
     assert first.status == "ingested"
 
@@ -147,7 +130,7 @@ def test_strict_fingerprint_duplicate(conn: sqlite3.Connection, popen_calls):
     assert count == 1
 
 
-def test_url_duplicate(conn: sqlite3.Connection, popen_calls):
+def test_url_duplicate(conn: sqlite3.Connection):
     first = _submit(conn)
     # Same URL, different title/location → strict fingerprint misses, URL matches;
     # existing row is scored so returns resurfaced
@@ -160,7 +143,7 @@ def test_url_duplicate(conn: sqlite3.Connection, popen_calls):
     assert second.job_id == first.job_id
 
 
-def test_tier2_loose_dedup_when_existing_has_coarse_location(conn: sqlite3.Connection, popen_calls):
+def test_tier2_loose_dedup_when_existing_has_coarse_location(conn: sqlite3.Connection):
     # Existing row has coarse location ("" / "US"); new row comes in with a
     # specific city for the same (company, title). Tier 2 should match —
     # this is the cross-source syndication case from #182 Bug C.
@@ -170,13 +153,13 @@ def test_tier2_loose_dedup_when_existing_has_coarse_location(conn: sqlite3.Conne
     assert second.job_id == first.job_id
 
 
-def test_tier2_loose_dedup_when_incoming_has_coarse_location(conn: sqlite3.Connection, popen_calls):
+def test_tier2_loose_dedup_when_incoming_has_coarse_location(conn: sqlite3.Connection):
     _submit(conn, location="Barstow, TX", url="https://greenhouse.io/a/1")
     second = _submit(conn, location="", url="https://linkedin.com/jobs/999")
     assert second.status == "resurfaced"
 
 
-def test_distinct_cities_do_not_collapse(conn: sqlite3.Connection, popen_calls):
+def test_distinct_cities_do_not_collapse(conn: sqlite3.Connection):
     # Both rows have specific (non-coarse) locations — they are genuinely
     # distinct reqs (site manager in Barstow vs Prineville). Must NOT match
     # on Tier 2.
@@ -188,19 +171,7 @@ def test_distinct_cities_do_not_collapse(conn: sqlite3.Connection, popen_calls):
     assert count == 2
 
 
-def test_generate_folder_launches_prep(conn: sqlite3.Connection, popen_calls):
-    result = _submit(conn, generate_folder=True)
-    assert result.prep_launched is True
-    assert len(popen_calls) == 1
-    args = popen_calls[0]
-    # [python, prep_application.py, company, title, url, job_id]
-    assert args[1].endswith("/scripts/prep_application.py")
-    assert args[2] == "Acme Data Centers"
-    assert args[3] == "Senior Operations Engineer"
-    assert args[5] == result.job_id
-
-
-def test_source_label_threaded_through(conn: sqlite3.Connection, popen_calls):
+def test_source_label_threaded_through(conn: sqlite3.Connection):
     result = _submit(conn, source="manual_form")  # legacy script identifier
     row = conn.execute("SELECT source FROM jobs WHERE id=?", (result.job_id,)).fetchone()
     assert row["source"] == "manual_form"
@@ -239,7 +210,7 @@ def _insert_existing(
 class TestHandleDuplicate:
     """_handle_duplicate branch tests — each exercises one stage category."""
 
-    def test_applied_stage_returns_already_applied(self, conn, popen_calls):
+    def test_applied_stage_returns_already_applied(self, conn):
         _insert_existing(conn, stage="applied", score=8)
         result = _submit(conn, location="United States")
         assert result.status == "already_applied"
@@ -247,22 +218,22 @@ class TestHandleDuplicate:
         # No new row
         assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 1
 
-    def test_interview_stage_returns_already_applied(self, conn, popen_calls):
+    def test_interview_stage_returns_already_applied(self, conn):
         _insert_existing(conn, stage="interview", score=8)
         result = _submit(conn, location="United States")
         assert result.status == "already_applied"
 
-    def test_offer_stage_returns_already_applied(self, conn, popen_calls):
+    def test_offer_stage_returns_already_applied(self, conn):
         _insert_existing(conn, stage="offer", score=8)
         result = _submit(conn, location="United States")
         assert result.status == "already_applied"
 
-    def test_withdrew_stage_returns_already_applied(self, conn, popen_calls):
+    def test_withdrew_stage_returns_already_applied(self, conn):
         _insert_existing(conn, stage="withdrew", score=8)
         result = _submit(conn, location="United States")
         assert result.status == "already_applied"
 
-    def test_not_selected_returns_not_selected_with_folder(self, conn, popen_calls, tmp_path):
+    def test_not_selected_returns_not_selected_with_folder(self, conn, tmp_path):
         folder = str(tmp_path / "companies" / "_applied" / "Acme_Senior_2026-01-01_120000")
         _insert_existing(conn, stage="not_selected", score=8, folder=folder)
         result = _submit(conn, location="United States")
@@ -271,7 +242,7 @@ class TestHandleDuplicate:
         assert result.prep_folder_path == folder
         assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 1
 
-    def test_rejected_returns_resurfaced_and_updates_stage(self, conn, popen_calls):
+    def test_rejected_returns_resurfaced_and_updates_stage(self, conn):
         existing = _insert_existing(conn, stage="rejected", score=4, reject_reason="Low Fit Score")
         # Seed a feedback_log row that should be deleted
         conn.execute(
@@ -289,7 +260,7 @@ class TestHandleDuplicate:
         assert row["reject_reason"] == ""
         assert conn.execute("SELECT COUNT(*) FROM feedback_log").fetchone()[0] == 0
 
-    def test_waitlisted_returns_resurfaced_and_updates_stage(self, conn, popen_calls):
+    def test_waitlisted_returns_resurfaced_and_updates_stage(self, conn):
         _insert_existing(conn, stage="waitlisted", score=7)
         result = _submit(conn, location="United States")
         assert result.status == "resurfaced"
@@ -298,32 +269,32 @@ class TestHandleDuplicate:
         assert row["stage"] == "scored"
         assert row["relevance_score"] == 8
 
-    def test_scored_low_returns_resurfaced_and_bumps_score(self, conn, popen_calls):
+    def test_scored_low_returns_resurfaced_and_bumps_score(self, conn):
         _insert_existing(conn, stage="scored", score=4)
         result = _submit(conn, location="United States")
         assert result.status == "resurfaced"
         row = conn.execute("SELECT relevance_score FROM jobs").fetchone()
         assert row["relevance_score"] == 8
 
-    def test_manual_review_returns_resurfaced_and_promotes_stage(self, conn, popen_calls):
+    def test_manual_review_returns_resurfaced_and_promotes_stage(self, conn):
         _insert_existing(conn, stage="manual_review", score=6)
         result = _submit(conn, location="United States")
         assert result.status == "resurfaced"
         row = conn.execute("SELECT stage FROM jobs").fetchone()
         assert row["stage"] == "scored"
 
-    def test_field_overwrite_on_resurface(self, conn, popen_calls):
+    def test_field_overwrite_on_resurface(self, conn):
         _insert_existing(conn, stage="rejected", score=4)
         result = _submit(conn, location="United States", raw_jd_text="Brand new JD content")
         assert result.status == "resurfaced"
         row = conn.execute("SELECT raw_jd_text FROM jobs").fetchone()
         assert row["raw_jd_text"] == "Brand new JD content"
 
-    def test_fingerprint_populated_on_result(self, conn, popen_calls):
+    def test_fingerprint_populated_on_result(self, conn):
         _insert_existing(conn, stage="applied", score=8)
         result = _submit(conn, location="United States")
         assert result.fingerprint is not None
 
-    def test_fingerprint_populated_on_fresh_insert(self, conn, popen_calls):
+    def test_fingerprint_populated_on_fresh_insert(self, conn):
         result = _submit(conn)
         assert result.fingerprint is not None

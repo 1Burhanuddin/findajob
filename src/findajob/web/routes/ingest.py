@@ -23,13 +23,6 @@ from findajob.web.routes.materials import get_db
 
 router = APIRouter()
 
-_MAX_CONCURRENT_PREPS = 3
-"""Mirrors ``board_actions.MAX_CONCURRENT_PREPS`` — a manual-form submission
-with "generate folder" checked obeys the same cap as a Dashboard Flag-for-Prep
-click, so the operator can't bypass the LLM-cost backstop by ingesting
-twenty postings in a row with the checkbox on.
-"""
-
 
 @router.get("/ingest/", response_class=HTMLResponse)
 def ingest_page(
@@ -64,7 +57,6 @@ def submit_manual(
     remote_status: str = Form("Unknown"),
     notes: str = Form(""),
     known_contacts: str = Form(""),
-    generate_folder: bool = Form(False),
     db: sqlite3.Connection = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
     """Ingest a manually-pasted JD. Returns an HTMX result partial."""
@@ -85,13 +77,6 @@ def submit_manual(
             message=f"Missing required field(s): {', '.join(missing)}.",
         )
 
-    prep_deferred = False
-    if generate_folder:
-        in_flight = db.execute("SELECT COUNT(*) FROM jobs WHERE stage='prep_in_progress'").fetchone()[0]
-        if in_flight >= _MAX_CONCURRENT_PREPS:
-            generate_folder = False
-            prep_deferred = True
-
     result: IngestResult = ingest_manual_job(
         db,
         company=company,
@@ -102,7 +87,6 @@ def submit_manual(
         notes=notes,
         known_contacts=known_contacts,
         raw_jd_text=raw_jd_text,
-        generate_folder=generate_folder,
         source="web_manual",
     )
 
@@ -142,17 +126,10 @@ def submit_manual(
             result=result,
         )
 
-    message_parts = [f"Ingested: {result.company} / {result.title}."]
-    if result.prep_launched:
-        message_parts.append("Prep folder generation started.")
-    if prep_deferred:
-        message_parts.append(
-            f"Prep queue is full ({_MAX_CONCURRENT_PREPS} in flight); flag from the dashboard once one completes."
-        )
     return _render_result(
         request,
         outcome="success",
-        message=" ".join(message_parts),
+        message=f"Ingested: {result.company} / {result.title}.",
         result=result,
     )
 
