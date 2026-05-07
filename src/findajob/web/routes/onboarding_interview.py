@@ -25,6 +25,7 @@ from pathlib import Path
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from findajob.cost_tracking import log_call, role_model
 from findajob.onboarding import OnboardingSmokeCheckFailed, inject
 from findajob.onboarding.interview_runner import InterviewRunnerError, run_turn
 from findajob.onboarding.parser import ALLOWED_FILENAMES, parse_emission
@@ -42,9 +43,10 @@ from findajob.onboarding.session_store import (
 from findajob.utils import log_event
 from findajob.web.markdown import render_chat_assistant_html
 
+_INTERVIEWER_MODEL = role_model("onboarding_interviewer")
+
 router = APIRouter()
 
-_SYSTEM_PROMPT_RELPATH = Path("config") / "roles" / "onboarding_interviewer.md"
 _KICKOFF_USER_MESSAGE = "Begin the interview."
 
 
@@ -94,11 +96,6 @@ def _conn(request: Request) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path), timeout=30)
     conn.row_factory = sqlite3.Row
     return conn
-
-
-def _system_prompt(request: Request) -> str:
-    base_root: Path = request.app.state.base_root
-    return (base_root / _SYSTEM_PROMPT_RELPATH).read_text(encoding="utf-8")
 
 
 def _captured_from_history(history: list[dict[str, str]]) -> dict[str, str]:
@@ -258,7 +255,6 @@ def start_interview(request: Request) -> HTMLResponse | RedirectResponse:
         try:
             assistant_text, usage = run_turn(
                 api_key=chat_key,
-                system_prompt=_system_prompt(request),
                 history=[],
                 user_message=_KICKOFF_USER_MESSAGE,
             )
@@ -280,6 +276,29 @@ def start_interview(request: Request) -> HTMLResponse | RedirectResponse:
             )
 
         add_turn_cost(conn, session_id, usage)
+        # Write cost_log row — subsumes #463 for onboarding turns.
+        try:
+            log_call(
+                conn,
+                job_id=None,
+                operation="onboarding_interviewer",
+                model=_INTERVIEWER_MODEL,
+                input_text=_KICKOFF_USER_MESSAGE,
+                output_text=assistant_text,
+                latency_ms=None,
+                success=True,
+                cost_usd_override=float(usage.get("cost") or 0.0),
+                input_tokens_override=int(usage.get("prompt_tokens") or 0),
+                output_tokens_override=int(usage.get("completion_tokens") or 0),
+            )
+            conn.commit()
+        except Exception as e:  # noqa: BLE001
+            log_event(
+                "cost_log_failed",
+                operation="onboarding_interviewer",
+                route="start",
+                error=f"{type(e).__name__}: {e}",
+            )
         append_turn(conn, session_id, "user", _KICKOFF_USER_MESSAGE)
         append_turn(conn, session_id, "assistant", assistant_text)
         captured = _captured_from_history(
@@ -316,7 +335,6 @@ def post_turn(
         try:
             assistant_text, usage = run_turn(
                 api_key=chat_key,
-                system_prompt=_system_prompt(request),
                 history=sess.history,
                 user_message=message,
             )
@@ -331,6 +349,29 @@ def post_turn(
             )
 
         add_turn_cost(conn, session_id, usage)
+        # Write cost_log row — subsumes #463 for onboarding turns.
+        try:
+            log_call(
+                conn,
+                job_id=None,
+                operation="onboarding_interviewer",
+                model=_INTERVIEWER_MODEL,
+                input_text=message,
+                output_text=assistant_text,
+                latency_ms=None,
+                success=True,
+                cost_usd_override=float(usage.get("cost") or 0.0),
+                input_tokens_override=int(usage.get("prompt_tokens") or 0),
+                output_tokens_override=int(usage.get("completion_tokens") or 0),
+            )
+            conn.commit()
+        except Exception as e:  # noqa: BLE001
+            log_event(
+                "cost_log_failed",
+                operation="onboarding_interviewer",
+                route="turn",
+                error=f"{type(e).__name__}: {e}",
+            )
         append_turn(conn, session_id, "user", message)
         append_turn(conn, session_id, "assistant", assistant_text)
 

@@ -49,6 +49,19 @@ CREATE TABLE onboarding_sessions (
     completed_at TEXT,
     error_state TEXT
 );
+CREATE TABLE cost_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id TEXT,
+    operation TEXT NOT NULL,
+    model TEXT NOT NULL,
+    latency_ms INTEGER,
+    success INTEGER DEFAULT 1,
+    error_message TEXT,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    cost_usd REAL,
+    logged_at TEXT DEFAULT (datetime('now'))
+);
 """
 
 _USER_KEY = "sk-or-v1-user-test"
@@ -152,19 +165,25 @@ def client_no_key(client: TestClient) -> TestClient:
 
 
 def _stub_run_turn(monkeypatch: pytest.MonkeyPatch, assistant_text: str) -> list[dict[str, Any]]:
-    """Replace run_turn with a stub that records calls and returns a fixed reply."""
+    """Replace run_turn with a stub that records calls and returns a fixed reply.
+
+    Phase 2: run_turn no longer accepts system_prompt — it is read from the
+    role file by the wrapper. Stub matches the new signature.
+
+    Returns usage with a `cost` field so cost_log rows get API-authoritative
+    values (not zeros) in tests that assert on the override-trio.
+    """
     calls: list[dict[str, Any]] = []
 
-    def _fake(api_key: str, system_prompt: str, history: list, user_message: str):
+    def _fake(api_key: str, history: list, user_message: str):
         calls.append(
             {
                 "api_key": api_key,
-                "system_prompt": system_prompt,
                 "history": list(history),
                 "user_message": user_message,
             }
         )
-        return assistant_text, {"prompt_tokens": 10, "completion_tokens": 20}
+        return assistant_text, {"prompt_tokens": 10, "completion_tokens": 20, "cost": 0.000123}
 
     monkeypatch.setattr("findajob.web.routes.onboarding_interview.run_turn", _fake)
     return calls
@@ -258,10 +277,10 @@ def test_start_creates_session_and_runs_first_turn(
     assert location.startswith("/onboarding/interview/")
     sid = location.rsplit("/", 1)[-1]
 
-    # run_turn was called exactly once with the tester's key + non-empty system prompt + empty history
+    # run_turn was called exactly once with the tester's key + empty history + kickoff message.
+    # Phase 2: system_prompt is no longer passed (the wrapper reads the role file directly).
     assert len(calls) == 1
     assert calls[0]["api_key"] == _USER_KEY
-    assert "interviewer" in calls[0]["system_prompt"].lower() or len(calls[0]["system_prompt"]) > 100
     assert calls[0]["history"] == []
     assert calls[0]["user_message"]  # synthetic kickoff non-empty
 
@@ -957,3 +976,63 @@ def test_resume_index_no_affordance_when_no_credentials(client: TestClient, base
     resp = client.get("/onboarding/")
     assert resp.status_code == 200
     assert 'id="resume-banner"' not in resp.text
+
+
+# ── cost_log row writes (#463) ────────────────────────────────────────────
+
+
+def _read_cost_log_rows(base_root: Path) -> list[tuple]:
+    """Return all cost_log rows as (operation, model, input_tokens, output_tokens, cost_usd)."""
+    conn = sqlite3.connect(base_root / "data" / "pipeline.db")
+    try:
+        rows = conn.execute(
+            "SELECT operation, model, input_tokens, output_tokens, cost_usd FROM cost_log ORDER BY id"
+        ).fetchall()
+    finally:
+        conn.close()
+    return rows
+
+
+def test_start_writes_cost_log_row(
+    client_with_key: TestClient, base_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Successful /start turn must produce a cost_log row with the API-authoritative
+    cost+token trio (not heuristic estimates). Pins #463 closure."""
+    _plant_credentials(base_root)
+    _stub_run_turn(monkeypatch, "Hello — what's your name?")
+
+    resp = client_with_key.post("/onboarding/interview/start")
+    assert resp.status_code == 303  # redirect means success
+
+    rows = _read_cost_log_rows(base_root)
+    assert len(rows) == 1, f"expected 1 cost_log row, got {len(rows)}"
+    operation, model, input_tokens, output_tokens, cost_usd = rows[0]
+    assert operation == "onboarding_interviewer"
+    assert model != "unknown"  # role file must have a model: frontmatter line
+    assert input_tokens == 10
+    assert output_tokens == 20
+    assert abs(cost_usd - 0.000123) < 1e-9, f"cost_usd mismatch: {cost_usd}"
+
+
+def test_turn_writes_cost_log_row(
+    client_with_key: TestClient, base_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Successful /turn must produce a cost_log row with the API-authoritative
+    cost+token trio. Pins #463 closure for the turn path."""
+    sid = _create_session_directly(base_root)
+    _stub_run_turn(monkeypatch, "got it — and your timezone?")
+
+    resp = client_with_key.post(
+        "/onboarding/interview/turn",
+        data={"session_id": sid, "message": "Test User"},
+    )
+    assert resp.status_code == 200
+
+    rows = _read_cost_log_rows(base_root)
+    assert len(rows) == 1, f"expected 1 cost_log row, got {len(rows)}"
+    operation, model, input_tokens, output_tokens, cost_usd = rows[0]
+    assert operation == "onboarding_interviewer"
+    assert model != "unknown"
+    assert input_tokens == 10
+    assert output_tokens == 20
+    assert abs(cost_usd - 0.000123) < 1e-9, f"cost_usd mismatch: {cost_usd}"
