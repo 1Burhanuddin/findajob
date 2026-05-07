@@ -1,15 +1,23 @@
+{# Each branch's outer element carries id="status" + hx-* attrs so that an
+   outerHTML swap from the poll endpoint replaces the wrapper with another
+   wrapper that ALSO carries the trigger. Without this, the first swap drops
+   the trigger and polling silently stops after one tick. #}
 {% if row.status == 'researching' %}
-  <div class="rounded border p-4 bg-blue-50">
+  <div id="status"
+       hx-get="/speculative/status/{{ row.id }}/poll"
+       hx-trigger="every 5s"
+       hx-swap="outerHTML"
+       class="rounded border p-4 bg-blue-50">
     <div class="font-semibold">Researching — Perplexity Deep Research takes 1–5 minutes.</div>
     <div class="text-sm text-gray-600 mt-2">This page auto-refreshes every 5 seconds.</div>
   </div>
 {% elif row.status == 'ready_for_review' %}
-  <div class="rounded border p-4 bg-green-50">
+  <div id="status" class="rounded border p-4 bg-green-50">
     Research complete — redirecting to review page…
   </div>
   <script>window.location = "/speculative/review/{{ row.id }}";</script>
 {% elif row.status == 'failed' %}
-  <div class="rounded border p-4 bg-red-50">
+  <div id="status" class="rounded border p-4 bg-red-50">
     <div class="font-semibold">Research failed</div>
     <div class="mt-2 text-sm">{{ row.error_message or "(no error message recorded)" }}</div>
     <form method="post" action="/speculative/regenerate/{{ row.id }}" class="mt-4" hx-boost="false">
@@ -20,5 +28,5 @@
     </form>
   </div>
 {% else %}
-  <div class="rounded border p-4 bg-gray-50">Status: {{ row.status }}</div>
+  <div id="status" class="rounded border p-4 bg-gray-50">Status: {{ row.status }}</div>
 {% endif %}

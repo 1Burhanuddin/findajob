@@ -893,3 +893,63 @@ class TestSpeculativeBriefingReuse:
         text, used_writer = self._resolve_briefing(base=str(tmp_path), is_synthetic=True, folder=folder)
         assert used_writer is True
         assert text == "WROTE_FRESH_BRIEFING"
+
+    @staticmethod
+    def _resolve_briefing_and_copy(*, base, is_synthetic, folder, outdir):
+        """Extends _resolve_briefing with the spec-briefing copy step (#485).
+
+        Mirrors the prep_application.py branch INCLUDING the shutil.copy2 of
+        the spec briefing.md into the prep folder. Returns
+        (briefing_text, copied_to_outdir: bool) so tests can assert both
+        the reuse and the copy independently.
+        """
+        import os
+        import shutil
+
+        briefing = ""
+        copied = False
+        if is_synthetic and folder:
+            spec_briefing_path = os.path.join(base, "companies", folder, "briefing.md")
+            try:
+                with open(spec_briefing_path) as f:
+                    briefing = f.read().strip()
+                if briefing:
+                    try:
+                        shutil.copy2(spec_briefing_path, os.path.join(outdir, "briefing.md"))
+                        copied = True
+                    except OSError:
+                        pass
+            except FileNotFoundError:
+                briefing = ""
+        return (briefing, copied)
+
+    def test_synthetic_reuse_copies_briefing_into_prep_folder(self, tmp_path):
+        """The reused spec briefing is copied into the prep folder so the
+        materials view surfaces it as a distinct 'Briefing (speculative)'
+        artifact alongside the prep-time merged briefing+fit_analysis (#485)."""
+        folder = "PSIQuantum_SPECULATIVE_2026-04-28_140000"
+        spec_dir = tmp_path / "companies" / folder
+        spec_dir.mkdir(parents=True)
+        (spec_dir / "briefing.md").write_text("# Deep research briefing\n\nbody.\n")
+
+        outdir = tmp_path / "companies" / "PSIQuantum_Eng_2026-05-07_120000"
+        outdir.mkdir(parents=True)
+
+        text, copied = self._resolve_briefing_and_copy(
+            base=str(tmp_path), is_synthetic=True, folder=folder, outdir=str(outdir)
+        )
+        assert copied is True
+        assert (outdir / "briefing.md").is_file()
+        assert "Deep research briefing" in (outdir / "briefing.md").read_text()
+        assert "Deep research briefing" in text  # also reused
+
+    def test_real_row_does_not_copy(self, tmp_path):
+        """Non-synthetic rows skip the reuse-and-copy path entirely."""
+        outdir = tmp_path / "companies" / "Acme_Eng_2026-05-07_120000"
+        outdir.mkdir(parents=True)
+
+        _, copied = self._resolve_briefing_and_copy(
+            base=str(tmp_path), is_synthetic=False, folder=None, outdir=str(outdir)
+        )
+        assert copied is False
+        assert not (outdir / "briefing.md").exists()

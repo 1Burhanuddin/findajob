@@ -317,6 +317,22 @@ def main():
                     folder=speculative_briefing_folder,
                     chars=len(briefing),
                 )
+                # Copy into the prep folder so the materials view surfaces the
+                # raw deep-research briefing as a distinct artifact alongside
+                # the prep-time merged briefing+fit_analysis. Bare filename
+                # `briefing.md` is classified as "Briefing (speculative)" by
+                # findajob.web.routes.materials._classify_file (#485).
+                try:
+                    shutil.copy2(spec_briefing_path, os.path.join(outdir, "briefing.md"))
+                except OSError as e:
+                    # Copy failure is non-fatal — the merged briefing still gets
+                    # written and the spec briefing remains in its origin folder.
+                    log_event(
+                        "speculative_briefing_copy_failed",
+                        job_id=job_id,
+                        company=company,
+                        error=f"{type(e).__name__}: {e}",
+                    )
         except FileNotFoundError:
             log_event(
                 "speculative_briefing_missing",

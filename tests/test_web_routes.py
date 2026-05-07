@@ -32,7 +32,8 @@ CREATE TABLE jobs (
     fit_score REAL,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
-    synthetic INTEGER NOT NULL DEFAULT 0
+    synthetic INTEGER NOT NULL DEFAULT 0,
+    speculative_briefing_folder TEXT
 )
 """
 

@@ -163,13 +163,17 @@ def test_jd_viewer_renders_raw_jd_text(tmp_path: Path) -> None:
 
 
 def test_materials_redirects_synthetic_row_to_jd_viewer(tmp_path: Path) -> None:
-    """Synthetic rows have no prep_folder_path until flag-for-prep; /materials/{fp}
-    must redirect to the JD viewer instead of 404ing."""
+    """Synthetic rows with no spec_briefing_folder fall back to the JD viewer
+    (the role-card description). Real (non-synthetic) rows with no prep folder
+    still 404. Per #485 the synthetic-with-spec-folder path is covered
+    separately by test_materials_serves_spec_folder_when_synthetic_pre_prep.
+    """
     db = tmp_path / "pipeline.db"
     conn = sqlite3.connect(db)
     conn.execute(
         "CREATE TABLE jobs (id TEXT, fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
-        "raw_jd_text TEXT, prep_folder_path TEXT, synthetic INTEGER DEFAULT 0)"
+        "raw_jd_text TEXT, prep_folder_path TEXT, synthetic INTEGER DEFAULT 0, "
+        "speculative_briefing_folder TEXT)"
     )
     conn.execute(
         "INSERT INTO jobs (fingerprint, title, company, stage, raw_jd_text, synthetic) "
@@ -193,6 +197,43 @@ def test_materials_redirects_synthetic_row_to_jd_viewer(tmp_path: Path) -> None:
 
     r = client.get("/materials/real1", follow_redirects=False)
     assert r.status_code == 404
+
+
+def test_materials_serves_spec_folder_when_synthetic_pre_prep(tmp_path: Path) -> None:
+    """Synthetic row with a populated speculative_briefing_folder pointing to
+    a real on-disk folder containing briefing.md serves that folder via the
+    materials view — operator can read the deep-research brief before
+    flag-for-prep (#485)."""
+    db = tmp_path / "pipeline.db"
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "CREATE TABLE jobs (id TEXT, fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
+        "raw_jd_text TEXT, prep_folder_path TEXT, synthetic INTEGER DEFAULT 0, "
+        "speculative_briefing_folder TEXT)"
+    )
+    spec_folder_name = "Acme_SPECULATIVE_2026-05-07_103045"
+    conn.execute(
+        "INSERT INTO jobs (id, fingerprint, title, company, stage, raw_jd_text, "
+        "synthetic, speculative_briefing_folder) "
+        "VALUES ('jid1','spec1','[SPEC] Lead','Acme','scored','desc.', 1, ?)",
+        (spec_folder_name,),
+    )
+    conn.commit()
+    conn.close()
+    companies = tmp_path / "companies"
+    spec_folder = companies / spec_folder_name
+    spec_folder.mkdir(parents=True)
+    (spec_folder / "briefing.md").write_text("# Acme deep-research briefing\n\nBody.\n")
+    mark_complete(tmp_path)
+    client = TestClient(create_app(companies_root=companies, db_path=db, base_root=tmp_path))
+
+    r = client.get("/materials/spec1", follow_redirects=False)
+    # Renders the materials folder view (200), not a 303 to JD viewer.
+    assert r.status_code == 200, r.text[:300]
+    # The spec briefing's bare `briefing.md` filename gets classified as
+    # "Briefing (speculative)" by _classify_file — check the group label.
+    assert "Briefing (speculative)" in r.text
+    assert "briefing.md" in r.text
 
 
 def test_jd_viewer_404_for_unknown_fingerprint(tmp_path: Path) -> None:

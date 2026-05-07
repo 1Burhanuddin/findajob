@@ -243,12 +243,28 @@ def folder_view(
     root: Path = request.app.state.companies_root
     folder = resolve_folder(fingerprint, db, root)
     if folder is None:
-        # Synthetic rows have no prep folder until flag-for-prep — surface the
-        # role-card description (raw_jd_text) instead of dead-ending.
-        synth_row = db.execute("SELECT synthetic FROM jobs WHERE fingerprint = ?", (fingerprint,)).fetchone()
+        # Synthetic rows have no prep folder until flag-for-prep. If the
+        # speculative briefing folder exists on disk, surface its contents
+        # (briefing.md is classified as "Briefing (speculative)" by
+        # _classify_file). Otherwise fall back to the role-card description.
+        synth_row = db.execute(
+            "SELECT synthetic, speculative_briefing_folder FROM jobs WHERE fingerprint = ?",
+            (fingerprint,),
+        ).fetchone()
         if synth_row is not None and synth_row["synthetic"]:
-            return RedirectResponse(url=f"/jobs/{fingerprint}/jd", status_code=303)
-        raise HTTPException(status_code=404, detail="folder not found")
+            spec_folder_name = synth_row["speculative_briefing_folder"]
+            if spec_folder_name:
+                spec_folder = (root / spec_folder_name).resolve()
+                try:
+                    spec_folder.relative_to(root.resolve())
+                except ValueError:
+                    spec_folder = None  # path-traversal guard
+                if spec_folder is not None and spec_folder.is_dir():
+                    folder = spec_folder
+            if folder is None:
+                return RedirectResponse(url=f"/jobs/{fingerprint}/jd", status_code=303)
+        else:
+            raise HTTPException(status_code=404, detail="folder not found")
     row = db.execute("SELECT id, title, company, stage FROM jobs WHERE fingerprint = ?", (fingerprint,)).fetchone()
     title = row["title"] if row else ""
     company = row["company"] if row else ""

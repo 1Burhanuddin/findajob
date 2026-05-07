@@ -166,6 +166,43 @@ def test_poll_returns_fragment(tmp_path):
     assert 'hx-boost="false"' in resp.text
 
 
+def test_researching_fragment_preserves_hx_trigger_across_swaps(tmp_path):
+    """The fragment is swapped via outerHTML, so the rendered branch element
+    itself must carry id="status" + hx-* attrs. Without this, the first swap
+    drops the trigger and polling silently stops after one tick (#485)."""
+    db = _make_db(tmp_path)
+    conn = sqlite3.connect(str(db))
+    conn.execute("INSERT INTO speculative_requests (company, status) VALUES ('PSI', 'researching')")
+    conn.commit()
+    conn.close()
+
+    app = _make_app(db)
+    client = TestClient(app)
+    # The poll endpoint returns just the fragment (what htmx swaps in).
+    resp = client.get("/speculative/status/1/poll")
+    assert resp.status_code == 200
+    assert 'id="status"' in resp.text
+    assert 'hx-trigger="every 5s"' in resp.text
+    assert 'hx-get="/speculative/status/1/poll"' in resp.text
+    assert 'hx-swap="outerHTML"' in resp.text
+
+
+def test_status_page_renders_hx_trigger_inline(tmp_path):
+    """The full status page must also render the hx-trigger directly so the
+    initial page load arms the poll without depending on a wrapper. #485."""
+    db = _make_db(tmp_path)
+    conn = sqlite3.connect(str(db))
+    conn.execute("INSERT INTO speculative_requests (company, status) VALUES ('PSI', 'researching')")
+    conn.commit()
+    conn.close()
+
+    app = _make_app(db)
+    client = TestClient(app)
+    resp = client.get("/speculative/status/1")
+    assert resp.status_code == 200
+    assert 'hx-trigger="every 5s"' in resp.text
+
+
 # ── T23: review page ─────────────────────────────────────────────────────
 
 
@@ -257,7 +294,10 @@ def test_approve_writes_jobs_and_redirects_to_board(tmp_path):
     client = TestClient(app)
     resp = client.post("/speculative/approve/1", data={"keep": ["1"]}, follow_redirects=False)
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/board/"
+    # /board/ is not a registered route; canonical landing is /board/dashboard
+    # (#485). Without this, the 303 → GET /board/ 404s with the FastAPI
+    # default JSON detail.
+    assert resp.headers["location"] == "/board/dashboard"
 
     conn = sqlite3.connect(str(db))
     titles = [r[0] for r in conn.execute("SELECT title FROM jobs").fetchall()]

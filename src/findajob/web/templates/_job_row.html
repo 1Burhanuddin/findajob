@@ -40,7 +40,14 @@
         <a class="underline" href="/jobs/{{ row.fingerprint }}/jd">{{ row[field] }}</a>
       {% elif field == 'title' and row.url %}
         <a class="underline" href="{{ row.url }}" target="_blank" rel="noopener noreferrer">{{ row[field] }}</a>
-      {% elif field == 'company' and row.fingerprint and row.stage in folder_stages %}
+      {# Hyperlink the company cell when a folder exists. For synthetic
+         (speculative) rows pre-prep, the [SPEC] title-prefix convention
+         (set by speculative.approver, line 66) signals the row even at
+         the `scored` stage; the materials route falls back to the spec
+         briefing folder when no prep folder exists. The title check is
+         already used by the SPEC badge on line 38 — single reuse, not
+         new coupling. #}
+      {% elif field == 'company' and row.fingerprint and (row.stage in folder_stages or (row.title and row.title.startswith('[SPEC] '))) %}
         <a class="underline" href="/materials/{{ row.fingerprint }}">{{ row[field] }}</a>
       {% elif field in ('fit_score', 'probability_score', 'interview_likelihood') %}
         {{ row[field] | round | int if row[field] is not none else '—' }}

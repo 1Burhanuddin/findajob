@@ -137,7 +137,7 @@ def post_approve(request_id: int, keep: Annotated[list[int] | None, Form()] = No
         approve_request(conn, request_id=request_id, kept_indices=keep or [])
     finally:
         conn.close()
-    return RedirectResponse(url="/board/", status_code=303)
+    return RedirectResponse(url="/board/dashboard", status_code=303)
 
 
 @router.post("/speculative/regenerate/{request_id}")
