@@ -10,6 +10,9 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Changed
+- **#462 `company_discoverer` cost-threshold ntfy now uses authoritative OpenRouter cost.** Pre-#471 (OpenRouter Native Migration Phase 2), the threshold-breach alert was sourced from a stderr-parsing function (`_extract_cost_usd`) that always returned `None` — the alert never fired. Phase 2 deleted the dead extractor and replaced it with `result.cost_usd` from `response.usage.cost`, making the alert functional, but no test or doc surface acknowledged the change. This release tightens `tests/discoverer/test_runner.py::test_run_emits_ntfy_when_threshold_breached` to assert the breach body contains both the run cost and the threshold value, adds a negative-path test (`cost ≤ threshold` does not fire the breach ntfy), and documents `DISCOVERY_COST_THRESHOLD_USD` in `data/.env.example`. No behavior change vs. v0.20.0 — verification + documentation only.
+
 ## [0.20.0] — 2026-05-07
 
 Minor bump shipping the OpenRouter Native Migration epic (#469) close-out: the `blob42/aichat-ng` binary, its bundled config, and the cost-calibration stack are all gone. Every LLM call goes through `findajob.llm.openrouter.complete()`; every `cost_log.cost_usd` value is OpenRouter's `response.usage.cost` directly — no heuristic, no calibration multiplier, no `warming_up` state. The nav credits-remaining chip becomes a "$X.XX this month" spend chip; the dashboard burn-rate widget drops its runway-weeks projection. Production image is measurably smaller. **Migration-required** — see the Migration block below for the compose.yaml edit operators must apply on existing stacks. Operator's stack and `findajob-test` track `:latest`; tester stacks (alice, papa, dave, judy, tango) currently on `:v0.19` bump to `:v0.20` in this cohort wave.

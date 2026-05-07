@@ -320,9 +320,26 @@ def test_run_emits_ntfy_when_threshold_breached(tmp_path: Path, monkeypatch) -> 
     ):
         result = run(tmp_path, ntfy_enabled=True)
     assert result.success is True
-    assert notify_mock.called
-    title, body = notify_mock.call_args.args[:2]
-    assert "cost" in body.lower()
+    breach_calls = [call for call in notify_mock.call_args_list if call.args[0] == "discovery: cost exceeded threshold"]
+    assert len(breach_calls) == 1
+    body = breach_calls[0].args[1]
+    assert "$5.50" in body
+    assert "$1.00" in body
+
+
+def test_run_does_not_emit_breach_ntfy_when_below_threshold(tmp_path: Path, monkeypatch) -> None:
+    """Cost ≤ threshold must NOT fire the breach ntfy (success summary still does)."""
+    _setup_profile(tmp_path)
+    monkeypatch.setenv("DISCOVERY_COST_THRESHOLD_USD", "1.00")
+    notify_mock = MagicMock()
+    with (
+        patch("findajob.discoverer.runner.complete", _stub_complete(cost=0.50)),
+        patch("findajob.discoverer.runner._send_ntfy", notify_mock),
+    ):
+        result = run(tmp_path, ntfy_enabled=True)
+    assert result.success is True
+    breach_calls = [call for call in notify_mock.call_args_list if call.args[0] == "discovery: cost exceeded threshold"]
+    assert breach_calls == []
 
 
 def test_run_does_not_emit_ntfy_when_disabled(tmp_path: Path) -> None:
