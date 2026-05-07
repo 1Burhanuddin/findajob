@@ -390,6 +390,22 @@ This applies to every stack, including operator-only ones. A stack that doesn't 
 
 ---
 
+## Implementation Guardrails
+
+Discipline layer that complements the architectural invariants above. Apply before every change.
+
+- **Architectural invariants** must not be touched casually — see "Critical Architecture Rules" above. SQLite-as-SoT, Web-as-Write-Surface, centralized LLM transport, `JobSourceAdapter` Protocol.
+- **Patterns new code must follow**: `findajob.llm.openrouter.complete` for every LLM call; `findajob.actions` for every state transition; route-matrix tests for new POST handlers; `findajob.utils.log_event` / `write_audit` for events. No `logging.getLogger`. No mocking of `sqlite3.connect` in tests (use real SQLite — tmpfile or `:memory:`). No prompt-string snapshots; assert structural properties.
+- **Patterns to retreat from on every pass-through**: bare `sqlite3.connect`, additions to `utils.py`, business logic in `scripts/*.py`, `.in_progress` sentinel files, inline `ALTER TABLE` in `init_db.py`. Don't sweep — clean up only when you're already in the file for another reason.
+- **Soft-cap file sizes**: ~300 LOC for `src/findajob/` modules; ≤50 LOC for `scripts/` shims (entry-points only); ~400 LOC for route modules; ~500 LOC for tests. Hard signals at ~1.5×. CLAUDE.md itself caps near 500.
+- **Same-PR docs rule**: when code touches a documented surface, update the docs in the same PR. Schema → CHANGELOG `### Migration required` entry; new env var → `configure.md`; new state transition → the Board Routes table above. No "docs follow-up" deferrals.
+- **Tests required when**: new POST handler in `routes/`, new `actions` helper, schema change, new adapter registered in `REGISTERED_ADAPTERS`, change to `complete()` or `cost_rollups`, change to dedup/cleaning helpers, or change crossing a known-repeat-bug boundary (cross-stack SQLite immutable URI; audit_log timestamp formats; jobs.id JOIN dependencies; blank-string `company_match` guards). Otherwise encouraged but not gated.
+- **Split a refactor across PRs when**: it crosses a `migration-required` boundary, exceeds ~500 LOC of behavior change, mixes cleanup with behavior change, or risks a partial-state outage. Otherwise keep it one PR.
+
+The full PR + maintainer checklists, deprecation table, dependency-add criteria, and error-handling/logging conventions will be promoted into `CONTRIBUTING.md` as part of Open-Source Launch Readiness (Epic #377). This section is the durable abridged form until then.
+
+---
+
 ## Project Board — Single Source of Truth
 
 All work is tracked on the GitHub Project board at https://github.com/users/brockamer/projects/1. **Not on the board = not on the roadmap.** No markdown tracking files, no TODO lists.
