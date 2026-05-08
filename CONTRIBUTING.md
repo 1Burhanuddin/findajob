@@ -141,16 +141,15 @@ These are non-negotiable. CLAUDE.md describes them in detail; the short list:
 - `findajob.llm.openrouter.complete` for every LLM call.
 - `findajob.actions` for every state transition.
 - Route-matrix tests for new POST handlers.
-- `findajob.utils.log_event` / `write_audit` for events. No `logging.getLogger`.
+- `findajob.audit.log_event` / `write_audit` for events. No `logging.getLogger`.
 - No mocking of `sqlite3.connect` in tests. Use real SQLite (tmpfile or `:memory:`).
 - No prompt-string snapshots. Assert structural properties.
 
 **Patterns to retreat from on every pass-through:**
-- Bare `sqlite3.connect`.
-- Additions to `utils.py`.
-- Business logic in `scripts/*.py`.
-- `.in_progress` sentinel files.
-- Inline `ALTER TABLE` in `init_db.py`.
+- Bare `sqlite3.connect` — use `findajob.db.connect`.
+- Business logic in `scripts/*.py` — extract to `src/findajob/<domain>/`.
+- `.in_progress` sentinel files — use the `background_tasks` table.
+- Inline schema changes — use the versioned migration runner in `src/findajob/migrations/`.
 
 **File size soft caps** (hard signals at ~1.5×):
 - `src/findajob/` modules: ~300 LOC.
