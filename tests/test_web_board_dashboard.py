@@ -208,7 +208,7 @@ def test_materials_serves_spec_folder_when_synthetic_pre_prep(tmp_path: Path) ->
     conn = sqlite3.connect(db)
     conn.execute(
         "CREATE TABLE jobs (id TEXT, fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
-        "raw_jd_text TEXT, prep_folder_path TEXT, synthetic INTEGER DEFAULT 0, "
+        "stage_updated TEXT, raw_jd_text TEXT, prep_folder_path TEXT, synthetic INTEGER DEFAULT 0, "
         "speculative_briefing_folder TEXT)"
     )
     spec_folder_name = "Acme_SPECULATIVE_2026-05-07_103045"
