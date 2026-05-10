@@ -22,18 +22,25 @@ See [configure.md](configure.md). API keys and personal config end up in `state/
 
 ## 1. Create the stack directory
 
+Pick any directory for your stack — Docker Compose's bind mounts are relative to wherever `compose.yaml` lives, so the location is your choice:
+
+- Linux server: `/opt/stacks/findajob-<you>/` is the conventional system-path layout (will need `sudo`).
+- macOS: `~/docker/findajob-<you>/` or any path under your home directory works fine.
+- Anywhere else under your home directory works too — pick what fits your other Docker stacks.
+
 ```bash
-# On the Docker host
-sudo mkdir -p /opt/stacks/findajob-<you>/state/{data,config,candidate_context,companies,logs,.backups}
-sudo chown -R $(id -u):$(id -g) /opt/stacks/findajob-<you>/
+# Replace <stack-dir> with your chosen path, e.g. /opt/stacks/findajob-<you> or ~/docker/findajob-<you>
+mkdir -p <stack-dir>/state/{data,config,candidate_context,companies,logs,.backups}
 ```
+
+If you placed the stack in a system path like `/opt/stacks/`, prefix the `mkdir` with `sudo` and follow up with `sudo chown -R $(id -u):$(id -g) <stack-dir>/` so your user (rather than root) owns the bind-mount targets. Skip both for paths under your home directory.
 
 Replace `<you>` with a short user tag.
 
 ## 2. Drop in the compose template and env
 
 ```bash
-cd /opt/stacks/findajob-<you>/
+cd <stack-dir>/
 curl -fsSL -o compose.yaml https://raw.githubusercontent.com/brockamer/findajob/main/ops/compose.yaml.example
 curl -fsSL -o .env https://raw.githubusercontent.com/brockamer/findajob/main/ops/stack.env.example
 ```

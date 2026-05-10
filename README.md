@@ -130,11 +130,16 @@ Skipping RapidAPI means LinkedIn/Indeed search is inactive — Greenhouse/Ashby/
 
 ### Deploy
 
+Pick a directory for your stack. Anywhere is fine; everything below is relative to it:
+
+- Linux server: `/opt/stacks/findajob-<you>/` is the conventional system path.
+- macOS: `~/docker/findajob-<you>/` or any path under your home directory works.
+- The image is multi-arch (`linux/amd64` + `linux/arm64`) so Apple Silicon and ARM-based Linux hosts get a native build automatically.
+
 ```bash
-# On your Docker host
-sudo mkdir -p /opt/stacks/findajob-<you>/state/{data,config,candidate_context,companies,logs,.backups}
-sudo chown -R $(id -u):$(id -g) /opt/stacks/findajob-<you>/
-cd /opt/stacks/findajob-<you>
+# Replace <stack-dir> with your chosen path, e.g. /opt/stacks/findajob-<you> or ~/docker/findajob-<you>
+mkdir -p <stack-dir>/state/{data,config,candidate_context,companies,logs,.backups}
+cd <stack-dir>
 
 # Two .env files:
 #   ./.env             — top-level: image tag, port, timezone, basic-auth (read by Docker Compose for ${VAR} interpolation)
@@ -149,6 +154,8 @@ chmod 600 state/data/.env
 # Leave state/data/.env at the placeholder values — first-run onboarding overwrites them with your real API keys.
 docker compose up -d
 ```
+
+> If you placed the stack in a system path like `/opt/stacks/`, prefix `mkdir` with `sudo` and add `sudo chown -R $(id -u):$(id -g) <stack-dir>/` so your user (rather than root) owns the bind-mounted state. Skip both for paths under your home directory.
 
 ### First-run onboarding
 

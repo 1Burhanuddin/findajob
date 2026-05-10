@@ -7,6 +7,12 @@
 services:
   scheduler:
     image: ghcr.io/brockamer/findajob:${FINDAJOB_IMAGE_TAG:-v0.1}
+    # Optional platform override. The image is multi-arch (linux/amd64 +
+    # linux/arm64); Docker auto-selects the right one for your host. Force
+    # a specific architecture only if you know you need it (e.g., you're on
+    # Apple Silicon and want to run the amd64 image under Rosetta 2 instead
+    # of the native arm64 build).
+    # platform: linux/amd64
     restart: unless-stopped
     ports:
       - "${FINDAJOB_MATERIALS_PORT:-8090}:8090"
