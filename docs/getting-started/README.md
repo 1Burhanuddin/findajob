@@ -18,11 +18,15 @@ Create `/opt/stacks/findajob-<you>/`, drop `compose.yaml`, start the container. 
 
 After the container is up, open `http://<your-host>:${FINDAJOB_MATERIALS_PORT}/` in a browser. A fresh stack 307s straight into `/onboarding/` — no need to know to navigate via Tools → Onboarding.
 
-The page presents two steps:
+The page presents three steps, plus a Gmail-config gate on the way to the dashboard:
 
 **Step 1 — API keys.** Collects your OpenRouter (required), RapidAPI (optional, for LinkedIn / Indeed search), and Google (optional, for the RAG embeddings) keys. The sign-up walkthrough is at [`api-keys.md`](api-keys.md). Keys live only in your stack's `data/.env`; findajob never sees them server-side.
 
-**Step 2 — Run the interview.** Once Step 1 is saved, a "Start interview" button enables. Clicking it opens a chat surface inside findajob where you have a structured 60–90 minute conversation with an LLM (Claude Sonnet 4.6, billed against your own OpenRouter key). Server-side persistent: close the tab anytime and the index page surfaces a "Resume your interview" affordance. When the LLM finishes emitting your config blocks, a green Finalize button appears — click it, and findajob writes your files, runs initial company discovery, and lands you on the dashboard. No copy-paste step.
+**Step 2 — Run the interview.** Once Step 1 is saved, a "Start interview" button enables. Clicking it opens a chat surface inside findajob where you have a structured 60–90 minute conversation with an LLM (Claude Sonnet 4.6, billed against your own OpenRouter key). Server-side persistent: close the tab anytime and the index page surfaces a "Resume your interview" affordance. When the LLM finishes emitting your config blocks, a green Finalize button appears — click it and findajob writes your files, runs initial company discovery, and hands off to the Gmail-config gate.
+
+**Gmail-config gate (optional).** Configure IMAP credentials so findajob can ingest LinkedIn / Indeed / etc. job-alert emails directly, plus auto-detect ATS rejection emails (#362). Save + run "Test connection" to advance, or Skip if you don't want Gmail ingestion — it's always opt-out. See [`gmail.md`](gmail.md) for the 2FA + app-password walkthrough.
+
+**Step 3 — Upload LinkedIn connections.** The terminal step. Upload your `Connections.csv` from a LinkedIn data export — findajob uses it to find people in your network at companies a job was posted by, and drafts outreach. Skippable; the explainer on the page walks through the export procedure. Headers are validated strictly against the canonical LinkedIn shape, so if your export has a `Notes:` preamble at the top, delete those lines before uploading (the error message reminds you). On upload or Skip, you land on the dashboard.
 
 Cost runs ~$3-6 per onboarding even with prompt caching enabled (the system prompt is cached server-side at OpenRouter so subsequent turns are billed at ~10% of the system tokens, but voice-samples emission and the cumulative chat history dominate the bill in long interviews).
 
