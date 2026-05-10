@@ -419,9 +419,14 @@ def _run_prep() -> None:
         # ── Step 4: Cover letter — briefing + fit analysis for company signals ──
         today_str = datetime.now().strftime("%B %d, %Y")
         # Stage 6 — cover_letter_writer (Opus, cached_prefix=shared_with_voice)
+        cover_prompt = (
+            f"{mode_marker}Date: {today_str}\n\n"
+            f"COMPANY BRIEFING AND FIT ANALYSIS:\n{briefing_context}\n\n"
+            f"TAILORED RESUME:\n{resume_md}"
+        )
         cover_md_text = run_role(
             "cover_letter_writer",
-            f"{mode_marker}Date: {today_str}\n\nCOMPANY BRIEFING AND FIT ANALYSIS:\n{briefing_context}",
+            cover_prompt,
             cached_prefix=shared_with_voice,
             pin_provider="anthropic",
             conn=conn,
