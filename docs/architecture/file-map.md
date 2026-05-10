@@ -13,7 +13,7 @@ When this map drifts from the actual code (renamed file, new route module, retir
 <repo>/src/findajob/cleaning.py             # normalize, fingerprint, clean_title, clean_company
 <repo>/src/findajob/ingest.py               # ingest_manual_job() — shared entry point for the /ingest/ web form
 <repo>/src/findajob/fetchers/                 # Greenhouse, Gmail job fetching; RapidAPI feeds via adapters/
-<repo>/src/findajob/fetchers/adapters/      # JobSourceAdapter Protocol + REGISTERED_ADAPTERS + JobsApi14Adapter + JobsApi14IndeedAdapter + JSearchAdapter; curation.py = per-adapter signup metadata loaded by /onboarding/feed-config/
+<repo>/src/findajob/fetchers/adapters/      # JobSourceAdapter Protocol + REGISTERED_ADAPTERS + per-source adapter classes (jobs_api14, jobs_api14_indeed, jobs_api14_bing, jsearch, greenhouse, ashby, lever, gmail, workday_cxs); curation.py = per-adapter signup metadata loaded by /onboarding/feed-config/
 <repo>/src/findajob/scoring.py              # score_job(), _build_feedback_block() — calls findajob.llm.openrouter (#470)
 <repo>/src/findajob/scorer_prefilter.py     # deterministic pre-filter (Stage 1 + 2)
 <repo>/src/findajob/llm/openrouter.py       # canonical OpenRouter HTTP wrapper (#470) — complete(), CompletionResult, OpenRouterError; cache_control on cached_prefix + cache_system axes

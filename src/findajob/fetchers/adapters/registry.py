@@ -17,6 +17,7 @@ from .jobs_api14_bing import JobsApi14BingAdapter
 from .jobs_api14_indeed import JobsApi14IndeedAdapter
 from .jsearch import JSearchAdapter
 from .lever import LeverAdapter
+from .workday_cxs import WorkdayCXSAdapter
 
 REGISTERED_ADAPTERS: list[type[JobSourceAdapter]] = [
     JobsApi14Adapter,  # type: ignore[list-item]
@@ -27,6 +28,7 @@ REGISTERED_ADAPTERS: list[type[JobSourceAdapter]] = [
     AshbyAdapter,  # type: ignore[list-item]
     LeverAdapter,  # type: ignore[list-item]
     GmailLinkedInAdapter,  # type: ignore[list-item]
+    WorkdayCXSAdapter,  # type: ignore[list-item]
 ]
 
 # Default when config/active_sources.txt is missing or empty: every adapter
