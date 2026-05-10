@@ -20,7 +20,7 @@ After the container is up, open `http://<your-host>:${FINDAJOB_MATERIALS_PORT}/`
 
 The page presents three steps, plus a Gmail-config gate on the way to the dashboard:
 
-**Step 1 — API keys.** Collects your OpenRouter (required), RapidAPI (optional, for LinkedIn / Indeed search), and Google (optional, for the RAG embeddings) keys. The sign-up walkthrough is at [`api-keys.md`](api-keys.md). Keys live only in your stack's `data/.env`; findajob never sees them server-side.
+**Step 1 — API keys.** Collects your OpenRouter (required) and RapidAPI (optional, for LinkedIn / Indeed search) keys. The sign-up walkthrough is at [`api-keys.md`](api-keys.md). Keys live only in your stack's `data/.env`; findajob never sees them server-side.
 
 **Step 2 — Run the interview.** Once Step 1 is saved, a "Start interview" button enables. Clicking it opens a chat surface inside findajob where you have a structured 60–90 minute conversation with an LLM (Claude Sonnet 4.6, billed against your own OpenRouter key). Server-side persistent: close the tab anytime and the index page surfaces a "Resume your interview" affordance. When the LLM finishes emitting your config blocks, a green Finalize button appears — click it and findajob writes your files, runs initial company discovery, and hands off to the Gmail-config gate.
 

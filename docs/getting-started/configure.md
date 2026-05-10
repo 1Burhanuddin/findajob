@@ -91,7 +91,7 @@ Companies that don't use Greenhouse won't have a slug — use LinkedIn/Indeed se
 
 ## config/target_companies.md
 
-A human-readable target company list. If you want it available in REPL context, also copy it to `candidate_context/` — the RAG index covers that directory.
+A human-readable target company list.
 
 ---
 

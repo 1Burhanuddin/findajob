@@ -167,18 +167,16 @@ The first time you open the web UI — even at the bare URL — you'll be
 redirected to `/onboarding/`. This page now uses a two-step layout:
 
 **Step 1 — API keys.** Provide your own keys before either interview
-path enables. You'll need three:
+path enables. You'll need:
 
 | Key | Required? | What it funds | Free tier? |
 |---|---|---|---|
-| **OpenRouter** | Yes | All pipeline LLM calls + the in-app interview itself | Pay-as-you-go from $0; ~$0.05–$0.10 per fully-prepped job |
+| **OpenRouter** | Yes | All pipeline LLM calls + the in-app interview itself | Pay-as-you-go from $0; ~$1–2 per fully-prepped job |
 | **RapidAPI feed** (jobs-api14 or JSearch — onboarding picker chooses) | Optional | LinkedIn + Indeed search ingestion | 150–200 requests/month BASIC (no credit card) |
-| **Google AI Studio (Gemini)** | Optional | Embeddings for the optional RAG index | Free tier; no billing setup |
 
 Skipping RapidAPI means LinkedIn + Indeed search is inactive, but
 Greenhouse / Ashby / Lever feeds and Gmail alert ingestion still work.
-Skipping Google means the REPL-only RAG index won't rebuild — the daily
-pipeline runs identically. Full sign-up walk-throughs:
+Full sign-up walk-throughs:
 [`docs/getting-started/api-keys.md`](api-keys.md) — also reachable in-app at
 `/docs/getting-started/api-keys`.
 
@@ -250,8 +248,8 @@ the DB in the same request — no polling delay.
 
 | Value | Mutability | Recommended for |
 |---|---|---|
-| `v0.1` | moving (auto-advances to latest `v0.1.x` patch) | **Default.** Most users. Auto-accepts bugfixes; breaking changes require an explicit `.env` edit. |
-| `v0.1.0` | immutable | Pin exactly when you need a known-good version and can't afford surprises (e.g., during an active job-hunt push). |
+| `v0.23` (current minor — bump at each minor release) | moving (auto-advances to latest `v0.23.x` patch) | **Default.** Most users. Auto-accepts bugfixes; breaking changes require an explicit `.env` edit. |
+| `v0.23.0` (or any immutable `vX.Y.Z`) | immutable | Pin exactly when you need a known-good version and can't afford surprises (e.g., during an active job-hunt push). |
 | `latest` | moving (tip of `main`) | Dogfood track. The upstream maintainer runs this to exercise releases before tagging. May break. |
 | `main-<sha>` | immutable (one tag per commit on `main`) | Precise pinning or bisecting when diagnosing a regression. |
 
@@ -332,7 +330,7 @@ SQLite reads use `mode=ro` URI; `/opt/stacks` is mounted read-only.
 
 ### Rotating an API key
 
-To replace the OpenRouter, RapidAPI feed (`RAPIDAPI_KEY` — canonical; or legacy per-adapter vars `JOBS_API14_KEY` / `JSEARCH_API_KEY`, #414), or Google API key on an already-onboarded stack, you have two options:
+To replace the OpenRouter or RapidAPI feed key (`RAPIDAPI_KEY` — canonical; or legacy per-adapter vars `JOBS_API14_KEY` / `JSEARCH_API_KEY`, #414) on an already-onboarded stack, you have two options:
 
 **Option A — Web UI (recommended):**
 

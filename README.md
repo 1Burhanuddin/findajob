@@ -1,12 +1,10 @@
 # findajob
 
-Self-hosted infrastructure for a sane job search.
+**Self-hosted job search infrastructure: AI triages thousands of listings down to a handful, generates tailored materials for the ones worth applying to, and learns from every rejection.**
 
-The modern job search grinds people down — hundreds of listings per day, most irrelevant; the same cover letter rewritten at midnight; no memory of which companies went silent weeks ago; no signal about whether the rejections mean "wrong skill," "wrong level," or "wrong field."
+The modern job search grinds people down — hundreds of listings per day, most irrelevant; the same cover letter rewritten at midnight; black-hole rejections that tell you nothing about whether you targeted wrong, wrote wrong, or got unlucky. findajob absorbs the triage, the tailoring, and the tracking so your attention goes to the few applications actually worth sending.
 
-Burnout is the default. findajob absorbs the triage, the tailoring, and the tracking so your attention goes to the few applications actually worth sending. It's a pre-1.0 personal project — used daily by the operator and a small wave of beta testers, not a polished product yet.
-
-LinkedIn, Indeed, Greenhouse, and Gmail flow in; a local LLM filters out the noise; a web UI lets you triage, prep, and track. Runs as a Docker container on any Linux host. ~$0.50–2/day in API usage.
+A pre-1.0 personal project — used daily by the operator and a small wave of beta testers, not a polished product yet.
 
 ---
 
@@ -14,86 +12,48 @@ LinkedIn, Indeed, Greenhouse, and Gmail flow in; a local LLM filters out the noi
 
 The pipeline narrows the funnel at every step where a human would otherwise waste attention — LLM triage on the way in, human triage on the way to prep, prep only for jobs worth applying to. Thirty days on the operator's instance looks like this:
 
-| Funnel snapshot (30 days, except where noted) | Count | Conversion at this step |
-|---|---:|---:|
-| Listings ingested | **12,824** | — |
-| Scored ≥7 (surfaced to operator) | 393 | 3.1% of ingested |
-| Prepped (resume + cover letter + briefing) | 160 | 41% of surfaced |
-| Applications sent | **60** | 38% of prepped |
-| Interviews (lifetime, not 30d) | 6 | — |
-
 ```
-Pass rate at each step:
-Surfaced   ▓░░░░░░░░░░░░░░░░░░░░░░░░   3.1%   ← LLM triage does the heaviest cut
-Prepped    ▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░   41%
-Applied    ▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░   38%
-Interview  ▓▓░░░░░░░░░░░░░░░░░░░░░░░   10%
+Listings ingested                12,824   ──────────────────────────────
+LLM-scored ≥7 (worth a look)        393   ▓                              3.1%
+Operator flagged for prep           160   ▓▓▓▓▓▓▓▓▓▓                    41% of scored
+Applications submitted               60   ▓▓▓▓▓▓▓▓▓                     38% of prepped
+Interviews (lifetime)                  6
 ```
 
-12,824 listings narrowed to 60 applications — triage cuts the noise so attention goes to the few worth sending. The reject-with-reason flow (323 rejected with feedback, 54 waitlisted in the same 30 days) feeds back into the scorer so its cuts keep improving. Prep is LLM-assisted but user-gated: you never apply to a job the system chose for you.
-
-
----
-
-## Is this for you?
-
-- **If your search feels like 11pm cover letters, spreadsheet sprawl, and bot-rejection silence** — this is built for exactly that.
-- **If you want polished consumer SaaS** — not yet. It's self-hosted, rough at the edges, opinionated, and used daily by the operator.
-- **If you're technical and want to read the code** — see [docs/architecture.md](docs/architecture.md).
-
----
-
-## Roadmap
-
-Live status of every issue and milestone is on the **[project board](https://github.com/users/brockamer/projects/1)** — issues move through Backlog → Up Next → In Progress → Done as work happens. The summary below is a snapshot.
-
-| Milestone | What it means | Status | Target |
-|---|---|---|---|
-| **General Availability** | A second non-technical user runs their own instance end-to-end. Config layer fully externalized, user docs written, onboarding flow exists. | 35 closed / 13 open | 2026-05-31 |
-| **v1.1 — Cost + Credentials Hardening** | You see per-job and per-week LLM spend in-app, and no plaintext API key lives on disk. | 0 closed / 7 open | 2026-07-30 |
-| **v1.2 — Tuning Loop + Stats** | The pipeline recommends scorer tunes from your behavior, and `/stats/*` dashboards show precision, outcome, recall, and cost trends over time. | 0 closed / 19 open | 2026-09-29 |
-| **v1.3 — Ops Hardening** | Fresh-install smoke is CI-gated, log rotation works, DB migrates cleanly across versions. | 1 closed / 12 open | 2026-10-30 |
-| **v1.4 — Funnel + Triage UX** | Every candidate row in the daily triage loop is actionable in one click, with prior-application context inline. | 7 closed / 13 open | 2026-08-30 |
-
-*Counts above are approximate snapshots — for the live state, follow the [project board](https://github.com/users/brockamer/projects/1).*
+12,824 listings narrowed to 60 applications. Every rejection along the way is recorded with a reason — *Skills Mismatch*, *Too Senior*, *Comp Too Low*, *Geography/Onsite* — and those reasons feed back into tomorrow's scorer as negative examples. The system gets better at *your* search every week.
 
 ---
 
 ## How it works
 
-**0. Onboarding** (one-time, on first visit to the web UI) — produces your candidate profile, target-companies list, prefilter rules, and search queries from a structured interview. See [Quick start](#quick-start) below for the two onboarding paths and what you'll need.
+**1. Daily triage** (00:00, scheduler-driven) — pulls 100–500 listings from LinkedIn (via RapidAPI), Indeed, direct ATS feeds (Greenhouse, Ashby, Lever, Workday), and your Gmail job alerts; cleans, deduplicates, enriches with job-description text; scores each against your candidate profile using DeepSeek v3.2.
 
-**1. Daily triage** (00:00, scheduler-driven) — fetches 100–500 listings from RapidAPI (LinkedIn), direct ATS feeds (Greenhouse, Ashby, Lever), and Gmail job alerts (LinkedIn + Indeed); cleans + deduplicates; enriches with JD text; scores each against your candidate profile (the `profile.md` produced in step 0) using an LLM. Results land in SQLite.
-
-**2. Dashboard triage** — the web UI shows every scored job that cleared the threshold, with relevance/fit/probability scores, known contacts, and AI notes. You flag the ones worth prepping.
+**2. Dashboard triage** — the web UI shows every scored job that cleared the threshold with relevance/fit/probability scores, known contacts from your LinkedIn export, and the LLM's notes on why it scored where it did. You flag the ones worth prepping.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
-**3. Prep** (on-flag) — launches `prep_application.py`, which generates a folder per job containing a tailored resume, cover letter, company briefing, and network-outreach drafts. Uses Claude Opus for writing, Perplexity for company research.
+*Fictional demo data spanning data-center ops, social services, and K-12 education — the same pipeline works for every field, only `profile.md` changes.*
 
-**4. Apply + track** — you submit the application, mark the job *Applied*. The Applied tab color-codes by days-since-submission so you can see at a glance which applications have gone silent too long.
+**3. Prep** (one click) — generates a per-job folder containing a tailored resume, cover letter, deep-research company briefing, recruiter-perspective critique, and outreach drafts for known contacts. Claude Opus does the writing; Perplexity does the company research. ~$1–2 of LLM spend per prep run, in 5-10 minutes.
+
+**4. Apply and track** — submit the application, mark *Applied*. The Applied tab color-codes rows by days-since-submission so silent applications surface at a glance.
 
 ![Applied](docs/screenshots/applied.png)
 
-**5. Reject with reason** — jobs that don't work out get rejected with a reason (*Skills Mismatch*, *Too Senior*, *Comp Too Low*, *Geography/Onsite*, etc.). Those reasons feed back into the next day's scorer as negative examples.
+**5. Reject with reason** — jobs that don't pan out get rejected with a tagged reason. Those reasons are training examples for the next day's scorer. Manual-review flags point at the parts of your profile the LLM found ambiguous, so you know exactly where to tune.
 
-**6. Learn** — stats dashboards make the funnel and the rejection mix legible, so you can tell whether the scorer is drifting or whether a particular reason is spiking — a signal to tune the profile or retarget.
+**6. See the system working** — funnel and rejection-mix dashboards make the pipeline legible. Scorer drifting? Rejection reason spiking? You see it instead of guessing.
 
 ![Funnel](docs/screenshots/funnel.png)
 
-![Feedback](docs/screenshots/feedback.png)
-
-*Screenshots are from a fresh-install demo database seeded with fictional jobs across data center operations, social work, and K–12 education. No real employer or candidate data.*
-
 ---
 
-## What you get out of it
+## Why use it
 
-- **No more switching between Linear, Notion, Gmail, and three browser tabs.** Dashboard, Applied, Waitlist, Review, Rejected, Archive are all filtered views of the same SQLite table. Sort, filter, density toggles are URL query params — any view is bookmarkable and shareable.
-- **Your tailored resumes and cover letters stay yours.** Generated folders sit on your Docker host as plain `.docx` and `.md` files; the web UI renders Markdown inline and serves the docs as downloads. Nothing is locked behind a vendor login.
-- **When you reject a job, you tell it why — and tomorrow's scorer remembers.** Every rejection is a labeled training example. Every manual-review flag points at the part of your profile the LLM found ambiguous, so you know exactly where to tune.
-- **Built by a data center ops candidate; designed to work for a social worker, teacher, accountant, or trades professional too.** Same pipeline, same setup — only `profile.md` changes. See [`docs/maintainers/generalization.md`](docs/maintainers/generalization.md) for the state of the field-agnostic work.
-- **Your data stays local.** SQLite on your Docker host. The only outbound calls are to the LLM providers you've configured; the repo contains zero personal data.
+- **Triage cuts the noise so you can focus.** 12K → 60 isn't unusual once the scorer learns your profile. Most job tools track what you applied to; this one finds the few worth applying to.
+- **Your rejections train tomorrow's scoring.** Every *Skills Mismatch* / *Too Senior* / *Comp Too Low* tag is a labeled example. No other AI job tool closes that loop.
+- **Tailored materials, locally generated.** Per-job folder with resume + cover letter + briefing + outreach drafts, sitting on your Docker host as plain `.docx` and `.md`. SQLite for state. The only outbound calls are to the LLM providers you've configured. No SaaS lock-in for your most personal data.
+- **Field-agnostic.** Built by a data-center-ops candidate; works just as well for a social worker, teacher, accountant, or trades professional. Same pipeline, same setup — only `profile.md` changes. See [`docs/maintainers/generalization.md`](docs/maintainers/generalization.md).
 
 ---
 
@@ -101,12 +61,11 @@ Live status of every issue and milestone is on the **[project board](https://git
 
 | Component | Choice |
 |---|---|
-| Scoring | DeepSeek v3.2 via OpenRouter |
-| Resume + cover letter + outreach | Claude Opus / Sonnet 4.6 via OpenRouter |
-| Company research | Perplexity Sonar Pro via OpenRouter |
-| LLM transport | `findajob.llm.openrouter` — stdlib HTTP wrapper with prompt caching (Anthropic) and provider pinning |
+| Triage scoring | DeepSeek v3.2 via OpenRouter |
+| Materials writing | Claude Opus 4.7 + Sonnet 4.6 via OpenRouter (prompt caching enabled) |
+| Company research | Perplexity Sonar Pro |
+| Job sources | RapidAPI (LinkedIn, Indeed, Bing, JSearch), direct ATS feeds (Greenhouse, Ashby, Lever, Workday CXS), Gmail IMAP — opt-in per source at `/settings/active-sources/` |
 | Storage | SQLite |
-| Job sources | RapidAPI (jobs-api14, jobs-api14-indeed, jobs-api14-bing, jsearch), direct ATS feeds (Greenhouse, Ashby, Lever, Workday CXS), Gmail IMAP/app-password — opt-in per source at `/settings/active-sources/` |
 | Web UI | FastAPI + HTMX + Tailwind + Chart.js |
 | Push notifications | [ntfy.sh](https://ntfy.sh) |
 | Scheduler | supercronic (in-container) |
@@ -115,137 +74,99 @@ Live status of every issue and milestone is on the **[project board](https://git
 
 ## Quick start
 
-The pipeline ships as `ghcr.io/brockamer/findajob` pulled via Docker Compose.
+The pipeline ships as `ghcr.io/brockamer/findajob`, pulled via Docker Compose. Multi-arch image (`linux/amd64` + `linux/arm64`) — Apple Silicon and ARM Linux hosts get a native build automatically.
 
 ### What you'll need
 
-Two API keys before you start. Sign-up walkthroughs + cost expectations are in [`docs/getting-started/api-keys.md`](docs/getting-started/api-keys.md):
+One required API key:
 
-| Provider | Required? | What you'll spend | What findajob uses it for |
-|---|---|---|---|
-| **OpenRouter** | yes | pay-as-you-go from $0; ~$0.50/day triage-only, $1.50–3.00 per fully-prepped job, ~$3-6 per in-app onboarding interview | All LLM calls (scoring, prep writing, in-app onboarding) |
-| **RapidAPI (jobs-api14)** | optional | BASIC plan: 150 req/month free, no credit card | LinkedIn + Indeed search ingestion |
+- **OpenRouter** — funds every LLM call (triage scoring, materials writing, in-app onboarding interview). Pay-as-you-go from $0; expect ~$0.50/day when triaging only, ~$1–2 per fully-prepped job.
 
-Skipping RapidAPI means LinkedIn/Indeed search is inactive — Greenhouse/Ashby/Lever feeds and Gmail alerts still work, so the daily pipeline runs identically without it. The "What it costs to run" section near the bottom of this README breaks the OpenRouter spend down by component if you want a more granular budget. You collect both keys on the onboarding page once your container is up.
+One optional API key:
+
+- **RapidAPI (jobs-api14)** — LinkedIn/Indeed/Bing search ingestion. BASIC plan is 150 req/month free, no credit card. Skipping it means LinkedIn/Indeed search is inactive, but Greenhouse/Ashby/Lever feeds and Gmail alerts still work.
+
+Sign-up walkthroughs + cost expectations: [`docs/getting-started/api-keys.md`](docs/getting-started/api-keys.md). You collect both keys on the onboarding page once your container is up.
 
 ### Deploy
 
-Pick a directory for your stack. Anywhere is fine; everything below is relative to it:
+Pick any directory for your stack:
 
-- Linux server: `/opt/stacks/findajob-<you>/` is the conventional system path.
-- macOS: `~/docker/findajob-<you>/` or any path under your home directory works.
-- The image is multi-arch (`linux/amd64` + `linux/arm64`) so Apple Silicon and ARM-based Linux hosts get a native build automatically.
+- Linux server: `/opt/stacks/findajob-<you>/` is the conventional system-path layout
+- macOS or anywhere under your home directory: works fine for personal use
 
 ```bash
-# Replace <stack-dir> with your chosen path, e.g. /opt/stacks/findajob-<you> or ~/docker/findajob-<you>
+# Replace <stack-dir> with your chosen path
 mkdir -p <stack-dir>/state/{data,config,candidate_context,companies,logs,.backups}
 cd <stack-dir>
 
-# Two .env files:
-#   ./.env             — top-level: image tag, port, timezone, basic-auth (read by Docker Compose for ${VAR} interpolation)
-#   ./state/data/.env  — runtime: API keys, ntfy topic (bind-mounted into the container as env_file)
+# Two .env files exist:
+#   ./.env             — top-level: image tag, port, timezone (read by Docker Compose)
+#   ./state/data/.env  — runtime: API keys, ntfy topic, optional basic-auth credentials
 # Both must exist before `docker compose up -d` or Compose will refuse to start.
 curl -fsSL -o compose.yaml         https://raw.githubusercontent.com/brockamer/findajob/main/ops/compose.yaml.example
 curl -fsSL -o .env                 https://raw.githubusercontent.com/brockamer/findajob/main/ops/stack.env.example
 curl -fsSL -o state/data/.env      https://raw.githubusercontent.com/brockamer/findajob/main/data/.env.example
 chmod 600 state/data/.env
 
-# Edit ./.env (timezone, port, basic-auth password if internet-exposed).
-# Leave state/data/.env at the placeholder values — first-run onboarding overwrites them with your real API keys.
+# Edit ./.env: set FINDAJOB_TZ to your timezone and FINDAJOB_MATERIALS_PORT to a free host port.
+# Leave ./state/data/.env at the placeholder values — first-run onboarding overwrites them.
+# (For internet-exposed deployments: also set FINDAJOB_AUTH_USER + FINDAJOB_AUTH_PASS
+# in ./state/data/.env to gate the UI behind HTTP Basic Auth.)
 docker compose up -d
 ```
 
-> If you placed the stack in a system path like `/opt/stacks/`, prefix `mkdir` with `sudo` and add `sudo chown -R $(id -u):$(id -g) <stack-dir>/` so your user (rather than root) owns the bind-mounted state. Skip both for paths under your home directory.
+> If you placed the stack in `/opt/stacks/`, prefix `mkdir` with `sudo` and follow with `sudo chown -R $(id -u):$(id -g) <stack-dir>/`. Skip both for paths under your home directory.
 
 ### First-run onboarding
 
-Open `http://<your-host>:<port>/` in a browser. A fresh stack redirects you straight into onboarding — no need to know to navigate via Tools → Onboarding.
+Open `http://<your-host>:<port>/`. A fresh stack redirects to `/onboarding/`:
 
-**Step 1** — paste your OpenRouter key (required), plus optional RapidAPI and Google keys. The OpenRouter key is smoke-checked against the live API before being saved.
+1. **Paste your OpenRouter key** (plus optional RapidAPI). The OpenRouter key is smoke-checked against the live API before being saved.
+2. **Click Start interview.** A chat surface opens inside findajob and walks you through a 60–90 minute conversation about your background, target role, exclusions, and writing voice. The session is server-side persistent — close the tab anytime and the page surfaces a Resume affordance. Cost: ~$3–6 per interview with prompt caching.
+3. **Gmail config** (optional) — wire up IMAP + an app password for LinkedIn job-alert ingestion. Skippable; configure later at `/config/gmail/`.
+4. **LinkedIn Connections.csv** (optional) — drop in your LinkedIn connections export so outreach drafts can name real contacts at target companies. Skippable; upload later at `/onboarding/connections/`.
 
-**Step 2** — click Start interview. A chat surface opens inside findajob and walks you through a 60–90 minute conversation about your background, target role, exclusions, and writing voice. The session is server-side persistent — close the tab anytime, reload, and the page surfaces a Resume affordance. When the LLM finishes emitting your config blocks, a Finalize button appears; clicking it writes the config files atomically and runs initial company discovery.
+After both gates you land on the dashboard. The next scheduled triage run (00:00 in your `TZ`) ingests its first batch of jobs.
 
-**Steps 3 & 4** — Finalize routes you through two short post-interview gates before the dashboard:
-
-- **Gmail config** (optional) — wire up IMAP + an app password if you want findajob to ingest LinkedIn (and other ATS) job-alert emails. Skippable; you can configure later at `/config/gmail/`.
-- **LinkedIn Connections.csv upload** (optional) — drop in your LinkedIn connections export so the outreach drafter can name real contacts at target companies. Skippable; you can upload later at `/onboarding/connections/`.
-
-After both gates, you land on the dashboard. Cost runs ~$3-6 per onboarding (Claude Sonnet 4.6 with prompt caching). The next scheduled triage run (00:00 in your `TZ`) ingests its first batch of jobs.
-
-Full walkthrough → [`docs/getting-started/install-docker.md`](docs/getting-started/install-docker.md) (or start at [`docs/getting-started/README.md`](docs/getting-started/README.md) for the guided sequence).
+Full walkthrough → [`docs/getting-started/install-docker.md`](docs/getting-started/install-docker.md)
 
 ---
 
 ## Documentation
 
-Start here:
+- **[Getting started](docs/getting-started/README.md)** — sequenced setup guide
+- **[Daily workflow](docs/usage.md)** — what to do each day, web-UI tab by tab
+- **[Troubleshooting](docs/troubleshooting.md)** — symptom index + log reading
+- **[Architecture](docs/architecture.md)** — system design + data flow (for operators reading the code)
 
-- **[Getting started](docs/getting-started/README.md)** — guided sequence for getting your stack running
-- **[Daily workflow](docs/usage.md)** — what to do each day, tab by tab in the web UI
-- **[Troubleshooting](docs/troubleshooting.md)** — symptom index, log reading, health alerts
-- **[Architecture](docs/architecture.md)** — system design, data flow, component map (for operators who want to read the code)
-
-<details>
-<summary>All documentation (click to expand)</summary>
-
-| Doc | Contents |
-|---|---|
-| [docs/getting-started/README.md](docs/getting-started/README.md) | Getting started — start here |
-| [docs/usage.md](docs/usage.md) | Daily workflow: web UI tab by tab |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Symptom index + log reading + health alerts |
-| [docs/architecture.md](docs/architecture.md) | System design, data flow, component map |
-| [docs/getting-started/prerequisites.md](docs/getting-started/prerequisites.md) | API keys, accounts, tools you need |
-| [docs/getting-started/install-docker.md](docs/getting-started/install-docker.md) | Docker Compose setup |
-| [docs/getting-started/api-keys.md](docs/getting-started/api-keys.md) | Getting your three API keys (OpenRouter, RapidAPI, Google AI Studio) |
-| [docs/getting-started/configure.md](docs/getting-started/configure.md) | Profile, resume, search queries, advanced config |
-| [docs/operations/README.md](docs/operations/README.md) | Operator reference: manual commands, monitoring |
-| [docs/operations/internet-exposure.md](docs/operations/internet-exposure.md) | Exposing the stack to the public internet |
-| [docs/operations/restore.md](docs/operations/restore.md) | Restore from backup |
-| [docs/getting-started/notifications.md](docs/getting-started/notifications.md) | ntfy.sh setup |
-
-**For contributors:**
-
-| Doc | Contents |
-|---|---|
-| [docs/maintainers/release-process.md](docs/maintainers/release-process.md) | Release ceremony, dogfood gate, CHANGELOG conventions |
-| [docs/maintainers/project-board.md](docs/maintainers/project-board.md) | GitHub Projects v2 board conventions and CLI |
-| [docs/maintainers/plan-conventions.md](docs/maintainers/plan-conventions.md) | What every implementation plan must contain |
-| [docs/maintainers/generalization.md](docs/maintainers/generalization.md) | Making the pipeline work for non-tech fields |
-
-</details>
+Live status of every issue and milestone: **[project board](https://github.com/users/brockamer/projects/1)** (the single source of truth for active work).
 
 ---
 
-## What it costs to run
+## What it costs
 
 Real-world per-day usage on the operator's instance, ~10k jobs/month scored:
 
 | Item | Typical day |
 |---|---|
-| Scoring (DeepSeek via OpenRouter) | $0.10–0.30 |
-| Company research (Perplexity Sonar Pro) | $0.10–0.20 per prepped job |
-| Prep writing (Claude Opus) | $1.50–3.00 per prepped job |
-| Embeddings rebuild (Gemini) | ~$0.01/week |
+| Scoring (DeepSeek) | $0.10–0.30 |
+| Per prepped job (briefing + resume + cover + critique + outreach) | $1.00 avg, $2.15 max |
 
-Total: ~$0.50/day when triaging only; ~$5–15 on days you prep a few applications.
+Total: ~$0.50/day triage-only; ~$5–15 on days you prep several applications.
 
 ---
 
-## Privacy
+## Privacy and contributing
 
-The repository contains no personal data. All candidate content (resume, profile, writing samples, search queries, API keys) lives in gitignored paths populated from `.example` templates. The Claude Code session pattern is split: tracked `CLAUDE.md` carries generic project guidance, gitignored `CLAUDE.local.md` carries personal identifiers — see the top of `CLAUDE.md` for the contract.
+The repo contains zero personal data. All candidate content (resume, profile, writing samples, search queries, API keys) lives in gitignored paths populated from `.example` templates. The pre-commit hook blocks PII you accidentally try to commit.
 
----
+- **[Issues](https://github.com/brockamer/findajob/issues)** — file a bug, request a feature
+- **[Discussions](https://github.com/brockamer/findajob/discussions)** — "how do I…" or "have you considered…"
+- **In-app Feedback widget** — floating button on every page files a GitHub issue directly from the web UI
+- **Security** — please don't file public issues for security-relevant bugs; see [`SECURITY.md`](SECURITY.md)
 
-## Stay in touch / contribute
-
-- **[Project board](https://github.com/users/brockamer/projects/1)** — what's being worked on, what's blocked, what's on the roadmap. The single source of truth for active work.
-- **[Issues](https://github.com/brockamer/findajob/issues)** — file a bug, request a feature, or browse the open ones. New issues land in the board's Backlog and get triaged with a Priority field.
-- **In-app feedback widget** — if you're running an instance, the floating "Feedback" button on every page files a GitHub issue directly from the web UI (configure with a fine-grained PAT per `docs/getting-started/configure.md`).
-- **[Discussions](https://github.com/brockamer/findajob/discussions)** — for "how do I..." or "have you considered..." threads that aren't bug reports yet.
-- **Security disclosures** — please don't file public issues for security-relevant bugs. See [`SECURITY.md`](SECURITY.md) for the private disclosure path.
-
-This is a personal project, but contributions are welcome. The code is opinionated, the docs are written for an external reader trying it for the first time, and the pre-commit hook will block any PII you accidentally try to commit. Start at [`CONTRIBUTING.md`](CONTRIBUTING.md) — it covers dev setup, commit conventions, the `migration-required` label, and the architectural invariants the code enforces.
+Contributions welcome. Start at [`CONTRIBUTING.md`](CONTRIBUTING.md) — dev setup, commit conventions, the `migration-required` label, and the architectural invariants the code enforces.
 
 ---
 

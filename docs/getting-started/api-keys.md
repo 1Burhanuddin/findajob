@@ -61,8 +61,8 @@ under "Pipeline Context Table."
 |---|---|
 | Score one job (no JD fetch) | < $0.001 |
 | Score one job (with JD + fit analysis) | $0.01–$0.05 |
-| Full prep package (briefing + tailored resume + cover letter + recruiter critique + outreach drafts) | $1.50–$3.00 (Claude Opus dominates) |
-| In-app onboarding interview, end to end | ~$1 |
+| Full prep package (briefing + tailored resume + cover letter + recruiter critique + outreach drafts) | ~$1.00 avg, $2.15 max (Claude Opus dominates) |
+| In-app onboarding interview, end to end | ~$3–6 |
 | Weekly company-discovery cron | ~$0.10 |
 
 Daily triage with no full-prep activity typically stays under $0.50/day.
@@ -188,8 +188,7 @@ To rotate any key:
    under `.backups/{UTC-stamp}/` and writes the new value in place.
 
 The pipeline picks up the new key on its next scheduled run; no
-restart needed for keys read at request time. RAG embeddings use the
-key fresh on each rebuild.
+restart needed for keys read at request time.
 
 If the operator manages your stack and you want them to rotate a key
 on your behalf, they can edit `data/.env` directly via SSH —
