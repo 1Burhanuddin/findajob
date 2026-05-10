@@ -136,10 +136,17 @@ sudo mkdir -p /opt/stacks/findajob-<you>/state/{data,config,candidate_context,co
 sudo chown -R $(id -u):$(id -g) /opt/stacks/findajob-<you>/
 cd /opt/stacks/findajob-<you>
 
-curl -fsSL -o compose.yaml https://raw.githubusercontent.com/brockamer/findajob/main/ops/compose.yaml.example
-curl -fsSL -o .env         https://raw.githubusercontent.com/brockamer/findajob/main/ops/stack.env.example
+# Two .env files:
+#   ./.env             — top-level: image tag, port, timezone, basic-auth (read by Docker Compose for ${VAR} interpolation)
+#   ./state/data/.env  — runtime: API keys, ntfy topic (bind-mounted into the container as env_file)
+# Both must exist before `docker compose up -d` or Compose will refuse to start.
+curl -fsSL -o compose.yaml         https://raw.githubusercontent.com/brockamer/findajob/main/ops/compose.yaml.example
+curl -fsSL -o .env                 https://raw.githubusercontent.com/brockamer/findajob/main/ops/stack.env.example
+curl -fsSL -o state/data/.env      https://raw.githubusercontent.com/brockamer/findajob/main/data/.env.example
+chmod 600 state/data/.env
 
-# Edit .env (timezone, port, basic-auth password if internet-exposed)
+# Edit ./.env (timezone, port, basic-auth password if internet-exposed).
+# Leave state/data/.env at the placeholder values — first-run onboarding overwrites them with your real API keys.
 docker compose up -d
 ```
 

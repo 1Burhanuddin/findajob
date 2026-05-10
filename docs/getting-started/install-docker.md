@@ -42,7 +42,31 @@ Edit `.env` to taste — at minimum set `FINDAJOB_TZ`, `FINDAJOB_MATERIALS_PORT`
 
 ## 3. Populate `state/`
 
-- `state/data/.env` — API keys (chmod 600). Template: [repo's `data/.env.example`](https://github.com/brockamer/findajob/blob/main/data/.env.example)
+There are two `.env` files in a findajob deployment with different roles
+— don't conflate them:
+
+- **`./.env`** (next to `compose.yaml`, populated in step 2 above) —
+  read by Docker Compose itself for `${VAR}` interpolation in
+  `compose.yaml`. Holds image tag, port, timezone, basic-auth credentials.
+- **`./state/data/.env`** — bind-mounted into the container as the
+  runtime `env_file`. Holds API keys (`OPENROUTER_API_KEY`,
+  `RAPIDAPI_KEY`), `NTFY_TOPIC`, and similar runtime secrets.
+
+**`state/data/.env` MUST exist (even with placeholder values) before
+`docker compose up -d`.** Docker Compose's `env_file:` directive errors
+out on missing files and the container refuses to start. The first-run
+onboarding interview overwrites the placeholder API keys with your real
+values via the web UI; you don't hand-edit this file unless you're
+rotating keys later (see "Rotating an API key" further down).
+
+```bash
+# Seed state/data/.env from the documented template:
+curl -fsSL -o state/data/.env https://raw.githubusercontent.com/brockamer/findajob/main/data/.env.example
+chmod 600 state/data/.env
+```
+
+Other files under `state/`:
+
 - `state/config/*.yaml|.txt|.json` — personal config files. See [configure.md](configure.md) for each file's purpose.
 - `state/candidate_context/profile.md` + `master_resume.md` — your candidate profile. See [`candidate_context/profile.md.example`](https://github.com/brockamer/findajob/blob/main/candidate_context/profile.md.example).
 
