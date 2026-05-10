@@ -10,6 +10,8 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.23.1] — 2026-05-10
+
 ### Migration required
 
 - **Operator-side stack rename + new staging stack standup.** The factory-fresh stack must be renamed `findajob-test` → `findajob-clean` (atomic stack-dir rename plus compose tag rename — see prior tester-stack rename precedent for the procedure). The new `findajob-staging` stack must be stood up on `<deployment-host>` per the operator-private setup doc, with HTTP Basic Auth + `python -m findajob.web.verify_auth` post-deploy (CLAUDE.md hard rule).
