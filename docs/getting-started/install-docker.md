@@ -168,11 +168,23 @@ cumulative chat history dominate the bill in long interviews.
 The injector validates the emission, runs a 1-token smoke check against
 OpenRouter to re-verify the key, atomically writes the config files
 (`findajob.config_loader` reads Tier 1 directly from `target_companies.md`
-at runtime — no derived file post-#211), runs initial company discovery,
-and marks onboarding complete. Errors are surfaced verbatim — fix and
-resubmit.
+at runtime — no derived file post-#211), and runs initial company
+discovery. Errors are surfaced verbatim — fix and resubmit.
 
-After onboarding lands, the next scheduled triage run (00:00 in your
+**Step 3 — Gmail configuration (optional).** After Finalize, you're routed
+to `/onboarding/gmail-config/{session_id}/` to wire up IMAP + a Google
+app-password if you want findajob to ingest LinkedIn (and other ATS)
+job-alert emails. Skippable — you can configure later at `/config/gmail/`.
+
+**Step 4 — LinkedIn Connections.csv upload (optional, #571).** The Gmail
+gate routes to `/onboarding/connections/{session_id}/` where you upload
+your LinkedIn connections export so the outreach drafter can name real
+contacts at target companies. Skippable; can be uploaded later at
+`/onboarding/connections/`. The connections gate writes
+`data/.onboarding-complete` (the sentinel that lets `onboarding_guard`
+stop redirecting), then lands you on the dashboard.
+
+After the connections gate, the next scheduled triage run (00:00 in your
 configured `TZ`) ingests its first batch of jobs.
 
 ## 8. Send a test notification
@@ -370,9 +382,14 @@ per-adapter names (#414). Renaming an existing legacy var to the canonical
 `RAPIDAPI_KEY` is optional and only worthwhile for clarity.
 
 Stacks without `config/active_sources.txt` (i.e., stacks that pre-date the picker)
-default to `jobs-api14` as the active adapter, preserving pre-v0.14 behavior
-automatically. To switch to a different feed, visit `/onboarding/?mode=rerun` —
-Section 3h presents the picker and the feed-config form collects the new key.
+default to **all pre-#410.5 unconditional adapters** (`jobs-api14`,
+`jobs-api14-indeed`, `jsearch`, `greenhouse`, `ashby`, `lever`, `gmail`),
+preserving the pre-#410.5 behavior automatically (`jobs-api14-bing` and
+post-#410.5 adapters like `workday-cxs` are opt-in only). To opt in or out
+of any adapter, visit `/settings/active-sources/` (#603) — the page reads
+`REGISTERED_ADAPTERS` directly so newly-registered adapters appear
+automatically. The legacy `/onboarding/?mode=rerun` flow still works for
+re-collecting RapidAPI keys.
 
 ---
 

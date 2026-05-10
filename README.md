@@ -106,7 +106,7 @@ Live status of every issue and milestone is on the **[project board](https://git
 | Company research | Perplexity Sonar Pro via OpenRouter |
 | LLM transport | `findajob.llm.openrouter` — stdlib HTTP wrapper with prompt caching (Anthropic) and provider pinning |
 | Storage | SQLite |
-| Job sources | RapidAPI jobs-api14, Greenhouse JSON, Gmail IMAP/app-password (configurable; see [`docs/getting-started/gmail.md`](docs/getting-started/gmail.md)) |
+| Job sources | RapidAPI (jobs-api14, jobs-api14-indeed, jobs-api14-bing, jsearch), direct ATS feeds (Greenhouse, Ashby, Lever, Workday CXS), Gmail IMAP/app-password — opt-in per source at `/settings/active-sources/` |
 | Web UI | FastAPI + HTMX + Tailwind + Chart.js |
 | Push notifications | [ntfy.sh](https://ntfy.sh) |
 | Scheduler | supercronic (in-container) |
@@ -132,7 +132,7 @@ Skipping RapidAPI means LinkedIn/Indeed search is inactive — Greenhouse/Ashby/
 
 ```bash
 # On your Docker host
-sudo mkdir -p /opt/stacks/findajob-<you>/state/{data,config,candidate_context,companies,logs}
+sudo mkdir -p /opt/stacks/findajob-<you>/state/{data,config,candidate_context,companies,logs,.backups}
 sudo chown -R $(id -u):$(id -g) /opt/stacks/findajob-<you>/
 cd /opt/stacks/findajob-<you>
 
@@ -149,9 +149,14 @@ Open `http://<your-host>:<port>/` in a browser. A fresh stack redirects you stra
 
 **Step 1** — paste your OpenRouter key (required), plus optional RapidAPI and Google keys. The OpenRouter key is smoke-checked against the live API before being saved.
 
-**Step 2** — click Start interview. A chat surface opens inside findajob and walks you through a 60–90 minute conversation about your background, target role, exclusions, and writing voice. The session is server-side persistent — close the tab anytime, reload, and the page surfaces a Resume affordance. When the LLM finishes emitting your config blocks, a Finalize button appears; clicking it writes the config files atomically, runs initial company discovery, and lands you on the dashboard. No copy-paste step.
+**Step 2** — click Start interview. A chat surface opens inside findajob and walks you through a 60–90 minute conversation about your background, target role, exclusions, and writing voice. The session is server-side persistent — close the tab anytime, reload, and the page surfaces a Resume affordance. When the LLM finishes emitting your config blocks, a Finalize button appears; clicking it writes the config files atomically and runs initial company discovery.
 
-Cost runs ~$3-6 per onboarding (Claude Sonnet 4.6 with prompt caching). The next scheduled triage run (00:00 in your `TZ`) ingests its first batch of jobs.
+**Steps 3 & 4** — Finalize routes you through two short post-interview gates before the dashboard:
+
+- **Gmail config** (optional) — wire up IMAP + an app password if you want findajob to ingest LinkedIn (and other ATS) job-alert emails. Skippable; you can configure later at `/config/gmail/`.
+- **LinkedIn Connections.csv upload** (optional) — drop in your LinkedIn connections export so the outreach drafter can name real contacts at target companies. Skippable; you can upload later at `/onboarding/connections/`.
+
+After both gates, you land on the dashboard. Cost runs ~$3-6 per onboarding (Claude Sonnet 4.6 with prompt caching). The next scheduled triage run (00:00 in your `TZ`) ingests its first batch of jobs.
 
 Full walkthrough → [`docs/getting-started/install-docker.md`](docs/getting-started/install-docker.md) (or start at [`docs/getting-started/README.md`](docs/getting-started/README.md) for the guided sequence).
 
