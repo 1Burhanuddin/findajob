@@ -95,8 +95,13 @@ def install_basic_auth(
     WARNING — silent fail-open on a typo'd compose.yaml is a real foot-gun for
     internet-exposed instances and observability is the cheap defense.
     """
-    user = username if username is not None else os.environ.get("FINDAJOB_AUTH_USER", "")
-    pw = password if password is not None else os.environ.get("FINDAJOB_AUTH_PASS", "")
+    # Strip whitespace from env-derived values. Some Docker Compose versions
+    # don't strip inline comments from env_file lines, so a `KEY=    # comment`
+    # entry can land here as whitespace-only-or-junk text and trigger the
+    # auth gate with garbage credentials. Stripping makes the "both empty
+    # = no auth" contract robust to that parser variation.
+    user = username if username is not None else os.environ.get("FINDAJOB_AUTH_USER", "").strip()
+    pw = password if password is not None else os.environ.get("FINDAJOB_AUTH_PASS", "").strip()
     if user and pw:
         app.add_middleware(BasicAuthMiddleware, username=user, password=pw)  # type: ignore[attr-defined]
         logger.info("basic auth: ENABLED (FINDAJOB_AUTH_USER + FINDAJOB_AUTH_PASS both set)")

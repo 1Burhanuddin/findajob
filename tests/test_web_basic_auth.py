@@ -182,6 +182,21 @@ def test_empty_string_env_vars_mean_no_auth(tmp_path: Path, monkeypatch: pytest.
     assert r.status_code == 200
 
 
+def test_whitespace_only_env_vars_mean_no_auth(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Some Docker Compose versions don't strip inline `# comment` text from
+    env_file lines, so `FINDAJOB_AUTH_USER=   # leave empty to disable auth`
+    can land here as whitespace-only (or worse). The auth gate must treat
+    both empty and whitespace-only as "disabled" or testers get locked out
+    behind random characters they didn't set.
+    """
+    monkeypatch.setenv("FINDAJOB_AUTH_USER", "    ")
+    monkeypatch.setenv("FINDAJOB_AUTH_PASS", "\t  \n")
+    app = _make_app(tmp_path)
+    client = TestClient(app)
+    r = client.get("/", follow_redirects=False)
+    assert r.status_code == 200
+
+
 def test_malformed_authorization_header_returns_401(auth_client: TestClient) -> None:
     r = auth_client.get("/", headers={"Authorization": "Bearer xyz"}, follow_redirects=False)
     assert r.status_code == 401

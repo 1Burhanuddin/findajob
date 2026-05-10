@@ -38,8 +38,11 @@ def _probe(headers: dict[str, str]) -> tuple[int, dict[str, str]]:
 
 
 def main() -> int:
-    user = os.environ.get("FINDAJOB_AUTH_USER", "")
-    password = os.environ.get("FINDAJOB_AUTH_PASS", "")
+    # Match install_basic_auth's whitespace-stripping behavior so the
+    # verifier's "both set" contract aligns with what the runtime actually
+    # sees after the env_file parser.
+    user = os.environ.get("FINDAJOB_AUTH_USER", "").strip()
+    password = os.environ.get("FINDAJOB_AUTH_PASS", "").strip()
     if not user or not password:
         print(
             "FAIL: FINDAJOB_AUTH_USER and/or FINDAJOB_AUTH_PASS not set in container env",
