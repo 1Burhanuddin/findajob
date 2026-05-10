@@ -212,7 +212,11 @@ def _fetch_section(db: sqlite3.Connection, where: str, order: str) -> list[sqlit
 
 
 @router.get("/materials/", response_class=HTMLResponse)
-def materials_index(request: Request, db: sqlite3.Connection = Depends(get_db)) -> HTMLResponse:  # noqa: B008
+def materials_index(
+    request: Request,
+    db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+    regen_error: str = "",
+) -> HTMLResponse:
     sections = []
     for name, where, order in _INDEX_QUERY_SECTIONS:
         rows = _fetch_section(db, where, order)
@@ -228,7 +232,7 @@ def materials_index(request: Request, db: sqlite3.Connection = Depends(get_db)) 
     return templates.TemplateResponse(
         request=request,
         name="materials/index.html",
-        context={"sections": sections, "rejected": rejected},
+        context={"sections": sections, "rejected": rejected, "regen_error": regen_error},
     )
 
 
@@ -286,7 +290,10 @@ def folder_view(
         if synth_row is not None and synth_row["synthetic"]:
             return RedirectResponse(url=f"/jobs/{fingerprint}/jd", status_code=303)
         raise HTTPException(status_code=404, detail="folder not found")
-    row = db.execute("SELECT id, title, company, stage FROM jobs WHERE fingerprint = ?", (fingerprint,)).fetchone()
+    row = db.execute(
+        "SELECT id, title, company, stage, stage_updated FROM jobs WHERE fingerprint = ?",
+        (fingerprint,),
+    ).fetchone()
     title = row["title"] if row else ""
     company = row["company"] if row else ""
     groups = _group_files(folder, title=title, company=company)
@@ -313,11 +320,49 @@ def folder_view(
             "title": title,
             "company": company,
             "stage": row["stage"] if row else "",
+            "last_generated_iso": row["stage_updated"] if row else None,
             "groups": groups,
             "breakdown": breakdown,
             "breakdown_total": breakdown_total,
         },
     )
+
+
+@router.post("/materials/{fingerprint}/regenerate", response_class=RedirectResponse)
+def regenerate_from_materials(
+    fingerprint: str,
+    request: Request,  # noqa: ARG001 — kept for handler signature parity
+    db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+) -> RedirectResponse:
+    """Trigger prep regeneration from the per-job materials page.
+
+    Mirrors the gating of ``board_actions.regenerate`` (404 / idempotent
+    prep_in_progress / queue cap) but redirects to ``/materials/`` rather than
+    returning the dashboard's HTMX row. Side effects route through the shared
+    ``_execute_regenerate`` helper so prep-launch state stays in one place.
+    """
+    from findajob.web.routes.board_actions import (
+        MAX_CONCURRENT_PREPS,
+        _execute_regenerate,
+        _prep_in_flight,
+    )
+
+    job = db.execute(
+        "SELECT id, title, company, url, stage, prep_folder_path FROM jobs WHERE fingerprint=?",
+        (fingerprint,),
+    ).fetchone()
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job["stage"] == "prep_in_progress":
+        return RedirectResponse(url=f"/materials/{fingerprint}", status_code=303)
+
+    if _prep_in_flight(db) >= MAX_CONCURRENT_PREPS:
+        return RedirectResponse(url="/materials/?regen_error=queue_full", status_code=303)
+
+    _execute_regenerate(db, job, source_event="web_regen_dispatched_from_materials")
+
+    return RedirectResponse(url="/materials/", status_code=303)
 
 
 @router.get("/jobs/{fingerprint}/jd", response_class=HTMLResponse)

@@ -42,6 +42,62 @@
   </div>
 </aside>
 
+{# Regenerate action — replaces the prep folder and re-runs the entire prep
+   pipeline. Click reveals a warning + confirm to avoid accidental destruction. #}
+<aside class="mb-5 border border-amber-200 bg-amber-50 rounded-md px-4 py-3"
+       x-data="{ confirming: false }">
+  <div class="flex items-center justify-between gap-4">
+    <div class="text-sm text-slate-700 min-w-0">
+      <span class="font-semibold text-amber-900">Regenerate materials</span>
+      {% if last_generated_iso %}
+      <span class="ml-2 text-slate-600">Last generated:
+        <span class="font-mono"
+              x-data="{ iso: '{{ last_generated_iso }}' }"
+              x-text="new Date(iso.includes('Z') || iso.includes('+') ? iso : iso + 'Z').toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })">
+          {{ last_generated_iso[:16].replace('T', ' ') }} UTC
+        </span>
+      </span>
+      {% endif %}
+    </div>
+    <div class="shrink-0">
+      {% if stage == 'prep_in_progress' %}
+        <button type="button" disabled
+                class="inline-flex items-center px-3 py-1.5 rounded text-sm font-medium bg-slate-300 text-slate-600 cursor-not-allowed">
+          ⟳ Regenerating…
+        </button>
+      {% else %}
+        <button type="button"
+                class="inline-flex items-center px-3 py-1.5 rounded text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white"
+                x-show="!confirming"
+                @click="confirming = true">
+          ⟳ Regenerate
+        </button>
+      {% endif %}
+    </div>
+  </div>
+  {% if stage != 'prep_in_progress' %}
+  <div class="mt-3 pt-3 border-t border-amber-200" x-show="confirming" x-cloak>
+    <p class="text-sm text-amber-900 mb-3">
+      <span class="font-semibold">This replaces the existing materials.</span>
+      The current resume, cover letter, briefing, recruiter critique, and
+      outreach drafts in this folder will be deleted and rebuilt from scratch.
+      The job description is preserved.
+    </p>
+    <form method="POST" action="/materials/{{ fingerprint }}/regenerate" class="flex items-center gap-2">
+      <button type="submit"
+              class="inline-flex items-center px-3 py-1.5 rounded text-sm font-medium bg-amber-700 hover:bg-amber-800 text-white">
+        Yes — replace and regenerate
+      </button>
+      <button type="button"
+              class="inline-flex items-center px-3 py-1.5 rounded text-sm font-medium border border-slate-300 text-slate-700 hover:bg-white"
+              @click="confirming = false">
+        Cancel
+      </button>
+    </form>
+  </div>
+  {% endif %}
+</aside>
+
 {# Document-type groups in workflow order: JD → Briefing → Resume → Resume Changes → Cover → Outreach → Critique → Review → Other.
    Each group header shows a plain-language description (what it is + when to use it). The per-file row shows
    the format-specific hint, size/mtime, and the View/Download action. #}

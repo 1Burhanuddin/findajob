@@ -3,6 +3,12 @@
 {% block content %}
 <h1>findajob materials</h1>
 
+{% if regen_error == 'queue_full' %}
+<aside class="my-3 border border-amber-300 bg-amber-50 text-amber-900 rounded-md px-3 py-2 text-sm">
+  Regenerate could not start — prep queue is full. Try again in a few minutes.
+</aside>
+{% endif %}
+
 {% for section in sections %}
 <h2>{{ section.name }}</h2>
 {% if section.rows %}

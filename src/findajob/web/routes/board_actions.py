@@ -312,6 +312,21 @@ def regenerate(
         (fingerprint,),
     ).fetchone()
 
+    _execute_regenerate(db, job, source_event="web_regen_dispatched")
+
+    updated = _fetch_dashboard_row(db, fingerprint)
+    assert updated is not None
+    return _render_dashboard_row(request, updated, db)
+
+
+def _execute_regenerate(db: sqlite3.Connection, job: sqlite3.Row, *, source_event: str) -> None:
+    """Side effects of regenerate after gates have passed.
+
+    Caller must already have verified: job exists, ``stage != 'prep_in_progress'``,
+    and prep queue is below ``MAX_CONCURRENT_PREPS``. Used by both the dashboard
+    handler (returns HTMX row) and the materials-page handler (returns redirect)
+    so the side-effect sequence stays in one place.
+    """
     folder = job["prep_folder_path"]
     if folder and os.path.isdir(folder):
         shutil.rmtree(folder)
@@ -327,17 +342,13 @@ def regenerate(
     db.commit()
     write_audit(db, job["id"], "stage", job["stage"], "prep_in_progress")
     log_event(
-        "web_regen_dispatched",
+        source_event,
         job_id=job["id"],
         company=job["company"],
         title=job["title"],
     )
 
     _launch_prep_subprocess(db, job)
-
-    updated = _fetch_dashboard_row(db, fingerprint)
-    assert updated is not None
-    return _render_dashboard_row(request, updated, db)
 
 
 @router.post("/board/jobs/{fingerprint}/apply", response_class=HTMLResponse)

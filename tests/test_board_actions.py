@@ -555,6 +555,67 @@ class TestRegenerate:
         assert popen_calls == []
 
 
+# ── /materials/{fp}/regenerate handler (#616) ────────────────────────────
+
+
+class TestRegenerateFromMaterials:
+    """Materials-page Regenerate POST.
+
+    Same prep-launch machinery as ``TestRegenerate`` (shared
+    ``_execute_regenerate`` helper); response shape differs — redirects to
+    /materials/ instead of returning the dashboard's HTMX row.
+    """
+
+    def test_happy_path_redirects_and_dispatches(self, client: TestClient, popen_calls):
+        folder = TestRegenerate()._seed_prep_folder(client, "fp_drafted")
+
+        response = client.post("/materials/fp_drafted/regenerate", follow_redirects=False)
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/materials/"
+        assert not folder.exists()
+        assert _fetch_stage(client, "fp_drafted") == "prep_in_progress"
+        assert len(popen_calls) == 1
+        assert "prep_application.py" in popen_calls[0][1]
+
+    def test_404_on_unknown_fingerprint(self, client: TestClient, popen_calls):
+        response = client.post("/materials/fp_nonexistent/regenerate", follow_redirects=False)
+        assert response.status_code == 404
+        assert popen_calls == []
+
+    def test_idempotent_on_prep_in_progress(self, client: TestClient, popen_calls):
+        """Click during regen: redirect to per-job page, no new subprocess, no audit row."""
+        response = client.post("/materials/fp_prep/regenerate", follow_redirects=False)
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/materials/fp_prep"
+        assert _fetch_stage(client, "fp_prep") == "prep_in_progress"
+        assert popen_calls == []
+        assert _fetch_audit(client, "fp_prep") == []
+
+    def test_queue_full_redirects_with_error_param(self, client: TestClient, popen_calls):
+        """3 in flight → 4th regen request bounces to /materials/ with regen_error=queue_full."""
+        conn = sqlite3.connect(client._db_path)
+        conn.execute(
+            "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage) "
+            "VALUES ('inflight1','fp_inflight1','u','T','C','test','prep_in_progress')"
+        )
+        conn.execute(
+            "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage) "
+            "VALUES ('inflight2','fp_inflight2','u','T','C','test','prep_in_progress')"
+        )
+        conn.commit()
+        conn.close()
+
+        response = client.post("/materials/fp_drafted/regenerate", follow_redirects=False)
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/materials/?regen_error=queue_full"
+        assert _fetch_stage(client, "fp_drafted") == "materials_drafted"
+        prep_calls = [c for c in popen_calls if "prep_application.py" in c[1]]
+        assert prep_calls == []
+
+
 # ── Concurrency cap ──────────────────────────────────────────────────────
 
 
