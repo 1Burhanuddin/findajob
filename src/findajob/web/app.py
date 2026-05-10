@@ -22,7 +22,7 @@ from findajob.web.helpers import (
     remote_cell_class,
     stage_row_class,
 )
-from findajob.web.onboarding_guard import require_onboarding_complete
+from findajob.web.onboarding_guard import onboarding_complete, require_onboarding_complete
 from findajob.web.routes import materials as _materials_routes
 from findajob.web.routes import router as _aggregated_router
 
@@ -70,6 +70,7 @@ def create_app(
             conn.close()
 
     templates.env.globals["spend_this_month_for_template"] = _spend_this_month_for_template
+    templates.env.globals["onboarding_complete"] = onboarding_complete
 
     static_dir = Path(__file__).parent / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")

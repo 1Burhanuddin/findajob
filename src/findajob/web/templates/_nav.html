@@ -42,7 +42,13 @@
        chip is absent — _nav_credits.html only emits an <li> for poll_status='ok' or
        'stale', so we can't rely on it to anchor the layout. Putting ml-auto on both
        is safe: a second auto-margin in a flex row collapses to 0 once the first one
-       has consumed remaining space (#475). #}
+       has consumed remaining space (#475).
+       Suppressed pre-onboarding: the badge endpoint is behind the onboarding
+       guard, so the HTMX poll would 307 → /onboarding/ and HTMX swaps the full
+       onboarding page body into the badge slot, looping on `hx-trigger="load"`
+       in the re-rendered nav. Fresh-install only (the cached app.state flag
+       short-circuits the guard for any stack already past onboarding). #}
+    {% if onboarding_complete(request) %}
     <li class="ml-auto">
       <a href="/notifications/"
          class="px-2 py-1 rounded inline-flex items-center {% if operator_mode %}hover:bg-rose-800{% else %}hover:bg-slate-700{% endif %}"
@@ -55,6 +61,7 @@
               id="nav-notif-badge"></span>
       </a>
     </li>
+    {% endif %}
     {% if operator_mode %}
       {% set admin_active = request.url.path.startswith("/admin/") %}
       <li>

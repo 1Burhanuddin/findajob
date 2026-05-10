@@ -106,3 +106,31 @@ def test_gated_routes_pass_with_sentinel(configured_client: TestClient, path: st
 def test_ungated_routes_reachable_without_sentinel(unconfigured_client: TestClient, path: str) -> None:
     resp = unconfigured_client.get(path)
     assert not (resp.status_code == 307 and resp.headers.get("location") == "/onboarding/")
+
+
+# ---- Nav widgets that poll guarded endpoints must not render pre-onboarding ----
+#
+# Regression: /notifications/badge is on the guarded notifications router. On
+# the unonboarded onboarding page, the badge poll 307'd to /onboarding/; HTMX
+# followed the redirect and outerHTML-swapped the full onboarding page body
+# into the badge slot, which contained another _nav.html with another badge
+# whose hx-trigger="load" fired again. Browsers logged a tight loop of
+# alternating /onboarding/ 200 and /notifications/badge 307 requests.
+
+
+# Parametrized over every ungated HTML-rendering route — the contract is "no
+# ungated page polls a guarded endpoint pre-onboarding" so a future ungated
+# route can't quietly regress this loop without tripping the test.
+@pytest.mark.parametrize("path", ["/onboarding/", "/tools/", "/docs/", "/config/"])
+def test_ungated_page_does_not_poll_guarded_badge(unconfigured_client: TestClient, path: str) -> None:
+    resp = unconfigured_client.get(path)
+    assert resp.status_code == 200
+    assert 'id="nav-notif-badge"' not in resp.text
+    assert "/notifications/badge" not in resp.text
+
+
+def test_guarded_page_still_renders_badge_when_configured(configured_client: TestClient) -> None:
+    resp = configured_client.get("/board/dashboard")
+    assert resp.status_code == 200
+    assert 'id="nav-notif-badge"' in resp.text
+    assert 'hx-get="/notifications/badge"' in resp.text

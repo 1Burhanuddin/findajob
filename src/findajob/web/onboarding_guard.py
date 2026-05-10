@@ -14,18 +14,30 @@ from fastapi import HTTPException, Request
 from findajob.onboarding import is_complete
 
 
+def onboarding_complete(request: Request) -> bool:
+    """Predicate form of the guard — True iff the sentinel exists.
+
+    Exposed as a Jinja global so templates can gate nav widgets that would
+    otherwise poll guarded endpoints and HTMX-swap the resulting 307 →
+    /onboarding/ body into themselves (#440 / fresh-install loop).
+    """
+    cached = getattr(request.app.state, "onboarding_complete", None)
+    if cached is True:
+        return True
+    base_root: Path = request.app.state.base_root
+    if is_complete(base_root):
+        request.app.state.onboarding_complete = True
+        return True
+    return False
+
+
 def require_onboarding_complete(request: Request) -> None:
     """Raise 307 to /onboarding/ if the stack is not yet configured.
 
     Attached via ``dependencies=[Depends(require_onboarding_complete)]`` on
     the board/materials/stats router includes.
     """
-    cached = getattr(request.app.state, "onboarding_complete", None)
-    if cached is True:
-        return
-    base_root: Path = request.app.state.base_root
-    if is_complete(base_root):
-        request.app.state.onboarding_complete = True
+    if onboarding_complete(request):
         return
     raise HTTPException(
         status_code=307,
