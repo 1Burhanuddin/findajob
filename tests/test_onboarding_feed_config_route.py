@@ -76,6 +76,23 @@ def test_get_renders_form_with_adapter_specific_walkthrough(client: TestClient) 
     assert "API key" in body or "Key" in body  # form label
 
 
+def test_get_surfaces_voice_redact_warning_when_query_param_set(client: TestClient) -> None:
+    """?voice_redact_failed=1 → amber banner renders inline on the feed-config gate (#634)."""
+    response = client.get("/onboarding/feed-config/test-session-id?voice_redact_failed=1")
+    assert response.status_code == 200
+    body = response.text
+    assert "Voice samples were dropped" in body
+    assert "LLM redaction failed" in body
+    assert "/onboarding/?mode=rerun" in body
+
+
+def test_get_omits_voice_redact_warning_when_query_param_absent(client: TestClient) -> None:
+    """Default feed-config render does NOT include the warning banner."""
+    response = client.get("/onboarding/feed-config/test-session-id")
+    assert response.status_code == 200
+    assert "Voice samples were dropped" not in response.text
+
+
 def test_get_404_when_no_active_sources_pending(base_root: Path, client: TestClient) -> None:
     """If there's no active_sources.txt, there's no feed to config."""
     (base_root / "config" / "active_sources.txt").unlink()

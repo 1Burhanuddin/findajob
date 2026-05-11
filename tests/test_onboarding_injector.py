@@ -284,13 +284,18 @@ def test_inject_runs_process_voice_samples_with_redact_flag(tmp_path: Path) -> N
 
 
 def test_inject_skips_voice_write_when_processing_returns_empty(tmp_path: Path) -> None:
-    """If cleaning empties the body (all-structural input), no file is written."""
+    """If cleaning empties the body (all-structural input), no file is written.
+
+    The voice_samples_redact_failed flag must stay False on this path — empty-after-
+    cleaning is a success outcome (no PII to redact), not a redaction failure.
+    """
     voice_body = "# Just A Header\n\n---"
     with patch("findajob.onboarding.injector.process_voice_samples") as mock_process:
         mock_process.return_value = ("", True)
-        inject(tmp_path, _full_files_with_voice(voice_body), skip_smoke_check=True)
+        result = inject(tmp_path, _full_files_with_voice(voice_body), skip_smoke_check=True)
     voice_dest = tmp_path / "candidate_context" / "voice_samples" / "voice-samples.md"
     assert not voice_dest.exists()
+    assert result.voice_samples_redact_failed is False
 
 
 def test_inject_skips_voice_write_when_redaction_fails(tmp_path: Path) -> None:

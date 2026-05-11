@@ -381,6 +381,7 @@ def inject(
                     # contains every PII string the user pasted. Skip the write entirely
                     # so unredacted content never lands on disk; surface the flag so the
                     # route can warn the user to retry after the LLM outage clears.
+                    log_event("onboarding_voice_samples_dropped", base_root=str(base_root))
                     voice_samples_redact_failed = True
                     continue
                 if not processed:
