@@ -10,12 +10,32 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from findajob.web.app import create_app
 from findajob.web.routes import speculative as spec_routes
 
 
 def _make_app(db_path: Path) -> FastAPI:
-    app = FastAPI()
-    app.include_router(spec_routes.router)
+    """Build the real app via ``create_app`` so the Jinja globals registered
+    on ``app.state.templates`` (including #618's ``onboarding_complete``) are
+    available to speculative status/review renders. Pre-#635 this fixture
+    built a bare ``FastAPI()`` and included only the speculative router —
+    fast, but it left ``base.html``'s ``{% if onboarding_complete(request) %}``
+    pointing at an unregistered global, which trips ``UndefinedError`` on
+    every full-page render (status + review)."""
+    base_root = db_path.parent
+    companies_root = base_root / "companies"
+    companies_root.mkdir(exist_ok=True)
+    app = create_app(
+        companies_root=companies_root,
+        db_path=db_path,
+        base_root=base_root,
+    )
+    # The onboarding guard is orthogonal to speculative routing — keep the
+    # tests scoped to speculative behavior, not sentinel state.
+    app.state.onboarding_complete = True
+    # Speculative still reads ``DB_PATH`` directly off the module; tests
+    # override that pointer here. Eventually this should move to
+    # ``app.state.db_path`` along with the rest of the router modules.
     spec_routes.DB_PATH = db_path
     return app
 

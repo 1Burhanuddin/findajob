@@ -21,7 +21,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from findajob.background_tasks import TASK_ID_ENV_VAR, record_failed, record_start
 from findajob.db import connect
@@ -31,7 +30,14 @@ from findajob.speculative.parser import parse_role_cards
 from findajob.web.markdown import render_markdown
 
 router = APIRouter()
-templates = Jinja2Templates(directory=str(Path(BASE) / "src" / "findajob" / "web" / "templates"))
+# #635: every other route module renders via ``request.app.state.templates``,
+# which ``findajob.web.app.create_app`` populates with all ~10 Jinja globals
+# (``onboarding_complete``, ``operator_mode``, ``reject_reason_options``, …).
+# Pre-#635 this module built its own ``Jinja2Templates(...)`` with no globals
+# registered — production speculative status/review renders would have 500'd
+# after #618 added ``{% if onboarding_complete(request) %}`` to ``_nav.html``,
+# but speculative is cold-outreach so the path stayed untriggered until the
+# #631 test sweep surfaced it.
 
 DB_PATH = Path(BASE) / "data" / "pipeline.db"
 
@@ -133,7 +139,7 @@ def get_status(request: Request, request_id: int):
         conn.close()
     if row is None:
         raise HTTPException(status_code=404, detail="speculative request not found")
-    return templates.TemplateResponse(
+    return request.app.state.templates.TemplateResponse(
         request=request,
         name="speculative/status.html",
         context={"row": dict(row), "bg_task": bg_task},
@@ -150,7 +156,7 @@ def poll_status(request: Request, request_id: int):
         conn.close()
     if row is None:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse(
+    return request.app.state.templates.TemplateResponse(
         request=request,
         name="speculative/_status_fragment.html",
         context={"row": dict(row), "bg_task": bg_task},
@@ -173,7 +179,7 @@ def get_review(request: Request, request_id: int):
         return RedirectResponse(url=f"/speculative/status/{request_id}", status_code=303)
     cards = parse_role_cards(row["role_cards_json"])
     briefing_html = render_markdown(row["briefing_md"] or "")
-    return templates.TemplateResponse(
+    return request.app.state.templates.TemplateResponse(
         request=request,
         name="speculative/review.html",
         context={"row": dict(row), "cards": cards, "briefing_html": briefing_html},
