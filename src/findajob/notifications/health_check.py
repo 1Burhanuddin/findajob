@@ -11,6 +11,70 @@ from findajob.paths import BASE
 REVIEW_BACKLOG_WARN = 100  # warn if manual_review backlog exceeds this
 TARGET_LOWSCORE_DAYS = 7  # check for mis-scored target company jobs within this window
 
+# Legacy top-level keys on jobs_fetched events (pre-2026-05-04). After the
+# adapter-extraction migration (#410.5), per-source counts moved into a nested
+# ``adapters: {...}`` dict. _extract_source_counts handles both shapes so the
+# 7-day baseline window (which spans the migration boundary) keeps working.
+_LEGACY_TOP_LEVEL_SOURCE_KEYS: tuple[str, ...] = ("greenhouse", "ashby", "lever", "jobsapi", "gmail")
+
+
+def _extract_source_counts(event: dict) -> dict[str, int]:
+    """Return per-source counts from a jobs_fetched event, handling shape drift.
+
+    Three shapes seen in the wild:
+    - New (post-2026-05-10): counts entirely inside ``event["adapters"]``.
+    - Legacy (pre-2026-05-04): counts as top-level keys (greenhouse/ashby/lever/jobsapi/gmail).
+    - Hybrid (2026-05-04→2026-05-09): some keys top-level, some inside adapters.
+
+    Takes the max when both locations carry a count for the same source —
+    defensive against the hybrid window where one location may be stale.
+    """
+    counts: dict[str, int] = {}
+    adapters = event.get("adapters")
+    if isinstance(adapters, dict):
+        for name, v in adapters.items():
+            if isinstance(v, int):
+                counts[name] = v
+    for k in _LEGACY_TOP_LEVEL_SOURCE_KEYS:
+        v = event.get(k)
+        if isinstance(v, int):
+            counts[k] = max(counts.get(k, 0), v)
+    return counts
+
+
+def _detect_dead_feeds(window_events: list[dict], baseline_events: list[dict]) -> list[str]:
+    """Return source names present in the 25h window with 0 max but >0 in baseline.
+
+    Source names are enumerated dynamically from event content — new adapters
+    (e.g., #617 WorkdayCXS, future ones) are auto-covered without code changes.
+    A source is "dead" only when it's CONFIGURED (present in window events,
+    even at 0) AND PRODUCING ZERO across all window runs AND had >0 in
+    baseline. A source absent from every window event is treated as
+    deliberately disabled (e.g., dropped from active_sources.txt), not dead.
+
+    This correctly tolerates gmail oscillation (some runs return 0, some
+    return 30 — window_max sees the 30 and skips the warning).
+    """
+    window_max: dict[str, int] = {}
+    window_seen: set[str] = set()
+    for e in window_events:
+        if e.get("event") != "jobs_fetched":
+            continue
+        for name, v in _extract_source_counts(e).items():
+            window_seen.add(name)
+            if v > window_max.get(name, 0):
+                window_max[name] = v
+    baseline_max: dict[str, int] = {}
+    for e in baseline_events:
+        if e.get("event") != "jobs_fetched":
+            continue
+        for name, v in _extract_source_counts(e).items():
+            if v > baseline_max.get(name, 0):
+                baseline_max[name] = v
+    return sorted(
+        name for name, peak in baseline_max.items() if peak > 0 and name in window_seen and window_max.get(name, 0) == 0
+    )
+
 
 def cmd_health_check() -> None:
     events = recent_log_events(hours=25)
@@ -58,35 +122,29 @@ def cmd_health_check() -> None:
     # had >0 in the last 7 days — indicates a feed silently broke.
     # Using the window max (not latest-only) avoids false positives when a
     # mid-day manual run follows a healthy scheduled run: if any run in the
-    # window produced jobs, the source is not dead.
-    SOURCE_KEYS = ("greenhouse", "ashby", "lever", "jobsapi", "gmail")
+    # window produced jobs, the source is not dead. Source names are enumerated
+    # dynamically from each event's adapters dict (and legacy top-level keys
+    # for events older than the 2026-05-10 schema migration) — new adapters
+    # auto-get health-check coverage without a code edit (#637).
     fetch_events = [e for e in events if e.get("event") == "jobs_fetched"]
     if fetch_events:
-        window_max_per_source = {k: 0 for k in SOURCE_KEYS}
-        for e in fetch_events:
-            for k in SOURCE_KEYS:
-                v = e.get(k)
-                if isinstance(v, int) and v > window_max_per_source[k]:
-                    window_max_per_source[k] = v
-        # Look back 7 days for the baseline — the source had to have produced
-        # jobs at some point recently for its zero today to be suspicious.
         week_events = recent_log_events(hours=24 * 7)
-        week_max_per_source = {k: 0 for k in SOURCE_KEYS}
-        for e in week_events:
-            if e.get("event") != "jobs_fetched":
-                continue
-            for k in SOURCE_KEYS:
-                v = e.get(k)
-                if isinstance(v, int) and v > week_max_per_source[k]:
-                    week_max_per_source[k] = v
-        dead_feeds = [k for k in SOURCE_KEYS if window_max_per_source[k] == 0 and week_max_per_source[k] > 0]
+        dead_feeds = _detect_dead_feeds(fetch_events, week_events)
         if dead_feeds:
+            # Recompute baseline-max for the operator-facing message
+            baseline_max: dict[str, int] = {}
+            for e in week_events:
+                if e.get("event") != "jobs_fetched":
+                    continue
+                for name, v in _extract_source_counts(e).items():
+                    if v > baseline_max.get(name, 0):
+                        baseline_max[name] = v
             issues.append(
                 f"WARN: {len(dead_feeds)} source(s) returned 0 jobs across all runs in the last 25h "
                 f"despite producing jobs in the last 7d — likely silent feed failure:"
             )
             for k in dead_feeds:
-                issues.append(f"  • {k}: 0 across all runs today, peak {week_max_per_source[k]} in last 7d")
+                issues.append(f"  • {k}: 0 across all runs today, peak {baseline_max[k]} in last 7d")
 
     # ── System resource checks ──────────────────────────────────────────
     try:
