@@ -16,7 +16,13 @@ from findajob.llm.openrouter import OpenRouterError, complete
 # Model pin retained as module-level constants so existing imports in
 # test_onboarding_interview_runner.py continue to resolve.
 INTERVIEW_MODEL = "anthropic/claude-sonnet-4-6"
-INTERVIEW_MAX_TOKENS = 4096
+# #632: bumped from 4096 to 16384 to fit voice-samples emit (truncation
+# observed at ~17.7K chars under the 4096-token cap, which is roughly the
+# 4096 × 4.3 chars/token boundary). 16384 tokens × ~3.5 chars/token gives
+# ~57K chars of output headroom — well above the 50K-char AC target.
+# Claude Sonnet 4.6 supports up to 64K output tokens, so further bumps
+# remain available if a future emit pattern needs more.
+INTERVIEW_MAX_TOKENS = 16384
 
 
 class InterviewRunnerError(Exception):
@@ -93,6 +99,12 @@ def _translate(e: OpenRouterError) -> InterviewRunnerError:
             "No OpenRouter key on file for this stack. Visit /onboarding/ "
             "Step 1 to provide your API keys, then return here to start "
             "the interview."
+        )
+    elif kind == "length":
+        msg = (
+            "OpenRouter capped this response at the max_tokens limit — your "
+            "input is too long for a single emit. Trim the longest block "
+            "(usually voice samples) to a shorter version and try again."
         )
     else:
         raw_msg = raw.removeprefix("Unexpected error: ")
@@ -173,6 +185,15 @@ def run_turn(
         )
     except OpenRouterError as e:
         raise _translate(e) from e
+
+    # #632: detect mid-output truncation. Without this, a voice-samples
+    # emit that hits the max_tokens cap returns silently with a half-
+    # emitted FILE block — the parser then doesn't capture the block,
+    # finalize_ready stays False, and the user sees "missing blocks" with
+    # no actionable signal. Raising kind="length" routes the user to a
+    # clear "trim and retry" message via _translate.
+    if result.finish_reason == "length":
+        raise _translate(OpenRouterError("max_tokens cap hit", kind="length"))
 
     usage = {
         "prompt_tokens": result.prompt_tokens,

@@ -140,8 +140,12 @@ def test_interview_model_is_sonnet_4_6() -> None:
     assert INTERVIEW_MODEL == "anthropic/claude-sonnet-4-6"
 
 
-def test_interview_max_tokens_is_4096() -> None:
-    assert INTERVIEW_MAX_TOKENS == 4096
+def test_interview_max_tokens_supports_voice_samples_emit() -> None:
+    """#632: voice-samples emit truncated at ~17.7K chars under the prior
+    4096-token cap. Bumped to 16384 so a 50K-char voice-samples block
+    (the AC target) fits comfortably — Claude Sonnet 4.6 supports up to
+    64K output tokens, so headroom remains for further bumps if needed."""
+    assert INTERVIEW_MAX_TOKENS >= 16384
 
 
 # ── Error translation — kind + user_message byte-identical to Phase 1 ──
@@ -328,3 +332,47 @@ def test_translates_unknown_kind_fallback_no_wrapper_prefix() -> None:
     ie = _translate(oe)
     assert ie.kind == "unknown"
     assert ie.user_message == "Unexpected error talking to OpenRouter: something exploded"
+
+
+# ── #632: length-finish detection ────────────────────────────────────────
+
+
+def test_run_turn_raises_on_length_finish_reason() -> None:
+    """When OpenRouter returns ``finish_reason='length'``, the LLM hit the
+    max_tokens cap mid-output. The user-visible failure mode pre-#632:
+    block-emit truncated mid-block → parser silently doesn't capture it →
+    user clicks Finalize → "missing blocks" without context. After #632:
+    surface ``InterviewRunnerError(kind='length', ...)`` with a clear
+    "your input is too long" recovery message so the user can trim and
+    retry instead of guessing what went wrong."""
+    body = _success_body(text="<<<FILE: voice-samples.md>>>\nlong content truncated mid-")
+    body["choices"][0]["finish_reason"] = "length"
+    with patch(_URLOPEN, return_value=_ok_resp(body)):
+        with pytest.raises(InterviewRunnerError) as excinfo:
+            run_turn("sk-or-v1-operator", [], "emit voice samples now")
+    e = excinfo.value
+    assert e.kind == "length"
+    assert e.status_code is None
+    # The recovery copy must name the cap and a concrete next action
+    assert "too long" in e.user_message.lower() or "truncated" in e.user_message.lower()
+    assert "trim" in e.user_message.lower() or "shorter" in e.user_message.lower()
+
+
+def test_run_turn_passes_through_finish_reason_stop() -> None:
+    """Normal (non-truncated) completion: finish_reason='stop' does NOT
+    raise — usage dict is returned with the LLM's text intact."""
+    body = _success_body(text="hi", usage={"prompt_tokens": 5, "completion_tokens": 1, "cost": 0.0})
+    body["choices"][0]["finish_reason"] = "stop"
+    with patch(_URLOPEN, return_value=_ok_resp(body)):
+        text, _usage = run_turn("sk-or-v1-operator", [], "hi")
+    assert text == "hi"
+
+
+def test_run_turn_passes_through_missing_finish_reason() -> None:
+    """Defensive: providers that omit finish_reason are treated as normal
+    completion (no spurious length-error raised)."""
+    body = _success_body(text="ok")
+    # explicitly omit choices[0].finish_reason
+    with patch(_URLOPEN, return_value=_ok_resp(body)):
+        text, _usage = run_turn("sk-or-v1-operator", [], "ok")
+    assert text == "ok"

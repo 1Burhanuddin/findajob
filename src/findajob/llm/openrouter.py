@@ -50,7 +50,10 @@ class CompletionResult:
     ``cost_usd`` is from ``response.usage.cost`` — same number that hits
     ``/api/v1/credits`` (1 credit = 1 USD). ``cached_tokens`` is the
     Anthropic prompt-cache hit count; 0 means no cache (cold call,
-    cache-miss, or non-Anthropic provider).
+    cache-miss, or non-Anthropic provider). ``finish_reason`` is the
+    OpenAI/OpenRouter completion-reason flag — typically ``"stop"`` on a
+    clean completion, ``"length"`` when ``max_tokens`` capped the output
+    mid-stream (#632), or ``None`` for providers that omit it.
     """
 
     text: str
@@ -59,6 +62,7 @@ class CompletionResult:
     cached_tokens: int
     cost_usd: float
     generation_id: str | None
+    finish_reason: str | None = None
 
 
 class OpenRouterError(Exception):
@@ -361,6 +365,11 @@ def _parse_response(raw: str) -> CompletionResult:
     # (matches Anthropic's native shape). A top-level usage.cached_tokens does not
     # exist in real responses — only the nested form returns from production.
     ptd = usage.get("prompt_tokens_details") or {}
+    # #632: finish_reason lives at choices[0].finish_reason in the OpenAI/
+    # OpenRouter shape. ``"length"`` signals the response was capped by
+    # max_tokens — the caller decides how to handle (interview_runner
+    # surfaces it as a typed error so the user can trim and retry).
+    finish_reason = data["choices"][0].get("finish_reason") if data.get("choices") else None
     return CompletionResult(
         text=text,
         prompt_tokens=int(usage.get("prompt_tokens", 0)),
@@ -368,4 +377,5 @@ def _parse_response(raw: str) -> CompletionResult:
         cached_tokens=int(ptd.get("cached_tokens", 0)),
         cost_usd=float(usage.get("cost", 0.0)),
         generation_id=data.get("id"),
+        finish_reason=finish_reason,
     )

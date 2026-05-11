@@ -536,3 +536,65 @@ def test_history_passed_through_to_payload(monkeypatch, tmp_path):
     assert msgs[1] == {"role": "user", "content": "first"}
     assert msgs[2] == {"role": "assistant", "content": "ok"}
     assert msgs[3] == {"role": "user", "content": "next"}
+
+
+# ── #632: finish_reason exposed on CompletionResult ─────────────────────
+
+
+def test_parse_response_extracts_finish_reason_stop(monkeypatch, tmp_path):
+    """Normal completion: ``finish_reason='stop'`` on CompletionResult.
+
+    Pre-#632 this field was dropped at parse time. Onboarding interview
+    needs it to detect mid-block truncation (max_tokens cap) and surface
+    a clear error rather than emit a malformed block that fails to parse
+    downstream.
+    """
+    roles = tmp_path / "roles"
+    roles.mkdir()
+    (roles / "r.md").write_text("---\nmodel: openrouter:anthropic/claude-sonnet-4-6\n---\nSYSTEM\n")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
+
+    body = _success_body(text="ok")
+    body["choices"][0]["finish_reason"] = "stop"
+
+    with patch("findajob.llm.openrouter.urllib.request.urlopen", return_value=_ok_resp(body)):
+        result = complete(role="r", prompt="hi", roles_dir=roles)
+    assert result.finish_reason == "stop"
+
+
+def test_parse_response_extracts_finish_reason_length(monkeypatch, tmp_path):
+    """Cap hit: ``finish_reason='length'`` propagates through to the caller.
+
+    This is the case interview_runner watches for so it can raise an
+    ``InterviewRunnerError(kind='length', ...)`` instead of returning a
+    truncated emit that breaks downstream block-capture.
+    """
+    roles = tmp_path / "roles"
+    roles.mkdir()
+    (roles / "r.md").write_text("---\nmodel: openrouter:anthropic/claude-sonnet-4-6\n---\nSYSTEM\n")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
+
+    body = _success_body(text="truncated mid-block...")
+    body["choices"][0]["finish_reason"] = "length"
+
+    with patch("findajob.llm.openrouter.urllib.request.urlopen", return_value=_ok_resp(body)):
+        result = complete(role="r", prompt="hi", roles_dir=roles)
+    assert result.finish_reason == "length"
+
+
+def test_parse_response_missing_finish_reason_is_none(monkeypatch, tmp_path):
+    """Defensive: providers that omit ``finish_reason`` yield ``None`` (not KeyError).
+
+    OpenRouter normalizes most providers to populate it, but the parser
+    must not crash on the rare miss.
+    """
+    roles = tmp_path / "roles"
+    roles.mkdir()
+    (roles / "r.md").write_text("---\nmodel: openrouter:anthropic/claude-sonnet-4-6\n---\nSYSTEM\n")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
+
+    body = _success_body(text="ok")
+    # explicitly do NOT set choices[0].finish_reason
+    with patch("findajob.llm.openrouter.urllib.request.urlopen", return_value=_ok_resp(body)):
+        result = complete(role="r", prompt="hi", roles_dir=roles)
+    assert result.finish_reason is None
