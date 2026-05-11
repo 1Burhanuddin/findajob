@@ -36,6 +36,28 @@ DB_PATH = f"{BASE}/data/pipeline.db"
 PROFILE_PATH = f"{BASE}/candidate_context/profile.md"
 MASTER_RESUME_PATH = f"{BASE}/candidate_context/master_resume.md"
 
+_PROBABILITY_HEADING_RE = re.compile(r"##\s*🎯\s*Probability Assessment")
+_PERCENT_SCORE_RE = re.compile(r":\s*\d{1,3}%")
+
+
+def _fit_analysis_is_complete(text: str | None) -> bool:
+    """True iff fit_analysis has both required sections AND parseable scores in each.
+
+    Gates the retry loop after the fit_analyst LLM call AND the Step 7 validation
+    that blocks shipment of an incomplete briefing. The downstream score-parsing
+    regex requires "## 🎯 Probability Assessment" as a section delimiter and
+    `:NN%` patterns on each side of it; if any of these are missing, scores
+    parse to None and the dashboard renders empty cells.
+    """
+    if not text:
+        return False
+    if "Fit Matrix" not in text:
+        return False
+    parts = _PROBABILITY_HEADING_RE.split(text, maxsplit=1)
+    if len(parts) != 2:
+        return False
+    return bool(_PERCENT_SCORE_RE.search(parts[0]) and _PERCENT_SCORE_RE.search(parts[1]))
+
 
 def main() -> None:
     # Module-load side effect deferred to here so import is safe.
@@ -291,6 +313,17 @@ def _run_prep() -> None:
         )
         fit_analysis = run_role("fit_analyst", fit_prompt, conn=conn, job_id=job_id)
 
+        # Retry once when fit_analysis is empty or structurally incomplete.
+        # Perplexity sonar-reasoning-pro intermittently returns content=null
+        # (run_role surfaces as ""); a poorly-formatted reply that skips a
+        # required heading produces the same downstream symptom (scores parse
+        # to None, dashboard cells render blank). Mirror the briefing_writer
+        # retry pattern at line ~271. Step 7 catches the post-retry failure
+        # and fails prep cleanly rather than shipping an incomplete briefing.
+        if not _fit_analysis_is_complete(fit_analysis):
+            log_event("fit_analyst_retry", job_id=job_id, company=company, title=title, retry=1)
+            fit_analysis = run_role("fit_analyst", fit_prompt, conn=conn, job_id=job_id)
+
         # Combine briefing and fit analysis into one document.
         # The briefing ends with an Overall Recommendation verdict; fit analysis
         # contains the Matrix/Probability/Strengths/Gaps detail that should sit
@@ -533,6 +566,16 @@ def _run_prep() -> None:
             briefing_text = ""
         if not rec_re.search(briefing_text):
             validation_failures.append("briefing: missing Overall Recommendation")
+        # Fit + probability scores must have parsed; otherwise the briefing is
+        # missing its Fit Analysis section and the dashboard cells render blank.
+        # The retry above absorbs transient Perplexity null-content; a failure
+        # here means the second attempt also returned empty/malformed — fail
+        # the prep cleanly so the operator can re-flag rather than ship a
+        # half-completed briefing (#636).
+        if fit_score_avg is None or prob_score_avg is None:
+            validation_failures.append(
+                f"briefing: missing fit analysis (fit_score={fit_score_avg}, prob_score={prob_score_avg})"
+            )
         if validation_failures:
             log_event(
                 "prep_validation_failed",

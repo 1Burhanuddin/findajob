@@ -187,6 +187,95 @@ C: 100%
         assert fit == 100.0
         assert prob == 100.0
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tests for _fit_analysis_is_complete (#636)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Surfaced 2026-05-11 from Nscale "Director of Lab Services" regenerate:
+# Perplexity sonar-reasoning-pro returned content=null, run_role swallowed
+# the OpenRouterError(kind="malformed") and returned "", and the orchestrator
+# silently dropped the entire Fit Analysis section from the briefing. The
+# helper below is the gate that triggers a retry inside the orchestrator and
+# (after retry) blocks shipment via Step 7 validation if scores still won't
+# parse — guarantees that a successfully-completed prep always contains
+# parseable fit/probability scores.
+
+
+class TestFitAnalysisIsComplete:
+    """Test the structural validator that gates the fit_analyst retry + Step 7 check."""
+
+    def test_complete_text_passes(self):
+        from findajob.prep.orchestrator import _fit_analysis_is_complete
+
+        text = """\
+## 📊 Fit Matrix
+Technical Skills: 85%
+
+## 🎯 Probability Assessment
+Interview Likelihood: 65%
+"""
+        assert _fit_analysis_is_complete(text) is True
+
+    def test_empty_string_fails(self):
+        """Empty fit_analysis (the OpenRouterError-swallowed path) → False."""
+        from findajob.prep.orchestrator import _fit_analysis_is_complete
+
+        assert _fit_analysis_is_complete("") is False
+
+    def test_none_fails(self):
+        from findajob.prep.orchestrator import _fit_analysis_is_complete
+
+        assert _fit_analysis_is_complete(None) is False
+
+    def test_missing_probability_section_fails(self):
+        """Fit Matrix present but no Probability Assessment heading → False."""
+        from findajob.prep.orchestrator import _fit_analysis_is_complete
+
+        text = """\
+## 📊 Fit Matrix
+Technical Skills: 85%
+Domain Experience: 70%
+"""
+        assert _fit_analysis_is_complete(text) is False
+
+    def test_missing_fit_matrix_fails(self):
+        """Probability Assessment present but no Fit Matrix → False."""
+        from findajob.prep.orchestrator import _fit_analysis_is_complete
+
+        text = """\
+## 🎯 Probability Assessment
+Interview Likelihood: 65%
+"""
+        assert _fit_analysis_is_complete(text) is False
+
+    def test_no_scores_in_fit_section_fails(self):
+        """Fit Matrix heading but no `:NN%` patterns under it → would parse to empty list."""
+        from findajob.prep.orchestrator import _fit_analysis_is_complete
+
+        text = """\
+## 📊 Fit Matrix
+Technical Skills: high
+Domain Experience: excellent
+
+## 🎯 Probability Assessment
+Interview Likelihood: 65%
+"""
+        assert _fit_analysis_is_complete(text) is False
+
+    def test_no_scores_in_probability_section_fails(self):
+        """Probability Assessment heading but no `:NN%` under it → would parse to empty list."""
+        from findajob.prep.orchestrator import _fit_analysis_is_complete
+
+        text = """\
+## 📊 Fit Matrix
+Technical Skills: 85%
+
+## 🎯 Probability Assessment
+Interview Likelihood: high
+"""
+        assert _fit_analysis_is_complete(text) is False
+
     def test_zero_percent_scores(self):
         """Edge case with 0% scores."""
         text = """\
