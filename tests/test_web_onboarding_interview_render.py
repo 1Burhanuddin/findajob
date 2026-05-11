@@ -260,6 +260,44 @@ def test_interview_page_shows_finalize_block_when_all_blocks_captured(
     assert 'name="openrouter_api_key"' not in body
 
 
+def test_interview_page_finalize_membership_not_cardinality(client_with_key: TestClient, base_root: Path) -> None:
+    """#626 regression: finalize_ready must check membership of every ALLOWED_FILENAMES
+    name, not just `len(captured) >= len(ALLOWED_FILENAMES)`. A session with 7 required +
+    3 optional captures (10 entries total) hit the green banner pre-fix because the
+    predicate counted cardinality; POST /finalize then 400'd with the 3 missing required
+    yaml filenames. The fix routes the chat-render predicate through the same membership
+    check the /finalize handler already used.
+    """
+    from findajob.onboarding.parser import ALLOWED_FILENAMES, OPTIONAL_FILENAMES
+    from findajob.onboarding.session_store import update_captured_blocks
+
+    # 7 required + 3 optional = 10 total entries — same cardinality as len(ALLOWED_FILENAMES)
+    required_subset = list(ALLOWED_FILENAMES[:7])
+    optional_subset = list(OPTIONAL_FILENAMES[:3])
+    captured = {name: f"body for {name}" for name in (*required_subset, *optional_subset)}
+    assert len(captured) == len(ALLOWED_FILENAMES), "fixture invariant: same cardinality"
+    missing_required = set(ALLOWED_FILENAMES) - set(required_subset)
+    assert len(missing_required) == 3, "fixture invariant: 3 required still missing"
+
+    sid = _create_session_with_history(base_root, [])
+    conn = sqlite3.connect(base_root / "data" / "pipeline.db")
+    try:
+        update_captured_blocks(conn, sid, captured)
+    finally:
+        conn.close()
+
+    resp = client_with_key.get(f"/onboarding/interview/{sid}")
+    assert resp.status_code == 200
+    body = resp.text
+    # Green banner must be suppressed — the finalize form and the green styling
+    # are the visible signal that misled the tester in the original report.
+    assert f"/onboarding/interview/{sid}/finalize" not in body
+    assert "border-green-300" not in body
+    # Progress badge must reflect required-only matches, not total captures —
+    # otherwise testers see "10 of 10" with optional entries padding the count.
+    assert "Captured 7 of 10 required blocks" in body
+
+
 def test_interview_page_shows_progress_count(client_with_key: TestClient, base_root: Path) -> None:
     """A small badge / progress hint surfaces captured_count / required_count."""
     sid = _create_session_with_history(base_root, [])
