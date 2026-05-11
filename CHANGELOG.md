@@ -10,6 +10,10 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Fixed
+
+- **#627 — `/onboarding/feed-config/{sid}` no longer 500s on fresh installs.** New `findajob.config_seed.seed_runtime_config` helper invoked from `ops/entrypoint.sh` at every container start: if `config/rapidapi_feeds.yaml` is absent, copy from the bundled `rapidapi_feeds.yaml.example`. Idempotent — operator edits survive restarts. Mirrors the `init_db.py` pattern (small Python module, shell entrypoint dispatches). No `### Migration required`: existing stacks where the operator already produced `rapidapi_feeds.yaml` are unaffected; stacks where the file was missing (the bug shape) auto-heal on next `docker compose pull && up -d`.
+
 ## [0.23.1] — 2026-05-10
 
 ### Migration required

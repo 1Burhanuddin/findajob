@@ -62,6 +62,13 @@ if [ -w /app/data ]; then
     gosu "$PUID:$PGID" python3 /app/scripts/init_db.py >/dev/null
 fi
 
+# --- 3c2. Seed runtime config from .example variants (#627) ---------------
+# Materializes the small set of gitignored config files whose absence
+# causes a hard 500 in a code path (currently: rapidapi_feeds.yaml read
+# by /onboarding/feed-config/). Idempotent: existing live files are
+# never overwritten, so operator edits survive restarts.
+gosu "$PUID:$PGID" python3 /app/scripts/seed_runtime_config.py >/dev/null
+
 # --- 3d. Render supercronic crontab from ops/scheduled-jobs.yaml (#344) ---
 # YAML at /app/scheduled-jobs.yaml is the source of truth. Per-job env-var
 # overrides (FINDAJOB_<JOB>_SCHEDULE / _ENABLED) let multi-tenant hosts

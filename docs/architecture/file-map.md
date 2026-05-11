@@ -11,6 +11,7 @@ When this map drifts from the actual code (renamed file, new route module, retir
 <repo>/src/findajob/paths.py                # central path resolver — from findajob.paths import BASE, AICHAT, PANDOC
 <repo>/src/findajob/utils.py                # shared utilities: log_event(), write_audit(), load_env()
 <repo>/src/findajob/cleaning.py             # normalize, fingerprint, clean_title, clean_company
+<repo>/src/findajob/config_seed.py          # seed_runtime_config() — entrypoint-invoked .example→live materialization for configs with hard 500-on-missing paths (#627)
 <repo>/src/findajob/ingest.py               # ingest_manual_job() — shared entry point for the /ingest/ web form
 <repo>/src/findajob/fetchers/                 # Greenhouse, Gmail job fetching; RapidAPI feeds via adapters/
 <repo>/src/findajob/fetchers/adapters/      # JobSourceAdapter Protocol + REGISTERED_ADAPTERS + per-source adapter classes (jobs_api14, jobs_api14_indeed, jobs_api14_bing, jsearch, greenhouse, ashby, lever, gmail, workday_cxs); curation.py = per-adapter signup metadata loaded by /onboarding/feed-config/
@@ -54,6 +55,7 @@ When this map drifts from the actual code (renamed file, new route module, retir
 <repo>/scripts/notify.py                    # ntfy push notifications — subcommands: send-raw, scoreboard, health-check, etc.
 <repo>/scripts/rename_folders.py            # rename company folders to new format (idempotent)
 <repo>/scripts/discover_companies.py            # weekly company discovery cron entry
+<repo>/scripts/seed_runtime_config.py       # entrypoint-invoked at every container start; thin shim over findajob.config_seed.seed_runtime_config (#627)
 
 # ── Candidate content (all gitignored — fill these in after cloning) ────────
 <repo>/candidate_context/profile.md         # candidate profile — injected into scoring, resume, CL, outreach
