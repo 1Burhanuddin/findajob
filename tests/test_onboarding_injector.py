@@ -498,10 +498,12 @@ def test_inject_env_file_has_chmod_600(tmp_path: Path) -> None:
     assert mode == 0o600, f"expected 0o600, got {stat_mod.filemode(env_path.stat().st_mode)}"
 
 
-def test_inject_smoke_check_failure_raises_and_skips_sentinel(tmp_path: Path, monkeypatch) -> None:
+def test_inject_smoke_check_failure_raises_and_rolls_back(tmp_path: Path, monkeypatch) -> None:
     """When verify_openrouter_key returns (False, error), inject raises
-    OnboardingSmokeCheckFailed and the sentinel is NOT written. Files have
-    already been committed (next paste-back will overwrite cleanly)."""
+    OnboardingSmokeCheckFailed and NO config files land on disk (#631
+    transactional emit: smoke check runs before the os.replace commit,
+    so a failure tears down every staged tempfile + the backup dir).
+    The sentinel is not written either."""
     import findajob.onboarding.injector as inj_mod
     from findajob.onboarding import OnboardingSmokeCheckFailed
 
@@ -513,8 +515,12 @@ def test_inject_smoke_check_failure_raises_and_skips_sentinel(tmp_path: Path, mo
     with pytest.raises(OnboardingSmokeCheckFailed) as excinfo:
         inject(tmp_path, _MIN_FILES, openrouter_api_key="bad-key")
     assert "simulated 401" in excinfo.value.user_message
-    # Files committed; sentinel is NOT
-    assert (tmp_path / "candidate_context" / "profile.md").exists()
+    # status_code defaults to 400 for non-payment failures
+    assert excinfo.value.status_code == 400
+    # No files committed — fresh re-click runs from a clean state
+    assert not (tmp_path / "candidate_context" / "profile.md").exists()
+    assert not (tmp_path / "config" / "target_companies.md").exists()
+    assert not (tmp_path / "data" / ".env").exists()
     assert not (tmp_path / "data" / ".onboarding-complete").exists()
 
 

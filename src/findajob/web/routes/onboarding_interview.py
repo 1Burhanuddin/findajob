@@ -500,6 +500,21 @@ def finalize_interview(
                 conn=conn,
             )
         except OnboardingSmokeCheckFailed as e:
+            # #631: 402 PaymentRequired gets its own status code + recovery
+            # copy. Every other auth/throttle failure keeps the legacy 400 +
+            # "change your key" framing.
+            if e.status_code == 402:
+                error_msg = (
+                    f"{e.user_message} Once credits land, return here and "
+                    "click Finalize again — no config files were written, "
+                    "so the retry runs from a clean state."
+                )
+            else:
+                error_msg = (
+                    "OpenRouter rejected the key when we tried to verify it. "
+                    f"{e.user_message} Use 'Change keys' on /onboarding/ to "
+                    "supply a different key, then return here and click Finalize."
+                )
             return _render_chat(
                 request,
                 session_id=session_id,
@@ -508,12 +523,8 @@ def finalize_interview(
                 keys_collected=keys_collected,
                 openrouter_last4=openrouter_last4,
                 cumulative_cost_usd=cumulative_cost,
-                error=(
-                    "OpenRouter rejected the key when we tried to verify it. "
-                    f"{e.user_message} Use 'Change keys' on /onboarding/ to "
-                    "supply a different key, then return here and click Finalize."
-                ),
-                status_code=400,
+                error=error_msg,
+                status_code=e.status_code,
             )
 
         mark_complete(conn, session_id)

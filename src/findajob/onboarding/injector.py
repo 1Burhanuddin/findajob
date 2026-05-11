@@ -286,11 +286,14 @@ def inject(
     form field on ``/onboarding/`` (kept out of the LLM-driven emission so it
     never enters the user's chat-LLM logs). It's merged into ``data/.env`` as
     ``OPENROUTER_API_KEY=...`` and verified with a 1-token completion against
-    OpenRouter before the sentinel is written. An invalid or unreachable key
-    raises :class:`OnboardingSmokeCheckFailed` AFTER files are committed but
-    BEFORE the sentinel, so the user re-pastes with a corrected key and the
-    second attempt overwrites the first cleanly. Pass an empty string only in
-    contexts where ``skip_smoke_check=True`` (tests; legacy callers).
+    OpenRouter BEFORE the staged tempfiles are committed (#631 — transactional
+    emit). An invalid or unreachable key raises :class:`OnboardingSmokeCheckFailed`
+    with ``status_code`` reflecting the underlying HTTP failure (402 when the
+    account is out of credit, 400 otherwise), and ALL staged tempfiles + the
+    backup dir created this run are deleted before propagating. The user
+    re-pastes / tops up credit and re-clicks Finalize — the second attempt
+    runs from a clean state. Pass an empty string only in contexts where
+    ``skip_smoke_check=True`` (tests; legacy callers).
 
     ``rapidapi_key`` is the optional RapidAPI key for LinkedIn/Indeed job
     search (``RAPIDAPI_KEY`` in ``data/.env``). When empty or whitespace, the
@@ -388,19 +391,28 @@ def inject(
             with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
                 fh.write(new_env_content)
 
+        # Smoke-check the OpenRouter key BEFORE committing any tempfile (#631).
+        # All emission tempfiles are staged at this point; an os.replace loop
+        # below commits them atomically. If the smoke check fails — most
+        # commonly 402 PaymentRequired when the user runs out of credit
+        # mid-onboarding — the except handler tears down every tempfile + the
+        # backup dir so a fresh re-click writes from a clean state.
+        if not skip_smoke_check and openrouter_api_key.strip():
+            ok, err = verify_openrouter_key(openrouter_api_key)
+            if not ok:
+                # Detect 402 PaymentRequired from the verify message so the
+                # route can surface HTTP 402 to the user (vs the catch-all 400
+                # we reserve for 401/429/network).
+                status = 402 if err and "402 Payment Required" in err else 400
+                raise OnboardingSmokeCheckFailed(
+                    err or "OpenRouter verification failed.",
+                    status_code=status,
+                )
+
         # Commit: os.replace every staged tempfile into place
         for tmp_name, dest in tempfiles:
             os.replace(tmp_name, dest)
         tempfiles = []  # all committed
-
-        # Smoke-check the OpenRouter key BEFORE writing the sentinel.
-        # If the key fails, files are already committed (next paste-back will
-        # overwrite cleanly). Sentinel stays unwritten — guard keeps the user
-        # on /onboarding/ with the error message until they correct it.
-        if not skip_smoke_check and openrouter_api_key.strip():
-            ok, err = verify_openrouter_key(openrouter_api_key)
-            if not ok:
-                raise OnboardingSmokeCheckFailed(err or "OpenRouter verification failed.")
 
         # Decide whether to gate to feed-config first. The sentinel is always
         # deferred to the Gmail-config gate's /finish endpoint (#407) — inject()
@@ -437,13 +449,11 @@ def inject(
                 decision = InjectionDecision(gate_to_feed_config=True, pending_adapter=pending)
             else:
                 decision = InjectionDecision(gate_to_feed_config=False, pending_adapter=None)
-    except OnboardingSmokeCheckFailed:
-        # Files have been committed; tempfiles list is already empty. Do NOT
-        # delete the backup dir — operator may need it. Just propagate so the
-        # route can render the user-facing message.
-        raise
     except Exception:
-        # Roll back: delete any remaining tempfiles + the backup dir created this run
+        # Roll back: delete any remaining tempfiles + the backup dir created
+        # this run. After #631 this branch also handles OnboardingSmokeCheckFailed
+        # — the smoke check runs before commit, so the staged tempfiles must
+        # be torn down on failure (transactional emit: AC#2 of #631).
         for tmp_name, _dest in tempfiles:
             try:
                 os.unlink(tmp_name)

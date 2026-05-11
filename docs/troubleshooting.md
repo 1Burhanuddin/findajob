@@ -118,6 +118,20 @@ docker compose exec scheduler /app/scripts/gmail_auth.py
 
 Follow the device-flow prompts. OAuth client type must be **Desktop** — TV / limited-input clients have a different scope set and Google rejects job-alert scopes on those.
 
+### "Onboarding finalize fails with 402 PaymentRequired"
+
+The onboarding interview's **Finalize** button triggers a 1-token verification call against your OpenRouter key. If the account has zero credit, that call returns 402 and the route surfaces HTTP 402 with a recovery message.
+
+**No config files are written on a 402.** The smoke check runs before the commit step, so the interview session stays in its pre-finalize state — your captured blocks are still on the session row, and a second click runs from a clean slate.
+
+**Recovery flow:**
+
+1. Add prepaid credit at <https://openrouter.ai/credits>.
+2. Return to the same `/onboarding/interview/{session_id}` URL (the session row is untouched).
+3. Click **Finalize** again. The verification call succeeds and the config files commit atomically.
+
+If you instead see a 400 with "OpenRouter rejected the key when we tried to verify it," that's 401 (bad key) or 429 (throttled) — fix via **Change keys** on `/onboarding/` rather than a credit top-up.
+
 ### "The container won't start"
 
 ```bash

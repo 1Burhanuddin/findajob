@@ -98,9 +98,13 @@ class OnboardingSmokeCheckFailed(Exception):
     """Raised by the injector when verify_openrouter_key returns False.
 
     Carries the human-readable error so the onboarding route can render it
-    verbatim to the user.
+    verbatim to the user, plus an HTTP status_code so the route propagates
+    402 PaymentRequired distinctly from the catch-all 400 (#631). Default
+    400 keeps every non-payment failure mode (401, 429, network) at the
+    legacy status.
     """
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, *, status_code: int = 400) -> None:
         super().__init__(message)
         self.user_message = message
+        self.status_code = status_code
