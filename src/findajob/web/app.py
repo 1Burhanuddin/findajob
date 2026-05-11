@@ -7,11 +7,13 @@ import sqlite3
 from collections.abc import Generator
 from pathlib import Path
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from findajob.audit import log_event
 from findajob.db import connect
 from findajob.web.auth import install_basic_auth
 from findajob.web.constants import FOLDER_STAGES
@@ -84,6 +86,20 @@ def create_app(
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon() -> FileResponse:
         return FileResponse(favicon_path, media_type="image/svg+xml")
+
+    # #628: surface route-raised HTTPException(>=500) in pipeline.jsonl.
+    # Without this, uvicorn's access log shows only "500 Internal Server
+    # Error" and the detail string is buried in the response body.
+    @app.exception_handler(HTTPException)
+    async def _log_5xx_then_default(request: Request, exc: HTTPException) -> Response:
+        if exc.status_code >= 500:
+            log_event(
+                "http_5xx",
+                path=request.url.path,
+                status=exc.status_code,
+                detail=str(exc.detail),
+            )
+        return await http_exception_handler(request, exc)
 
     app.state.companies_root = companies_root
     app.state.db_path = db_path
