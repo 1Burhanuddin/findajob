@@ -573,6 +573,63 @@ class TestExtractJsonPayload:
         text = '   \n  {"relevance_score": 7}'
         assert json.loads(extract_json_payload(text)) == {"relevance_score": 7}
 
+    # ── Markdown-bold drift (#638) ─────────────────────────────────────────
+    # DeepSeek V3.2 sometimes wraps JSON keys in markdown bold despite the
+    # prompt asking for pure JSON. Two observed variants from real
+    # pipeline.jsonl raw_excerpts on 2026-05-11:
+    #   Variant A: **score_status**: "scored",  (bold around bare key)
+    #   Variant B: **"relevance_score": 1,      (bold prefix on quoted key)
+    # The extractor normalizes both to "key": value, before returning.
+
+    def test_strips_bold_around_bare_keys_variant_a(self):
+        """Oracle 2026-05-11 07:08:07 shape: **key**: value, throughout."""
+        text = (
+            "{\n"
+            '**score_status**: "scored",  \n'
+            "**relevance_score**: 6,  \n"
+            "**interview_likelihood**: 6,  \n"
+            '**strengths_alignment**: "Some text here."\n'
+            "}"
+        )
+        parsed = json.loads(extract_json_payload(text))
+        assert parsed["score_status"] == "scored"
+        assert parsed["relevance_score"] == 6
+
+    def test_strips_bold_prefix_on_quoted_keys_variant_b(self):
+        """Meta 2026-05-11 07:07:26 shape: **"key": value, (no closing bold)."""
+        text = (
+            "{\n"
+            '**"score_status": "scored",\n'
+            '**"relevance_score": 1,\n'
+            '**"interview_likelihood": 1,\n'
+            '**"strengths_alignment": "Some text here."\n'
+            "}"
+        )
+        parsed = json.loads(extract_json_payload(text))
+        assert parsed["score_status"] == "scored"
+        assert parsed["relevance_score"] == 1
+
+    def test_strips_bold_mixed_shape(self):
+        """Vantage-shape: first key Variant A, rest Variant B."""
+        text = (
+            "{\n"
+            '**score_status**: "scored",\n'
+            '**"relevance_score": 8,\n'
+            '**"interview_likelihood": 8,\n'
+            '**"strengths_alignment": "Director, Energy Infrastructure fit."\n'
+            "}"
+        )
+        parsed = json.loads(extract_json_payload(text))
+        assert parsed["score_status"] == "scored"
+        assert parsed["relevance_score"] == 8
+
+    def test_plain_json_with_bold_inside_string_unchanged(self):
+        """Bold inside a string VALUE is legitimate prose; must not be touched."""
+        text = '{"strengths_alignment": "Candidate **strongly** matches role."}'
+        parsed = json.loads(extract_json_payload(text))
+        # String value preserves the bold markers as-is (no semantic change)
+        assert "**strongly**" in parsed["strengths_alignment"]
+
 
 # ── is_synthetic_job ───────────────────────────────────────────────────────
 

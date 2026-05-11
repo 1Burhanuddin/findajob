@@ -20,6 +20,18 @@ import re
 
 _FENCED_JSON_RE: re.Pattern[str] = re.compile(r"```(?:json|JSON)?\s*\n(.*?)\n```", re.DOTALL)
 
+# Markdown-bold-around-keys drift (#638). DeepSeek V3.2 intermittently emits
+# JSON with keys wrapped in `**` despite the prompt forbidding markdown.
+# Matches both observed shapes from 2026-05-11 pipeline.jsonl:
+#   Variant A: **score_status**: "scored",     (bold around bare keyword)
+#   Variant B: **"relevance_score": 1,          (bold prefix on quoted key, no closing)
+# Anchored on a line start or JSON delimiter (`{`, `,`) so it cannot match
+# inside a JSON string value where legitimate `**` may appear as prose.
+_BOLD_KEY_RE: re.Pattern[str] = re.compile(
+    r'(?P<anchor>^|[{,]\s*)\*\*"?(?P<key>\w+)"?(?:\*\*)?\s*:',
+    re.MULTILINE,
+)
+
 
 def extract_json_payload(raw_output: str) -> str:
     """Pull the JSON payload out of an LLM response that may wrap it in
@@ -65,8 +77,13 @@ def extract_json_payload(raw_output: str) -> str:
     for opener in ("{", "["):
         idx = text.find(opener)
         if idx > 0:  # strictly prose-before; idx == 0 already parses
-            return text[idx:].strip()
+            text = text[idx:].strip()
+            break
 
+    # Defensive: strip markdown-bold around keys (#638). Anchored regex only
+    # matches at line-start or after JSON delimiters, so legitimate `**`
+    # inside string values is preserved.
+    text = _BOLD_KEY_RE.sub(r'\g<anchor>"\g<key>":', text)
     return text
 
 

@@ -153,7 +153,7 @@ that is a sign you are over-thinking it. Make the call.
 
 ## OUTPUT FORMAT
 
-Return ONLY valid JSON. No markdown fences. No preamble. No trailing text.
+Return ONLY valid JSON. No markdown fences. No bold (`**`), no asterisks, no emphasis. No preamble. No trailing text. Keys must be in `"key": value` form — never `**key**:` or `**"key":`.
 
 {
   "score_status": "scored",
