@@ -1,0 +1,18 @@
+{# Rendered after onboarding finalize when the voice-samples LLM redact call failed (#634). #}
+{# Cleaned-but-not-redacted voice samples were NOT written to disk; the operator can retry. #}
+{% if voice_redact_failed %}
+<div class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">
+  <p class="font-medium">Voice samples were dropped — LLM redaction failed.</p>
+  <p>
+    The conversational-tone voice samples you pasted during the interview could not be
+    redacted (OpenRouter was unreachable or returned an error). To avoid writing unredacted
+    personal detail to disk, that file was skipped entirely. Every other onboarding output
+    was committed normally.
+  </p>
+  <p>
+    To restore voice samples, rerun the onboarding interview after the LLM outage clears:
+    <code class="px-1 py-0.5 bg-amber-100 rounded">/onboarding/?mode=rerun</code>. Materials
+    generation will still work without them — it just loses the voice-calibration signal.
+  </p>
+</div>
+{% endif %}

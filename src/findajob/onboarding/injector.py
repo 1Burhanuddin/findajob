@@ -119,6 +119,7 @@ class InjectResult(NamedTuple):
     backup_dir: Path
     discovery: DiscoveryStatus
     decision: InjectionDecision = InjectionDecision(gate_to_feed_config=False, pending_adapter=None)
+    voice_samples_redact_failed: bool = False
 
 
 def is_complete(base_root: Path) -> bool:
@@ -351,6 +352,7 @@ def inject(
     backup_dir = backup_existing(base_root, stamp)
 
     decision: InjectionDecision = InjectionDecision(gate_to_feed_config=False, pending_adapter=None)
+    voice_samples_redact_failed = False
     tempfiles: list[tuple[str, Path]] = []  # (tmp_name, final_dest)
     env_tmp_name: str | None = None
     try:
@@ -373,7 +375,14 @@ def inject(
                 continue
             body = found[opt_name]
             if opt_name == "voice-samples.md":
-                processed, _redaction_ok = process_voice_samples(body, redact=redact_voice_samples, conn=conn)
+                processed, redaction_ok = process_voice_samples(body, redact=redact_voice_samples, conn=conn)
+                if not redaction_ok:
+                    # LLM redaction failed (#634): the structurally-cleaned body still
+                    # contains every PII string the user pasted. Skip the write entirely
+                    # so unredacted content never lands on disk; surface the flag so the
+                    # route can warn the user to retry after the LLM outage clears.
+                    voice_samples_redact_failed = True
+                    continue
                 if not processed:
                     continue  # voice-samples processing returned empty → skip write
                 body = processed
@@ -483,4 +492,9 @@ def inject(
         )
     except Exception as e:  # noqa: BLE001 — discovery must never crash onboarding
         discovery = DiscoveryStatus(success=False, count=0, error=str(e))
-    return InjectResult(backup_dir=backup_dir, discovery=discovery, decision=decision)
+    return InjectResult(
+        backup_dir=backup_dir,
+        discovery=discovery,
+        decision=decision,
+        voice_samples_redact_failed=voice_samples_redact_failed,
+    )

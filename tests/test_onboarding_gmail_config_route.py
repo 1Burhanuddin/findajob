@@ -168,3 +168,20 @@ def test_post_finish_advances_to_connections_gate_when_test_passed(client: TestC
     assert response.status_code == 303
     assert response.headers["location"] == f"/onboarding/connections/{SID}/"
     assert not (base_root / "data" / ".onboarding-complete").exists()
+
+
+def test_get_surfaces_voice_redact_warning_when_query_param_set(client: TestClient) -> None:
+    """?voice_redact_failed=1 → amber banner with retry guidance renders inline (#634)."""
+    response = client.get(f"/onboarding/gmail-config/{SID}/?voice_redact_failed=1")
+    assert response.status_code == 200
+    body = response.text
+    assert "Voice samples were dropped" in body
+    assert "LLM redaction failed" in body
+    assert "/onboarding/?mode=rerun" in body
+
+
+def test_get_omits_voice_redact_warning_when_query_param_absent(client: TestClient) -> None:
+    """Default page render does NOT include the warning banner."""
+    response = client.get(f"/onboarding/gmail-config/{SID}/")
+    assert response.status_code == 200
+    assert "Voice samples were dropped" not in response.text

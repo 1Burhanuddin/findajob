@@ -536,10 +536,17 @@ def finalize_interview(
     # the user proceeds to the Gmail-config gate (#407), then to the
     # connections gate (#571), which is the terminal step that writes the
     # sentinel.
+    #
+    # When voice-samples LLM redaction failed during inject() (#634), append
+    # ?voice_redact_failed=1 to the immediate redirect target. Both feed-config
+    # and gmail-config GET handlers accept the param and render an amber warning
+    # banner; the param is not propagated through /finish hops — one-shot
+    # display on the page the user lands on immediately after Finalize.
+    redact_param = "?voice_redact_failed=1" if inject_result.voice_samples_redact_failed else ""
     if inject_result.decision.gate_to_feed_config:
-        return RedirectResponse(f"/onboarding/feed-config/{session_id}", status_code=303)
+        return RedirectResponse(f"/onboarding/feed-config/{session_id}{redact_param}", status_code=303)
 
     # No feed-config gate — redirect straight to the Gmail-config gate (#407).
     # The sentinel is not yet written; gmail-config hands off to the
     # connections gate (#571), which writes it after upload or explicit skip.
-    return RedirectResponse(f"/onboarding/gmail-config/{session_id}/", status_code=303)
+    return RedirectResponse(f"/onboarding/gmail-config/{session_id}/{redact_param}", status_code=303)

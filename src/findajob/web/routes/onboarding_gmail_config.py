@@ -38,24 +38,37 @@ def _derive_status() -> str:
     return "saved_untested"
 
 
-def _ctx(request: Request, *, session_id: str, status: str, validation_error: str | None = None) -> dict:
+def _ctx(
+    request: Request,
+    *,
+    session_id: str,
+    status: str,
+    validation_error: str | None = None,
+    voice_redact_failed: bool = False,
+) -> dict:
     return {
         "session_id": session_id,
         "config": gmail_imap.load_config(),
         "state": gmail_imap.load_state(),
         "status": status,
         "validation_error": validation_error,
+        "voice_redact_failed": voice_redact_failed,
         "github_blob_url": constants.github_blob_url,
     }
 
 
 @router.get("/{session_id}/", response_class=HTMLResponse)
-def get_gmail_gate(session_id: str, request: Request) -> HTMLResponse:
+def get_gmail_gate(session_id: str, request: Request, voice_redact_failed: int = 0) -> HTMLResponse:
     templates = request.app.state.templates
     return templates.TemplateResponse(
         request=request,
         name="onboarding_gmail_config/index.html",
-        context=_ctx(request, session_id=session_id, status=_derive_status()),
+        context=_ctx(
+            request,
+            session_id=session_id,
+            status=_derive_status(),
+            voice_redact_failed=bool(voice_redact_failed),
+        ),
     )
 
 

@@ -293,6 +293,42 @@ def test_inject_skips_voice_write_when_processing_returns_empty(tmp_path: Path) 
     assert not voice_dest.exists()
 
 
+def test_inject_skips_voice_write_when_redaction_fails(tmp_path: Path) -> None:
+    """LLM redaction failure → cleaned-but-unredacted body is NOT written to disk (#634).
+
+    process_voice_samples returns (cleaned, False) on OpenRouterError so the caller
+    can degrade gracefully. The caller MUST honor the False flag and skip the write
+    — the cleaned body still contains every verbatim PII string the user pasted.
+    """
+    unredacted_body = "I worked at Acme Corp in Pittsburgh with my friend Jane Doe."
+    with patch("findajob.onboarding.injector.process_voice_samples") as mock_process:
+        mock_process.return_value = (unredacted_body, False)  # LLM failed
+        result = inject(tmp_path, _full_files_with_voice(unredacted_body), skip_smoke_check=True)
+
+    voice_dest = tmp_path / "candidate_context" / "voice_samples" / "voice-samples.md"
+    assert not voice_dest.exists(), "unredacted voice samples must NOT land on disk"
+    assert result.voice_samples_redact_failed is True
+
+    profile_dest = tmp_path / "candidate_context" / "profile.md"
+    assert profile_dest.exists(), "other config files must commit normally"
+
+
+def test_inject_voice_redact_failed_flag_false_on_success(tmp_path: Path) -> None:
+    """Successful redaction → voice_samples_redact_failed flag stays False."""
+    voice_body = "Some prose."
+    with patch("findajob.onboarding.injector.process_voice_samples") as mock_process:
+        mock_process.return_value = ("redacted text", True)
+        result = inject(tmp_path, _full_files_with_voice(voice_body), skip_smoke_check=True)
+
+    assert result.voice_samples_redact_failed is False
+
+
+def test_inject_voice_redact_failed_flag_false_when_no_voice_samples(tmp_path: Path) -> None:
+    """No voice-samples.md at all → flag is False (nothing to redact, no failure)."""
+    result = inject(tmp_path, _MIN_FILES, skip_smoke_check=True)
+    assert result.voice_samples_redact_failed is False
+
+
 def test_inject_creates_voice_samples_parent_dir(tmp_path: Path) -> None:
     """The candidate_context/voice_samples/ directory is created if missing."""
     voice_body = "Real prose."

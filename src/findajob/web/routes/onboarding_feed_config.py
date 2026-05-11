@@ -87,7 +87,7 @@ def _write_env_var(env_path: Path, var_name: str, value: str) -> None:
 
 
 @router.get("/{session_id}", response_class=HTMLResponse)
-def get_feed_config_form(session_id: str, request: Request) -> HTMLResponse:
+def get_feed_config_form(session_id: str, request: Request, voice_redact_failed: int = 0) -> HTMLResponse:
     base = Path(request.app.state.base_root)
     meta = _resolve_adapter_metadata(base)
     templates = request.app.state.templates
@@ -97,6 +97,7 @@ def get_feed_config_form(session_id: str, request: Request) -> HTMLResponse:
         context={
             "session_id": session_id,
             "adapter": meta,
+            "voice_redact_failed": bool(voice_redact_failed),
         },
     )
 
