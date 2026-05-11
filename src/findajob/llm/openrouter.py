@@ -356,8 +356,17 @@ def _parse_response(raw: str) -> CompletionResult:
             kind="malformed",
         ) from e
     if not isinstance(text, str):
+        # Surface finish_reason in the error so pipeline.jsonl shows what
+        # actually went wrong. "Content not a string: NoneType;
+        # finish_reason=length" tells the operator immediately that
+        # max_tokens was exhausted (reasoning model ate the budget) —
+        # the fix is raising max_tokens, not retrying with the same cap.
+        try:
+            finish_reason_for_err = data["choices"][0].get("finish_reason")
+        except (KeyError, IndexError, TypeError):
+            finish_reason_for_err = None
         raise OpenRouterError(
-            f"Content not a string: {type(text).__name__}",
+            f"Content not a string: {type(text).__name__}; finish_reason={finish_reason_for_err}",
             kind="malformed",
         )
     usage = data.get("usage") or {}
