@@ -1,4 +1,14 @@
-"""Materials viewer routes: /, /materials/{fp}, /materials/{fp}/{file}."""
+"""Materials viewer + editor routes.
+
+GET routes:
+  /materials/                              — index across In flight / Applied / Waitlisted / Rejected sections
+  /materials/{fp}                          — per-job folder view (with post-applied banner #210)
+  /materials/{fp}/{file}                   — inline render for .md/.txt, blob download for binaries
+
+POST routes:
+  /materials/{fp}/regenerate               — full LLM re-run (delegates to prep subprocess; #616)
+  /materials/{fp}/files/{filename}         — atomic edit-and-save for .md files; auto-regenerates .docx sibling (#210)
+"""
 
 from __future__ import annotations
 
