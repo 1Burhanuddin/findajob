@@ -15,13 +15,17 @@
     LLM emits the file blocks, the Finalize box below will unhide.
   </p>
 
-  {% if error %}
-  <div class="border border-red-300 bg-red-50 text-red-900 px-4 py-3 rounded">
-    <p class="font-medium">Something went wrong</p>
-    <p class="text-sm mt-1 whitespace-pre-wrap">{{ error }}</p>
-    <p class="text-xs mt-2 text-red-700">You can keep typing to retry — the previous turn is preserved.</p>
+  {# #623: slot is always present so _turn.html can OOB-empty it on success.
+     Empty slot renders nothing; populated slot renders the error banner. #}
+  <div id="error-slot">
+    {% if error %}
+    <div class="border border-red-300 bg-red-50 text-red-900 px-4 py-3 rounded">
+      <p class="font-medium">Something went wrong</p>
+      <p class="text-sm mt-1 whitespace-pre-wrap">{{ error }}</p>
+      <p class="text-xs mt-2 text-red-700">You can keep typing to retry — the previous turn is preserved.</p>
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
 
   <div id="progress-row" class="flex flex-wrap items-center gap-3 text-xs text-slate-600">
     <span class="inline-flex items-center px-2 py-1 rounded bg-slate-100 border"

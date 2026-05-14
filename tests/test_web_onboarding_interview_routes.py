@@ -1007,3 +1007,107 @@ def test_turn_writes_cost_log_row(
     assert input_tokens == 10
     assert output_tokens == 20
     assert abs(cost_usd - 0.000123) < 1e-9, f"cost_usd mismatch: {cost_usd}"
+
+
+# ── #623: error-banner persistence after recovery ────────────────────────
+
+
+def test_turn_clears_error_state_on_success(
+    client_with_key: TestClient, base_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#623: when a /turn previously persisted error_state and the next /turn
+    succeeds, error_state must clear so /resume no longer shows the banner."""
+    from findajob.onboarding.session_store import set_error
+
+    sid = _create_session_directly(base_root)
+    conn = sqlite3.connect(base_root / "data" / "pipeline.db")
+    try:
+        set_error(conn, sid, "OpenRouter credit exhausted (402).")
+    finally:
+        conn.close()
+
+    _, _, _, error_state_before = _read_session(base_root, sid)
+    assert error_state_before == "OpenRouter credit exhausted (402)."
+
+    _stub_run_turn(monkeypatch, "great — let's continue.")
+    resp = client_with_key.post(
+        "/onboarding/interview/turn",
+        data={"session_id": sid, "message": "topped up, retrying"},
+    )
+    assert resp.status_code == 200
+
+    _, _, _, error_state_after = _read_session(base_root, sid)
+    assert error_state_after is None, "error_state must be cleared on successful /turn"
+
+    # OOB swap empties the in-page banner slot — catches the case where
+    # clear_error landed in the DB but the rendered partial doesn't tell
+    # HTMX to evict the already-visible banner.
+    assert 'id="error-slot"' in resp.text
+    assert 'hx-swap-oob="true"' in resp.text
+    assert "Something went wrong" not in resp.text
+
+
+def test_start_clears_error_state_on_success_retry(
+    client_with_key: TestClient, base_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#623: a /start that previously failed and persisted error_state must
+    clear it when a retried /start succeeds (advisor-flagged scope: same
+    bug class as /turn — the credentials-only row carries error_state
+    across the retry)."""
+    _plant_credentials(base_root)
+
+    _stub_run_turn_error(monkeypatch, "OpenRouter credit exhausted (402).", kind="payment", status_code=402)
+    resp_err = client_with_key.post("/onboarding/interview/start")
+    assert resp_err.status_code in (200, 502)
+
+    conn = sqlite3.connect(base_root / "data" / "pipeline.db")
+    try:
+        row = conn.execute(
+            "SELECT id, error_state FROM onboarding_sessions ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()
+    finally:
+        conn.close()
+    sid, error_state_before = row
+    assert error_state_before is not None
+
+    _stub_run_turn(monkeypatch, "Hi! What's your name?")
+    resp_ok = client_with_key.post("/onboarding/interview/start")
+    assert resp_ok.status_code == 303
+
+    _, _, _, error_state_after = _read_session(base_root, sid)
+    assert error_state_after is None, "error_state must be cleared on successful /start retry"
+
+
+def test_resume_renders_banner_when_error_state_set_and_omits_when_cleared(
+    client_with_key: TestClient, base_root: Path
+) -> None:
+    """#623: GET /resume renders the banner from error_state. Pair the
+    positive (banner shown when set) with the negative (banner absent when
+    cleared) so an accidental unconditional render gets caught."""
+    from findajob.onboarding.session_store import clear_error, set_error
+
+    sid = _create_session_directly(base_root)
+    conn = sqlite3.connect(base_root / "data" / "pipeline.db")
+    try:
+        set_error(conn, sid, "OpenRouter credit exhausted (402).")
+    finally:
+        conn.close()
+
+    resp_with_error = client_with_key.get(f"/onboarding/interview/{sid}")
+    assert resp_with_error.status_code == 200
+    assert "Something went wrong" in resp_with_error.text
+    assert "OpenRouter credit exhausted (402)." in resp_with_error.text
+
+    conn = sqlite3.connect(base_root / "data" / "pipeline.db")
+    try:
+        clear_error(conn, sid)
+    finally:
+        conn.close()
+
+    resp_cleared = client_with_key.get(f"/onboarding/interview/{sid}")
+    assert resp_cleared.status_code == 200
+    assert "Something went wrong" not in resp_cleared.text
+    assert "OpenRouter credit exhausted (402)." not in resp_cleared.text
+    # Empty slot is still rendered — the OOB swap target needs to exist on
+    # the page even when there's no error to show.
+    assert 'id="error-slot"' in resp_cleared.text

@@ -19,6 +19,10 @@
 {% set turn = {"role": "assistant", "content": assistant_message, "rendered_content": assistant_message_html} %}
 {% include "onboarding/_turn_bubble.html" %}
 
+{# #623 OOB: empty any stale error banner the page was loaded with, so a
+   successful turn visibly clears it without requiring a refresh. #}
+<div id="error-slot" hx-swap-oob="true"></div>
+
 {# Out-of-band swap: refresh the captured-count + cost-spent badges after
    each turn without a full page reload. #}
 <div id="progress-row" hx-swap-oob="true" class="flex flex-wrap items-center gap-3 text-xs text-slate-600">

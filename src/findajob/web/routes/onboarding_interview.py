@@ -34,6 +34,7 @@ from findajob.onboarding.parser import ALLOWED_FILENAMES, parse_emission
 from findajob.onboarding.session_store import (
     add_turn_cost,
     append_turn,
+    clear_error,
     find_active,
     find_credentials_only,
     get_credentials,
@@ -276,6 +277,10 @@ def start_interview(request: Request) -> HTMLResponse | RedirectResponse:
                 status_code=200,
             )
 
+        # #623: a prior /start attempt on this same credentials-only row may
+        # have persisted error_state; clear it so /resume doesn't re-render
+        # the stale banner alongside a now-working interview.
+        clear_error(conn, session_id)
         add_turn_cost(conn, session_id, usage)
         # Write cost_log row — subsumes #463 for onboarding turns.
         try:
@@ -349,6 +354,9 @@ def post_turn(
                 err=e,
             )
 
+        # #623: clear any prior error_state so /resume no longer renders
+        # the stale banner now that this turn has self-corrected.
+        clear_error(conn, session_id)
         add_turn_cost(conn, session_id, usage)
         # Write cost_log row — subsumes #463 for onboarding turns.
         try:

@@ -128,6 +128,14 @@ def set_error(db: sqlite3.Connection, session_id: str, message: str) -> None:
     db.commit()
 
 
+def clear_error(db: sqlite3.Connection, session_id: str) -> None:
+    db.execute(
+        "UPDATE onboarding_sessions SET error_state = NULL WHERE id = ?",
+        (session_id,),
+    )
+    db.commit()
+
+
 def add_turn_cost(db: sqlite3.Connection, session_id: str, usage: dict) -> None:
     """Add this turn's cost to ``cumulative_cost_usd``.
 
