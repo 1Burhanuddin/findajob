@@ -48,6 +48,21 @@ def test_classify_outreach():
     assert _classify_file("Candidate Outreach to Jane Recruiter - Acme - 20260429-101515.txt")[0] == "Outreach"
 
 
+def test_classify_interview_prep():
+    """Interview Prep artifacts (.md + .docx pair, written by
+    findajob.interview.orchestrator on POST /board/jobs/{fp}/interview) must
+    classify into their own group — not fall to Other. Regression guard for
+    #666 parity with #210's edit + copy-MD surface."""
+    md = _classify_file("Candidate Interview Prep - Acme - Senior Engineer - 20260514-101515.md")
+    docx = _classify_file("Candidate Interview Prep - Acme - Senior Engineer - 20260514-101515.docx")
+    assert md[0] == "Interview Prep"
+    assert docx[0] == "Interview Prep"
+    # Sort order must be > Review Checklist (8) so Interview Prep sits at the
+    # end of the per-folder view — it's the last artifact generated, and only
+    # appears for jobs that have advanced to the Interviewing stage.
+    assert md[1] > 8
+
+
 def test_classify_unrecognized_falls_to_other():
     label, order = _classify_file("random.md")
     assert label == "Other"
@@ -68,6 +83,7 @@ def test_group_files_orders_workflow_sections(tmp_path: Path):
         "Candidate Resume - Acme - Sr Eng - 20260429-101515.md",
         "Candidate Cover - Acme - Sr Eng - 20260429-101515.docx",
         "Candidate Briefing - Acme - Sr Eng - 20260429-101515.docx",
+        "Candidate Interview Prep - Acme - Sr Eng - 20260514-101515.md",
     ]
     for name in files:
         (tmp_path / name).write_text("x")
@@ -76,7 +92,9 @@ def test_group_files_orders_workflow_sections(tmp_path: Path):
     labels = [g["label"] for g in groups]
 
     # Workflow order: JD → Briefing → Resume → Resume Changes → Cover →
-    # Outreach → Critique → Review.
+    # Outreach → Critique → Review → Interview Prep.
+    # Interview Prep sits at the tail — it's only generated post-application
+    # when the user advances to the Interviewing stage.
     assert labels == [
         "Job Description",
         "Briefing",
@@ -86,6 +104,7 @@ def test_group_files_orders_workflow_sections(tmp_path: Path):
         "Outreach",
         "Recruiter Critique",
         "Review Checklist",
+        "Interview Prep",
     ]
 
 
@@ -154,6 +173,7 @@ def test_group_files_skips_subdirectories(tmp_path: Path):
         ("Review Checklist - Acme - Sr Eng.md", "Review Checklist"),
         ("Alpha Briefing - Acme - Manager - 20260429-101515.md", "Briefing"),
         ("Beta Cover - Acme - Engineer - 20260429-101515.docx", "Cover Letter"),
+        ("Gamma Interview Prep - Acme - Director - 20260514-101515.md", "Interview Prep"),
     ],
 )
 def test_classify_works_across_display_names(filename: str, expected_label: str):
@@ -193,13 +213,16 @@ def test_briefing_description_does_not_mention_submit(tmp_path: Path):
 
 
 def test_internal_prep_groups_marked_for_your_eyes_only(tmp_path: Path):
-    """Resume Changes and Recruiter Critique are internal-only diagnostics
-    that the user should never paste into an application — flag explicitly."""
+    """Resume Changes, Recruiter Critique, and Interview Prep are internal-only
+    diagnostics/notes that the user should never paste into an application —
+    flag explicitly."""
     (tmp_path / "Candidate Resume Changes - Acme - Sr Eng - 20260429-101515.md").write_text("x")
     (tmp_path / "Candidate Critique - Acme - Sr Eng - 20260429-101515.md").write_text("x")
+    (tmp_path / "Candidate Interview Prep - Acme - Sr Eng - 20260514-101515.md").write_text("x")
     groups = {g["label"]: g for g in _group_files(tmp_path, title="Sr Eng", company="Acme")}
     assert "for your eyes only" in groups["Resume Changes"]["description"].lower()
     assert "for your eyes only" in groups["Recruiter Critique"]["description"].lower()
+    assert "for your eyes only" in groups["Interview Prep"]["description"].lower()
 
 
 def test_outreach_hint_mentions_paste_destination(tmp_path: Path):

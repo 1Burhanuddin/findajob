@@ -56,6 +56,7 @@ _GROUP_RULES: list[tuple[str, str, int]] = [
     (" Outreach to ", "Outreach", 6),
     (" Critique - ", "Recruiter Critique", 7),
     ("Review Checklist - ", "Review Checklist", 8),
+    (" Interview Prep - ", "Interview Prep", 9),
 ]
 _OTHER_LABEL = "Other"
 _OTHER_ORDER = 99
@@ -116,6 +117,10 @@ _GROUP_DESCRIPTIONS: dict[str, str] = {
     "Review Checklist": (
         "Pre-flight checklist of things to verify before you submit — formatting, claims, contact info."
     ),
+    "Interview Prep": (
+        "Interview notes for {title} at {company} — STAR stories, questions to ask, tough Qs to anticipate. "
+        "Read before each round to anchor your talking points. For your eyes only."
+    ),
 }
 
 # Per-(group, ext) one-liner shown on each file row. Tells the user what to
@@ -135,6 +140,8 @@ _FILE_HINTS: dict[tuple[str, str], str] = {
     ("Resume Changes", "md"): "Markdown source — preview in browser",
     ("Recruiter Critique", "md"): "Markdown source — preview in browser",
     ("Review Checklist", "md"): "Markdown source — preview in browser",
+    ("Interview Prep", "docx"): "MS Word — printable copy of your interview notes",
+    ("Interview Prep", "md"): "Markdown source — preview in browser, or Copy MD into Google Docs",
 }
 
 
