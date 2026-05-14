@@ -204,8 +204,9 @@ docker compose exec scheduler bash
 # Force a one-shot run of a scheduled job (does not touch supercronic)
 docker compose exec scheduler python3 scripts/triage.py
 
-# Restart after editing data/.env, config/, or compose.yaml
-docker compose restart scheduler
+# Recreate after editing data/.env or compose.yaml
+# (config/ files are hot-reloaded — no restart needed)
+docker compose up -d --force-recreate
 
 # Pull a new image and recreate the container
 docker compose pull && docker compose up -d

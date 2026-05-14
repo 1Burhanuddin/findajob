@@ -361,7 +361,7 @@ and bounce the stack:
 ssh <deployment-host>
 cd /opt/stacks/findajob-<handle>/
 sudo sed -i 's|^OPENROUTER_API_KEY=.*|OPENROUTER_API_KEY=sk-or-v1-NEW...|' state/data/.env
-sudo docker compose restart scheduler
+sudo docker compose up -d --force-recreate
 ```
 
 Per the project memory `feedback_never_print_secrets`, never `cat` or
