@@ -1,25 +1,41 @@
-{# Dashboard burn-rate widget. Two numbers — this week and projected month.
-   Cost numbers come from `cost_log.cost_usd` (OpenRouter `response.usage.cost`). #}
+{# Dashboard burn-rate widget. Prep + scoring breakdown for this week and
+   projected month. Cost numbers come from `cost_log.cost_usd` (OpenRouter
+   `response.usage.cost`). Week anchor is Sunday 00:00 in the container's
+   local tz (cost_widget.tz, sourced from $TZ env). #}
 {% if cost_widget %}
 <div class="bg-white rounded-md shadow-sm p-4 max-w-md">
   <h4 class="text-xs uppercase tracking-wide text-slate-500 mb-3">LLM Burn Rate</h4>
 
-  {% if cost_widget.weekly_total is not none %}
+  {% if cost_widget.weekly_prep is not none %}
     <div class="flex justify-between py-2 border-b border-slate-100">
-      <span class="text-sm text-slate-600">This week</span>
-      <span class="text-base font-semibold">${{ '%.2f' | format(cost_widget.weekly_total) }}</span>
+      <span class="text-sm text-slate-600">This week — prep</span>
+      <span class="text-base font-semibold">${{ '%.2f' | format(cost_widget.weekly_prep) }}</span>
     </div>
   {% endif %}
 
-  {% if cost_widget.projected_monthly is not none %}
+  {% if cost_widget.weekly_scoring is not none %}
+    <div class="flex justify-between py-2 border-b border-slate-100">
+      <span class="text-sm text-slate-600">This week — scoring</span>
+      <span class="text-base font-semibold">${{ '%.2f' | format(cost_widget.weekly_scoring) }}</span>
+    </div>
+  {% endif %}
+
+  {% if cost_widget.projected_prep is not none %}
+    <div class="flex justify-between py-2 border-b border-slate-100">
+      <span class="text-sm text-slate-600">Projected month — prep</span>
+      <span class="text-base font-semibold">${{ '%.2f' | format(cost_widget.projected_prep) }}</span>
+    </div>
+  {% endif %}
+
+  {% if cost_widget.projected_scoring is not none %}
     <div class="flex justify-between py-2">
-      <span class="text-sm text-slate-600">Projected this month</span>
-      <span class="text-base font-semibold">${{ '%.2f' | format(cost_widget.projected_monthly) }}</span>
+      <span class="text-sm text-slate-600">Projected month — scoring</span>
+      <span class="text-base font-semibold">${{ '%.2f' | format(cost_widget.projected_scoring) }}</span>
     </div>
   {% endif %}
 
   <p class="text-xs text-slate-400 mt-3">
-    Sourced from <code>cost_log.cost_usd</code> (OpenRouter native).
+    Week anchored at Sunday 00:00 {{ cost_widget.tz }}. Sourced from <code>cost_log.cost_usd</code>.
   </p>
 </div>
 {% endif %}

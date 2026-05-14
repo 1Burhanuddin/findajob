@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sqlite3
 
 from fastapi import APIRouter, Depends, Request
@@ -38,10 +39,16 @@ def landing(
     ordered = [(s, counts.get(s, 0)) for s in _STAGES_ORDER]
 
     try:
-        weeks = weekly_spend(db, weeks=4)
+        tz = os.environ.get("TZ", "UTC")
+        weeks = weekly_spend(db, weeks=4, tz=tz)
+        projected = projected_monthly(db)
+        this_week = weeks[-1] if weeks else None
         cost_widget = {
-            "weekly_total": weeks[-1].total_usd if weeks else None,
-            "projected_monthly": projected_monthly(db),
+            "tz": tz,
+            "weekly_prep": this_week.prep_usd if this_week else None,
+            "weekly_scoring": this_week.scoring_usd if this_week else None,
+            "projected_prep": projected.prep_usd,
+            "projected_scoring": projected.scoring_usd,
         }
     except sqlite3.OperationalError:
         cost_widget = None

@@ -95,22 +95,21 @@ def _insert_cost_log(
     cost: float,
     operation: str = "briefing",
 ) -> None:
-    """Insert one cost_log row at a deterministic position in the week N back.
+    """Insert one cost_log row at exactly N×7 days before 'now'.
 
-    Anchors at the Sunday of the current UTC week minus weeks_ago×7 days.
-    The week-bucket SQL uses Sunday as the week-start, so a Sunday-of-week-N
-    row always maps to the same Sunday anchor regardless of which day the
-    test runs on. strftime('%w', 'now') returns 0 for Sunday, so
-    '-0 days' is safe and correct.
+    Shifting by exactly 7N days preserves weekday and time-of-day, so the
+    row lands in the Nth-previous week of any tz: "now" is by definition
+    in current week (UTC and PT both), "now − 7 days" is in last week,
+    etc. Avoids the Sunday-anchored variant which becomes flaky when the
+    test runs at UTC times where UTC Sunday and PT Sunday differ
+    (roughly UTC 00:00–08:00 on Sundays).
     """
     conn.execute(
         """INSERT INTO cost_log
            (job_id, operation, model, cost_usd, success, logged_at)
            VALUES (NULL, ?, 'google/gemini-3-flash-preview', ?, 1,
-                   datetime('now',
-                            '-' || strftime('%w', 'now') || ' days',
-                            '-' || ? || ' days'))""",
-        (operation, cost, weeks_ago * 7),
+                   datetime('now', ?))""",
+        (operation, cost, f"-{weeks_ago * 7} days"),
     )
     conn.commit()
 
@@ -125,32 +124,82 @@ def test_weekly_spend_returns_n_weeks_oldest_first(db: sqlite3.Connection) -> No
     weeks = weekly_spend(db, weeks=4)
     assert len(weeks) == 4
     # Last entry = current week.
-    assert weeks[-1].total_usd == pytest.approx(1.00, rel=1e-3)
+    assert weeks[-1].prep_usd == pytest.approx(1.00, rel=1e-3)
     # Second-to-last = 1 week ago.
-    assert weeks[-2].total_usd == pytest.approx(2.00, rel=1e-3)
+    assert weeks[-2].prep_usd == pytest.approx(2.00, rel=1e-3)
     # Third-to-last = 2 weeks ago.
-    assert weeks[-3].total_usd == pytest.approx(3.00, rel=1e-3)
+    assert weeks[-3].prep_usd == pytest.approx(3.00, rel=1e-3)
     # Fourth-to-last = 3 weeks ago, no inserts → zero.
-    assert weeks[-4].total_usd == pytest.approx(0.00, abs=1e-9)
+    assert weeks[-4].prep_usd == pytest.approx(0.00, abs=1e-9)
+    # Scoring side stays zero — _insert_cost_log defaults operation='briefing'.
+    assert all(w.scoring_usd == pytest.approx(0.0, abs=1e-9) for w in weeks)
+
+
+def test_weekly_spend_splits_prep_and_scoring(db: sqlite3.Connection) -> None:
+    """A score row goes to scoring_usd, non-score to prep_usd, same week."""
+    from findajob.cost_rollups import weekly_spend
+
+    _insert_cost_log(db, weeks_ago=0, cost=1.50, operation="briefing")
+    _insert_cost_log(db, weeks_ago=0, cost=0.20, operation="score")
+    _insert_cost_log(db, weeks_ago=0, cost=0.30, operation="score")
+
+    weeks = weekly_spend(db, weeks=4)
+    assert weeks[-1].prep_usd == pytest.approx(1.50, rel=1e-3)
+    assert weeks[-1].scoring_usd == pytest.approx(0.50, rel=1e-3)
+
+
+def test_weekly_spend_tz_shifts_week_boundary(db: sqlite3.Connection) -> None:
+    """A row logged 'now' counts toward this week's prep total for any tz.
+
+    Verifies the tz= param wires through to the SQL boundary filter — both
+    UTC and America/Los_Angeles should bucket a fresh insert as "current
+    week," and the local week_start label differs between the two when the
+    operator's PT-anchored week boundary lands on a different calendar
+    date than the UTC-anchored one (e.g., late Saturday PT = Sunday UTC).
+    """
+    from findajob.cost_rollups import weekly_spend
+
+    _insert_cost_log(db, weeks_ago=0, cost=1.00)
+
+    weeks_utc = weekly_spend(db, weeks=2, tz="UTC")
+    weeks_pt = weekly_spend(db, weeks=2, tz="America/Los_Angeles")
+
+    # The 'now' insert lands in this-week's bucket regardless of tz.
+    assert weeks_utc[-1].prep_usd == pytest.approx(1.00, rel=1e-3)
+    assert weeks_pt[-1].prep_usd == pytest.approx(1.00, rel=1e-3)
+    # week_start label is a local-tz Sunday date, may differ between tzs.
+    assert len(weeks_utc[-1].week_start) == 10  # YYYY-MM-DD
+    assert len(weeks_pt[-1].week_start) == 10
 
 
 def test_projected_monthly_scales_7d(db: sqlite3.Connection) -> None:
     from findajob.cost_rollups import projected_monthly
 
-    # 3 inserts in the current week (Sunday anchor ≤ 6 days ago) summing to $7.00.
-    # The projected_monthly filter is logged_at >= datetime('now', '-7 days'),
-    # and Sunday-of-current-week is always within that window.
-    # projection = 7.0 × 30/7 = 30.0
+    # 3 prep inserts summing to $7.00 → projection = 7.0 × 30/7 = 30.0
     _insert_cost_log(db, weeks_ago=0, cost=2.10)
     _insert_cost_log(db, weeks_ago=0, cost=3.50)
     _insert_cost_log(db, weeks_ago=0, cost=1.40)
-    assert projected_monthly(db) == pytest.approx(30.0, rel=1e-3)
+    result = projected_monthly(db)
+    assert result.prep_usd == pytest.approx(30.0, rel=1e-3)
+    assert result.scoring_usd is None
+
+
+def test_projected_monthly_splits_prep_and_scoring(db: sqlite3.Connection) -> None:
+    from findajob.cost_rollups import projected_monthly
+
+    _insert_cost_log(db, weeks_ago=0, cost=0.70, operation="briefing")
+    _insert_cost_log(db, weeks_ago=0, cost=1.40, operation="score")
+    result = projected_monthly(db)
+    assert result.prep_usd == pytest.approx(0.70 * 30.0 / 7.0, rel=1e-3)
+    assert result.scoring_usd == pytest.approx(1.40 * 30.0 / 7.0, rel=1e-3)
 
 
 def test_projected_monthly_none_when_no_recent_spend(db: sqlite3.Connection) -> None:
     from findajob.cost_rollups import projected_monthly
 
-    assert projected_monthly(db) is None
+    result = projected_monthly(db)
+    assert result.prep_usd is None
+    assert result.scoring_usd is None
 
 
 def test_spend_this_month_sums_current_month_rows(db: sqlite3.Connection) -> None:

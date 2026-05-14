@@ -61,6 +61,41 @@ def test_landing_shows_stage_counts(client: TestClient) -> None:
     assert ">3<" in r.text and "rejected" in r.text
 
 
+def test_landing_renders_cost_widget_with_prep_and_scoring(tmp_path: Path) -> None:
+    """Widget renders both 'This week — prep' and 'This week — scoring' rows
+    when cost_log has both flavors. Regression guard for #606 — the widget
+    must surface scoring spend so it never reads $0.00 during low-prep
+    stretches.
+    """
+    db = tmp_path / "pipeline.db"
+    _seed_db(db)
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "CREATE TABLE cost_log ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  job_id TEXT, operation TEXT, model TEXT,"
+        "  cost_usd REAL, success INTEGER,"
+        "  logged_at TEXT DEFAULT (datetime('now'))"
+        ")"
+    )
+    conn.execute("INSERT INTO cost_log (operation, model, cost_usd, success) VALUES ('briefing', 'm', 1.50, 1)")
+    conn.execute("INSERT INTO cost_log (operation, model, cost_usd, success) VALUES ('score', 'm', 0.40, 1)")
+    conn.commit()
+    conn.close()
+    companies = tmp_path / "companies"
+    companies.mkdir()
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / ".onboarding-complete").write_text("2026-01-01T00:00:00Z\n")
+    app = create_app(companies_root=companies, db_path=db, base_root=tmp_path)
+    client = TestClient(app, follow_redirects=False)
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "This week &mdash; prep" in r.text or "This week — prep" in r.text
+    assert "This week &mdash; scoring" in r.text or "This week — scoring" in r.text
+    assert "$1.50" in r.text  # prep total
+    assert "$0.40" in r.text  # scoring total
+
+
 def test_landing_nav_home_active(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200

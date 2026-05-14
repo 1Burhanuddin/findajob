@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 
 def _get(row: sqlite3.Row | tuple, idx: int, name: str):
@@ -68,86 +70,121 @@ def per_job_breakdown(conn: sqlite3.Connection, job_id: str) -> list[OpRow]:
 
 @dataclass(frozen=True)
 class WeekRow:
-    week_start: str  # YYYY-MM-DD, UTC Sunday-anchored
-    total_usd: float
+    week_start: str  # YYYY-MM-DD, local-tz Sunday-anchored
+    prep_usd: float
+    scoring_usd: float
 
 
-def weekly_spend(conn: sqlite3.Connection, weeks: int = 4) -> list[WeekRow]:
-    """Prep spend per week, oldest-first.
+def _week_anchors_utc(tz: str, weeks: int) -> list[tuple[str, str, str]]:
+    """Return [(week_start_local_iso, start_utc, end_utc), ...] oldest-first.
+
+    Boundaries are Sunday 00:00 in the given IANA tz, converted to UTC for
+    filtering ``cost_log.logged_at`` (which is stored as UTC).
+    ``astimezone(UTC)`` is DST-correct: each anchor's offset is resolved
+    against the local datetime it represents, so a week straddling a DST
+    transition gets the correct UTC bounds for that week's local
+    interpretation.
+    """
+    tz_info = ZoneInfo(tz)
+    now_local = datetime.now(tz_info)
+    # Python weekday(): Mon=0..Sun=6. We want Sunday-anchored weeks,
+    # so days since the most recent Sunday = (weekday + 1) % 7.
+    days_since_sunday = (now_local.weekday() + 1) % 7
+    this_sunday_local = (now_local - timedelta(days=days_since_sunday)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    anchors: list[tuple[str, str, str]] = []
+    for i in range(weeks):
+        offset_weeks_back = weeks - 1 - i  # oldest first
+        start_local = this_sunday_local - timedelta(weeks=offset_weeks_back)
+        end_local = start_local + timedelta(weeks=1)
+        start_utc = start_local.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S")
+        end_utc = end_local.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S")
+        anchors.append((start_local.date().isoformat(), start_utc, end_utc))
+    return anchors
+
+
+def weekly_spend(conn: sqlite3.Connection, weeks: int = 4, tz: str = "UTC") -> list[WeekRow]:
+    """Weekly spend per week (prep + scoring breakdown), oldest-first.
 
     Always returns exactly ``weeks`` rows, oldest first, with zero-filled
-    entries for weeks that have no spend. Anchored at UTC Sundays — both
-    producer (cost_tracking.log_call writes datetime('now')) and consumer
-    use UTC. The dashboard widget should label the X-axis as UTC weeks
-    rather than PT weeks if precision matters. Excludes 'score' operation
-    (out of scope; surface is prep-spend specific). Excludes NULL
-    cost_usd rows.
+    entries for weeks that have no spend. Anchored at Sunday 00:00 in the
+    given IANA timezone (default UTC; pass e.g. ``"America/Los_Angeles"``
+    to match operator local time). The producer (``cost_tracking.log_call``
+    writes ``datetime('now')``) stores UTC; boundary conversion happens in
+    Python before the SQL filter, so DST transitions resolve correctly.
 
-    Week anchors use ``date(d, '-' || strftime('%w', d) || ' days')`` to
-    compute the Sunday that starts each week. This is correct for all
-    days including Sunday itself (the ``'weekday 0', '-7 days'`` idiom
-    is broken on Sundays — it returns the previous Sunday instead of the
-    day itself).
+    Splits the per-week total into ``prep_usd`` (operation != 'score') and
+    ``scoring_usd`` (operation = 'score') so the dashboard widget can
+    surface both — a widget that only counts prep reads $0.00 during
+    low-prep stretches even when scoring spent tens of dollars. Excludes
+    NULL ``cost_usd`` rows.
     """
     if weeks < 1:
         raise ValueError("weeks must be >= 1")
-    oldest_weeks = weeks - 1
+    anchors = _week_anchors_utc(tz, weeks)
+    placeholders = ", ".join(["(?, ?, ?, ?)"] * weeks)
+    params: list[object] = []
+    for idx, (week_start, start_utc, end_utc) in enumerate(anchors):
+        params.extend([idx, week_start, start_utc, end_utc])
     rows = conn.execute(
-        """WITH RECURSIVE week_series(week_start, n) AS (
-               -- Start at the oldest Sunday anchor and walk forward
-               SELECT date('now', '-' || strftime('%w', 'now') || ' days',
-                           ?),
-                      0
-               UNION ALL
-               SELECT date(week_start, '+7 days'), n + 1
-               FROM week_series
-               WHERE n + 1 < ?
-           ),
-           spend AS (
-               SELECT date(logged_at,
-                           '-' || strftime('%w', logged_at) || ' days'
-                     ) AS week_start,
-                      SUM(cost_usd) AS total
-               FROM cost_log
-               WHERE cost_usd IS NOT NULL
-                 AND logged_at IS NOT NULL
-                 AND operation != 'score'
-                 AND logged_at >= date('now', ?)
-               GROUP BY 1
+        f"""WITH weeks(idx, week_start, start_utc, end_utc) AS (
+               VALUES {placeholders}
            )
-           SELECT ws.week_start,
-                  COALESCE(s.total, 0.0) AS total
-           FROM week_series ws
-           LEFT JOIN spend s ON s.week_start = ws.week_start
-           ORDER BY ws.week_start ASC""",
-        (f"-{oldest_weeks * 7} days", weeks, f"-{(weeks + 1) * 7} days"),
+           SELECT w.week_start,
+                  COALESCE(SUM(CASE WHEN c.operation != 'score'
+                                    THEN c.cost_usd END), 0.0) AS prep,
+                  COALESCE(SUM(CASE WHEN c.operation = 'score'
+                                    THEN c.cost_usd END), 0.0) AS scoring
+           FROM weeks w
+           LEFT JOIN cost_log c
+             ON c.logged_at >= w.start_utc
+            AND c.logged_at <  w.end_utc
+            AND c.cost_usd IS NOT NULL
+            AND c.logged_at IS NOT NULL
+           GROUP BY w.idx, w.week_start
+           ORDER BY w.idx ASC""",
+        params,
     ).fetchall()
     return [
         WeekRow(
             week_start=_get(r, 0, "week_start"),
-            total_usd=float(_get(r, 1, "total")),
+            prep_usd=float(_get(r, 1, "prep")),
+            scoring_usd=float(_get(r, 2, "scoring")),
         )
         for r in rows
     ]
 
 
-def projected_monthly(conn: sqlite3.Connection) -> float | None:
-    """7-day spend extrapolated to 30 days.
+@dataclass(frozen=True)
+class ProjectedMonthly:
+    prep_usd: float | None
+    scoring_usd: float | None
 
-    Returns None if there's no spend in the last 7 days.
+
+def projected_monthly(conn: sqlite3.Connection) -> ProjectedMonthly:
+    """7-day spend extrapolated to 30 days, split prep vs scoring.
+
+    Each field is ``None`` when no rows of that flavor exist in the last
+    7 days, ``float`` otherwise. Split exists for the same reason as
+    ``weekly_spend``: a prep-only projection reads $0.00 during low-prep
+    stretches even when scoring is actively spending.
     """
     row = conn.execute(
-        """SELECT SUM(cost_usd) AS total
+        """SELECT
+              SUM(CASE WHEN operation != 'score' THEN cost_usd END) AS prep,
+              SUM(CASE WHEN operation = 'score' THEN cost_usd END) AS scoring
            FROM cost_log
            WHERE cost_usd IS NOT NULL
              AND logged_at IS NOT NULL
-             AND operation != 'score'
              AND logged_at >= datetime('now', '-7 days')"""
     ).fetchone()
-    total = _get(row, 0, "total")
-    if total is None:
-        return None
-    return float(total) * 30.0 / 7.0
+    prep = _get(row, 0, "prep")
+    scoring = _get(row, 1, "scoring")
+    return ProjectedMonthly(
+        prep_usd=float(prep) * 30.0 / 7.0 if prep is not None else None,
+        scoring_usd=float(scoring) * 30.0 / 7.0 if scoring is not None else None,
+    )
 
 
 def spend_this_month(conn: sqlite3.Connection) -> float:
