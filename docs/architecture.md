@@ -83,6 +83,15 @@ Everything between them is mediated by SQLite.
 
 ## Prep Workflow
 
+The prep pipeline is **seven sequential LLM stages plus an outreach sidecar**,
+orchestrated by `src/findajob/prep/orchestrator.py`. Each stage's output
+becomes explicit input to the next — no vector embeddings, no RAG retrieval.
+This makes failures diagnosable (you can literally read what context each
+stage saw) and quality predictable. See [Key Design Decisions](#key-design-decisions)
+for the rationale behind "direct injection, not RAG".
+
+### Entry path
+
 ```
 User clicks "Flag for Prep" in /board/dashboard
           │
@@ -90,38 +99,86 @@ User clicks "Flag for Prep" in /board/dashboard
 POST /board/jobs/{fp}/prep  (findajob.web.routes.board_actions)
   idempotency guard: no-op if stage in (prep_in_progress, materials_drafted)
   concurrency cap: 429 if 3 preps already in flight
-  stage → prep_in_progress; spawns prep_application.py via Popen
+  stage → prep_in_progress; spawns scripts/prep_application.py via Popen
           │
           ▼
-prep_application.py (detached subprocess, start_new_session=True)
-  Loads JD from DB (never re-curls)
+scripts/prep_application.py (45-line entry-point shim, detached subprocess)
+  → findajob.prep.orchestrator.main() → _run_prep()
+  Loads JD from DB (never re-curls — LinkedIn etc. require auth)
   Loads profile.md + master_resume.md (direct injection, no RAG)
-          │
-    ┌─────┴──────────────────────────────────────┐
-    │  Sequential LLM calls (OpenRouter wrapper):  │
-    │  1. resume_tailor → tailored_resume_DRAFT.md │
-    │  2. resume_change_reviewer → CHANGES.md     │
-    │  3. cover_letter_writer → cover_letter_DRAFT.md │
-    │  4. company_researcher (Perplexity sonar-reasoning-pro) │
-    │  5. briefing_writer → company_briefing.md   │
-    │  6. find_contacts.py → outreach_*.txt       │
-    └─────┬──────────────────────────────────────┘
-          │
-    pandoc converts .md → .docx for each document
-          │
-    DB updated: stage = materials_drafted
-    ntfy notification sent
-    Materials viewer reflects new folder immediately (no sync required)
-
-scripts/watchdog.py (runs every 10 min): resets any job stuck in
-  prep_in_progress > 60 min back to scored so the operator can re-flag.
-
-If a pandoc or find_contacts subprocess fails (non-zero exit), the
-orchestrator immediately rolls stage back to scored, writes a
-.failed_subprocess sentinel into the prep folder (cmd / returncode /
-stderr tail) and emits prep_subprocess_failed — no waiting for the
-60-min watchdog (#495).
+  Builds shared cached_prefix blocks for cross-stage Anthropic prompt caching
 ```
+
+### Sequential LLM stages
+
+| # | Stage | Model | Consumes | Produces | Cache prefix |
+|---|---|---|---|---|---|
+| 1 | `company_researcher` | Perplexity sonar-reasoning-pro | company, title, JD | raw research notes | none (Perplexity) |
+| 2 | `briefing_writer` | Claude Opus 4.7 | profile + master + JD + raw research | structured briefing ending with `## Overall Recommendation` | `shared_candidate_jd` |
+| 3 | `fit_analyst` | Perplexity sonar-reasoning-pro | profile + master + JD + briefing | Fit Matrix + Probability Assessment (6+3 percent dimensions) | none |
+| — | **Merge** | (deterministic) | briefing + fit_analysis | `briefing.md` — fit spliced **BEFORE** the Overall Recommendation so the doc reads detail → synthesis → verdict | — |
+| 4 | `resume_tailor` | Claude Opus 4.7 | profile + master + JD + merged briefing | `resume.md` (tailored) | `shared_candidate_jd` |
+| 5 | `resume_change_reviewer` | Gemini Flash | master resume + tailored resume + JD | `CHANGES.md` — diff/justification | none (cheap diff) |
+| 6 | `cover_letter_writer` | Claude Opus 4.7 | profile + master + JD + voice samples + merged briefing + tailored resume | `cover.md` | `shared_with_voice` |
+| 7 | `recruiter_critic` | Claude Opus 4.7 | company + title + JD + tailored resume + cover (**not** profile/briefing/fit) | `critique.md` — skeptical outside read | `jd-only` |
+
+After stage 7, the outreach sidecar runs as a blocking subprocess:
+
+```
+Step 5: scripts/find_contacts.py (subprocess.run, check=True)
+  → findajob.find_contacts entry → outreach_drafter role (Claude Opus 4.7)
+  Reads LinkedIn connections.csv, finds known contacts at the company,
+  drafts personalized outreach messages → outreach_*.txt
+```
+
+### Retry / validation gates (inline)
+
+- **Stage 2 retry** — `briefing_writer` output is checked for `## Overall Recommendation`. If missing, the stage runs once more with the same prompt before continuing. Emits `briefing_missing_recommendation` (#636 family).
+- **Stage 3 retry** — `fit_analyst` output passes through `_fit_analysis_is_complete()`, which requires a `Fit Matrix` section, exactly one `## 🎯 Probability Assessment` heading, and at least one `:NN%` percent-score on each side of that heading. Retry once on failure. Mirrors the briefing retry. Emits `fit_analyst_retry`. Perplexity `sonar-reasoning-pro` intermittently returns `content=null` — the retry handles that gracefully.
+- **Step 7 validation** — after retries, if the merged briefing still lacks an Overall Recommendation, prep fails cleanly with stage rolled back to `scored` rather than shipping a malformed briefing.
+
+### Per-stage model selection rationale
+
+The full per-role model table lives in [`maintainers/pipeline-context.md`](maintainers/pipeline-context.md).
+The judgment behind each pick:
+
+- **Opus 4.7 for high-voice creative outputs** (`briefing_writer`, `resume_tailor`, `cover_letter_writer`, `recruiter_critic`, `outreach_drafter`) — these stages own the voice; Opus produces materials that read like they were written by someone who actually researched the company.
+- **Perplexity sonar-reasoning-pro for web-research roles** (`company_researcher`, `fit_analyst`) — built-in web grounding with citations, lower cost than running a coding-model + tool-call loop.
+- **Gemini Flash for simple diffs** (`resume_change_reviewer`) — the model only needs to produce a structured comparison; spending Opus tokens on this is wasteful.
+- **DeepSeek v3.2 for high-volume scoring** (`job_scorer`, separate triage pipeline) — 100–500 calls per daily triage; cost-sensitive; DeepSeek's structured-output reliability is sufficient at scoring depth.
+
+### Speculative cold-outreach branch
+
+For synthetic rows (cold-outreach via `/ingest/speculative/`), Stages 1–2 are
+**skipped**. The deep-research briefing produced by `candidate_led_briefing` at
+ingest time and approved by the operator on the review page is reused directly
+(#320). If the speculative briefing.md is missing or empty, the orchestrator
+falls back to the regular Stages 1–2 flow. The `<<SPECULATIVE_MODE>>` marker
+is prepended to the cover-letter prompt so the role-prompt branches into
+cold-outreach voice.
+
+### Pandoc + storage
+
+```
+pandoc converts each .md → .docx (briefing, resume, cover)
+DB updated: stage = materials_drafted; fit_score + probability_score persisted
+ntfy notification sent
+Materials viewer reflects new folder immediately (no sync required)
+```
+
+### Failure handling
+
+`scripts/watchdog.py` (runs every 10 min): resets any job stuck in
+`prep_in_progress > 60 min` back to `scored` so the operator can re-flag.
+
+If a pandoc or `find_contacts` subprocess fails (non-zero exit), the
+orchestrator immediately rolls stage back to `scored`, writes a
+`.failed_subprocess` sentinel into the prep folder (cmd / returncode /
+stderr tail) and emits `prep_subprocess_failed` — no waiting for the
+60-min watchdog (#495).
+
+If `profile.md` or `master_resume.md` are missing, prep aborts before any
+LLM call, rolls stage back to `scored`, and notifies via ntfy.
 
 ---
 

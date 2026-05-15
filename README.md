@@ -48,6 +48,54 @@ Interviews (lifetime)                  6
 
 ---
 
+## How the prep pipeline works
+
+The "one click → folder full of tailored materials" in step 3 is **seven sequential LLM stages**, each consuming the previous stages' output as explicit context:
+
+```
+   company_researcher  ─►  briefing_writer  ─►  fit_analyst
+   (Perplexity)            (Opus 4.7)            (Perplexity)
+                                                      │
+                                          fit spliced INTO briefing
+                                          BEFORE Overall Recommendation
+                                                      ▼
+                                          merged briefing.md
+                                                      │
+                                                      ▼
+                                          resume_tailor
+                                          (Opus 4.7)
+                                                      │
+                              ┌───────────────────────┴────────────────┐
+                              ▼                                        ▼
+                  resume_change_reviewer                    cover_letter_writer
+                  (Gemini Flash — diff vs                   (Opus 4.7 —
+                   master, no Opus tokens                    consumes briefing + tailored
+                   spent on cheap work)                      resume)
+                                                                       │
+                                                                       ▼
+                                                             recruiter_critic
+                                                             (Opus 4.7 — sees ONLY
+                                                              JD + resume + cover;
+                                                              simulates a reader who
+                                                              hasn't researched the
+                                                              candidate)
+
+   sidecar:  find_contacts  ─►  outreach_drafter (Opus 4.7)
+             reads LinkedIn connections.csv, drafts personalized notes
+```
+
+Three architectural choices make the outputs feel like they were written by someone who actually researched the company:
+
+- **Explicit context chaining, not RAG.** Each stage's output is structured markdown that becomes literal input to the next stage. No vector embeddings, no similarity-retrieval guesses, no "the model couldn't find the relevant chunk." When prep produces a bad cover letter, you can read the briefing it was given and see why.
+- **An asymmetric DAG, not a uniform pipeline.** `recruiter_critic` deliberately doesn't see the briefing or fit analysis — its job is to simulate a recruiter who hasn't researched the candidate, so giving it that context would defeat the purpose. The other Opus stages share a `cached_prefix` (profile + master resume + JD) for Anthropic prompt-caching across the run.
+- **Per-role model judgment, not one model for everything.** Opus 4.7 where voice matters (briefing, resume, cover, critique, outreach). Perplexity where web grounding matters (`company_researcher`, `fit_analyst`). Gemini Flash for the cheap diff (`resume_change_reviewer`). DeepSeek v3.2 for the high-volume scorer that runs 100–500× a day.
+
+Inline retry gates on Stages 2 and 3 catch malformed model output (missing `## Overall Recommendation`, empty fit analysis from Perplexity's intermittent `content=null`) before it propagates downstream.
+
+Full DAG + per-stage I/O contracts + failure handling: [`docs/architecture.md`](docs/architecture.md).
+
+---
+
 ## Why use it
 
 - **Triage cuts the noise so you can focus.** 12K → 60 isn't unusual once the scorer learns your profile. Most job tools track what you applied to; this one finds the few worth applying to.
