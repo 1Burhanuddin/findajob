@@ -54,6 +54,20 @@ def run_role(
         return ""
     latency_ms = int((time.time() - start) * 1000)
 
+    # Reasoning models burn output tokens on reasoning before content. When
+    # max_tokens caps the output, the caller still gets a non-empty string —
+    # silently truncated. Surface it so pipeline.jsonl shows the regression
+    # instead of leaving the operator to feel it as quality drift (see #666
+    # interview_prep, #639 fit_analyst — same root cause, same fix shape).
+    if result.finish_reason == "length":
+        log_event(
+            "openrouter_truncated",
+            role=role,
+            job_id=job_id,
+            completion_tokens=result.completion_tokens,
+            content_chars=len(result.text),
+        )
+
     text = re.sub(r"<think>.*?</think>", "", result.text, flags=re.DOTALL).strip()
 
     if conn is not None and text:

@@ -1,6 +1,6 @@
 ---
 model: openrouter:anthropic/claude-opus-4.7
-max_tokens: 4096
+max_tokens: 16384
 temperature: 0.4
 ---
 You write performance-prep documents for a job candidate who has just been invited to interview.
