@@ -821,7 +821,7 @@ def test_derive_active_sources_feed_urls_only() -> None:
 
 def test_derive_active_sources_linkedin_alerts_only() -> None:
     found = {"linkedin-alerts.md": "# LinkedIn alerts setup\n- step 1\n"}
-    assert _derive_active_sources(found) == ["gmail_linkedin"]
+    assert _derive_active_sources(found) == ["gmail"]
 
 
 def test_derive_active_sources_all_three_branches() -> None:
@@ -835,7 +835,7 @@ def test_derive_active_sources_all_three_branches() -> None:
         "greenhouse",
         "ashby",
         "lever",
-        "gmail_linkedin",
+        "gmail",
     ]
 
 
@@ -852,7 +852,7 @@ def test_derive_active_sources_blank_rapidapi_omits_adapter() -> None:
 
 
 def test_derive_active_sources_empty_linkedin_alerts_omits_adapter() -> None:
-    """AC#3: linkedin-alerts.md present but blank → gmail_linkedin NOT added."""
+    """AC#3: linkedin-alerts.md present but blank → gmail NOT added."""
     found = {"linkedin-alerts.md": "   \n"}
     assert _derive_active_sources(found) == []
 
@@ -896,12 +896,12 @@ def test_inject_derives_active_sources_feed_urls_only(tmp_path: Path) -> None:
 
 
 def test_inject_derives_active_sources_linkedin_alerts_only(tmp_path: Path) -> None:
-    """3g='c': linkedin-alerts.md emitted → active_sources.txt = gmail_linkedin."""
+    """3g='c': linkedin-alerts.md emitted → active_sources.txt = gmail."""
     found = _minimal_found_dict()
     found["linkedin-alerts.md"] = "# LinkedIn alerts setup\n- enable\n"
     inject(tmp_path, found, skip_smoke_check=True)
     content = (tmp_path / "config" / "active_sources.txt").read_text()
-    assert content.strip().splitlines() == ["gmail_linkedin"]
+    assert content.strip().splitlines() == ["gmail"]
 
 
 def test_inject_derives_active_sources_all_three_branches(tmp_path: Path) -> None:
@@ -917,7 +917,7 @@ def test_inject_derives_active_sources_all_three_branches(tmp_path: Path) -> Non
         "greenhouse",
         "ashby",
         "lever",
-        "gmail_linkedin",
+        "gmail",
     ]
 
 

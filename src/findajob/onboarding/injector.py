@@ -205,7 +205,9 @@ def _derive_active_sources(found: dict[str, str]) -> list[str]:
 
     linkedin_alerts_body = found.get("linkedin-alerts.md", "")
     if linkedin_alerts_body.strip():
-        sources.append("gmail_linkedin")
+        # Registry adapter name is "gmail" (see GmailLinkedInAdapter.name); the
+        # "gmail_linkedin" string is a per-row source tag, not an adapter key.
+        sources.append("gmail")
 
     return sources
 
