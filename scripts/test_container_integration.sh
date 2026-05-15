@@ -129,6 +129,20 @@ cp "$FIXTURES/smoke_target_companies.md"      "$SCRATCH/state/config/target_comp
 # Empty feed_urls.txt — smoke test drives jobs via RapidAPI queries only
 : > "$SCRATCH/state/config/feed_urls.txt"
 
+# Active-sources allow-list — must be explicit post-#681. With the sentinel
+# pre-marked below, an absent active_sources.txt would resolve to "user picked
+# none in onboarding" ([]), not to the 7-adapter default; the smoke would
+# score zero jobs and fail. Seed the RapidAPI-driven trio that the smoke's
+# .env + jsearch_queries.txt actually exercises (greenhouse/ashby/lever are
+# orthogonal because feed_urls.txt is empty above; gmail_linkedin needs IMAP
+# config we don't supply).
+cat > "$SCRATCH/state/config/active_sources.txt" <<EOF
+# Seeded by scripts/test_container_integration.sh — fresh-install smoke.
+jobs-api14
+jobs-api14-indeed
+jsearch
+EOF
+
 # Pre-mark onboarding complete (#148) so /board/, /materials/, /stats/ don't
 # 307-redirect to /onboarding/. The smoke seeds all seven config files by hand
 # above; the interview-driven onboarding path is tested elsewhere.
