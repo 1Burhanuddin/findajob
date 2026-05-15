@@ -14,6 +14,7 @@ import pytest
 from findajob.onboarding.injector import (
     _ALL_DESTINATIONS,
     _SENTINEL_RELPATH,
+    _derive_active_sources,
     backup_existing,
     inject,
     is_complete,
@@ -803,3 +804,131 @@ def test_inject_rollback_includes_tempfile_when_write_fails_mid_staging(tmp_path
     # Rollback must have cleaned it up regardless.
     leftover = list(tmp_path.rglob("*.tmp"))
     assert leftover == [], f"rollback left tempfile residue: {leftover}"
+
+
+# ── _derive_active_sources helper (#680) ────────────────────────────────────
+
+
+def test_derive_active_sources_rapidapi_only() -> None:
+    found = {"rapidapi_feed.txt": "jobs-api14\n"}
+    assert _derive_active_sources(found) == ["jobs-api14"]
+
+
+def test_derive_active_sources_feed_urls_only() -> None:
+    found = {"feed-urls.txt": "https://boards.greenhouse.io/acme\nhttps://jobs.ashbyhq.com/foo\n"}
+    assert _derive_active_sources(found) == ["greenhouse", "ashby", "lever"]
+
+
+def test_derive_active_sources_linkedin_alerts_only() -> None:
+    found = {"linkedin-alerts.md": "# LinkedIn alerts setup\n- step 1\n"}
+    assert _derive_active_sources(found) == ["gmail_linkedin"]
+
+
+def test_derive_active_sources_all_three_branches() -> None:
+    found = {
+        "rapidapi_feed.txt": "jobs-api14\n",
+        "feed-urls.txt": "https://boards.greenhouse.io/acme\n",
+        "linkedin-alerts.md": "# alerts\n",
+    }
+    assert _derive_active_sources(found) == [
+        "jobs-api14",
+        "greenhouse",
+        "ashby",
+        "lever",
+        "gmail_linkedin",
+    ]
+
+
+def test_derive_active_sources_empty_feed_urls_omits_company_adapters() -> None:
+    """AC#2: feed-urls.txt with only blanks/comments → greenhouse/ashby/lever NOT added."""
+    found = {"feed-urls.txt": "# only a comment\n\n   \n"}
+    assert _derive_active_sources(found) == []
+
+
+def test_derive_active_sources_blank_rapidapi_omits_adapter() -> None:
+    """Defensive: rapidapi_feed.txt body that's blank-only doesn't emit an empty name."""
+    found = {"rapidapi_feed.txt": "   \n"}
+    assert _derive_active_sources(found) == []
+
+
+def test_derive_active_sources_empty_linkedin_alerts_omits_adapter() -> None:
+    """AC#3: linkedin-alerts.md present but blank → gmail_linkedin NOT added."""
+    found = {"linkedin-alerts.md": "   \n"}
+    assert _derive_active_sources(found) == []
+
+
+def test_derive_active_sources_no_source_files_returns_empty() -> None:
+    """3g='none' path: no source-config files in emission → empty list (no file to write)."""
+    assert _derive_active_sources({"profile.md": "# Profile\n"}) == []
+
+
+def test_derive_active_sources_rapidapi_first_non_blank_line_only() -> None:
+    """Defensive: rapidapi_feed.txt may carry trailing comments from LLM drift.
+
+    Take the first non-comment, non-blank line.
+    """
+    found = {"rapidapi_feed.txt": "\n# a comment\njsearch\n# more chatter\n"}
+    assert _derive_active_sources(found) == ["jsearch"]
+
+
+# ── inject() integration: derived active_sources.txt (#680) ─────────────────
+
+
+_ACTIVE_SOURCES_PATH = ("config", "active_sources.txt")
+
+
+def test_inject_derives_active_sources_rapidapi_only(tmp_path: Path) -> None:
+    """3g='a': rapidapi_feed.txt emitted → active_sources.txt = single adapter."""
+    found = _minimal_found_dict()
+    found["rapidapi_feed.txt"] = "jobs-api14\n"
+    inject(tmp_path, found, skip_smoke_check=True)
+    content = (tmp_path / "config" / "active_sources.txt").read_text()
+    assert content.strip().splitlines() == ["jobs-api14"]
+
+
+def test_inject_derives_active_sources_feed_urls_only(tmp_path: Path) -> None:
+    """3g='b': feed-urls.txt with real URLs → active_sources.txt = greenhouse,ashby,lever."""
+    found = _minimal_found_dict()
+    found["feed-urls.txt"] = "https://boards.greenhouse.io/acme\n"
+    inject(tmp_path, found, skip_smoke_check=True)
+    content = (tmp_path / "config" / "active_sources.txt").read_text()
+    assert content.strip().splitlines() == ["greenhouse", "ashby", "lever"]
+
+
+def test_inject_derives_active_sources_linkedin_alerts_only(tmp_path: Path) -> None:
+    """3g='c': linkedin-alerts.md emitted → active_sources.txt = gmail_linkedin."""
+    found = _minimal_found_dict()
+    found["linkedin-alerts.md"] = "# LinkedIn alerts setup\n- enable\n"
+    inject(tmp_path, found, skip_smoke_check=True)
+    content = (tmp_path / "config" / "active_sources.txt").read_text()
+    assert content.strip().splitlines() == ["gmail_linkedin"]
+
+
+def test_inject_derives_active_sources_all_three_branches(tmp_path: Path) -> None:
+    """3g='a,b,c': all three branches → full ordered list. Direct AC#1 coverage."""
+    found = _minimal_found_dict()
+    found["rapidapi_feed.txt"] = "jobs-api14\n"
+    found["feed-urls.txt"] = "https://boards.greenhouse.io/acme\n"
+    found["linkedin-alerts.md"] = "# alerts setup\n"
+    inject(tmp_path, found, skip_smoke_check=True)
+    content = (tmp_path / "config" / "active_sources.txt").read_text()
+    assert content.strip().splitlines() == [
+        "jobs-api14",
+        "greenhouse",
+        "ashby",
+        "lever",
+        "gmail_linkedin",
+    ]
+
+
+def test_inject_omits_active_sources_when_no_source_selection(tmp_path: Path) -> None:
+    """3g='none' path: no source files emitted → active_sources.txt does NOT exist.
+
+    This is what AC#5's `/settings/active-sources/` banner check actually
+    verifies — the banner state at `_active_sources_banner_state` is keyed on
+    file *presence*, not content. A user who picked 'none' must trip the
+    banner so they're prompted to choose adapters explicitly.
+    """
+    found = _minimal_found_dict()
+    inject(tmp_path, found, skip_smoke_check=True)
+    assert not (tmp_path / "config" / "active_sources.txt").exists()

@@ -70,9 +70,13 @@ _OPTIONAL_DESTINATIONS: dict[str, str] = {
     "jsearch_queries.txt": "config/jsearch_queries.txt",
     "feed-urls.txt": "config/feed_urls.txt",
     "linkedin-alerts.md": "candidate_context/linkedin-alerts.md",
-    "rapidapi_feed.txt": "config/active_sources.txt",
     "target_locations.txt": "config/target_locations.txt",
 }
+# Note: rapidapi_feed.txt is consumed by _derive_active_sources (#680) and
+# is NOT written to disk on its own — its body contributes one entry to
+# the derived config/active_sources.txt. The previous 1:1 map shipped only
+# the RapidAPI adapter to active_sources.txt and dropped the company-feed
+# and Gmail branches; the derivation fixes that.
 
 _SENTINEL_RELPATH = "data/.onboarding-complete"
 _BACKUP_ROOT = ".backups"
@@ -166,6 +170,46 @@ def _emission_consistency_warnings(base_root: Path, found: dict[str, str]) -> No
             )
 
 
+_DERIVED_ACTIVE_SOURCES_RELPATH = "config/active_sources.txt"
+
+
+# Onboarding-time mapping from 3g answer-files (interview source-selection) to
+# adapter registry names. The 3g question lets the candidate pick a/b/c across
+# {RapidAPI, company feeds, Gmail alerts}; each branch emits its own file. The
+# interview itself does not write active_sources.txt — this helper derives it
+# from what the candidate actually selected. See #680.
+def _derive_active_sources(found: dict[str, str]) -> list[str]:
+    """Return the ordered adapter list to write to ``config/active_sources.txt``.
+
+    Empty list = no file should be written. Each branch contributes only when
+    its emission body has non-blank, non-comment content; an emitted-but-empty
+    file is treated as "not selected" (matches the user's lived experience of
+    skipping that branch in the interview).
+    """
+    sources: list[str] = []
+
+    rapidapi_body = found.get("rapidapi_feed.txt", "")
+    rapidapi_name = next(
+        (line.strip() for line in rapidapi_body.splitlines() if line.strip() and not line.strip().startswith("#")),
+        "",
+    )
+    if rapidapi_name:
+        sources.append(rapidapi_name)
+
+    feed_urls_body = found.get("feed-urls.txt", "")
+    feed_urls_real_lines = [
+        line for line in feed_urls_body.splitlines() if line.strip() and not line.strip().startswith("#")
+    ]
+    if feed_urls_real_lines:
+        sources.extend(["greenhouse", "ashby", "lever"])
+
+    linkedin_alerts_body = found.get("linkedin-alerts.md", "")
+    if linkedin_alerts_body.strip():
+        sources.append("gmail_linkedin")
+
+    return sources
+
+
 def _utc_stamp() -> str:
     return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
@@ -173,6 +217,7 @@ def _utc_stamp() -> str:
 def _backup_relpaths() -> list[str]:
     paths = list(_ALL_DESTINATIONS.values())
     paths.extend(_OPTIONAL_DESTINATIONS.values())
+    paths.append(_DERIVED_ACTIVE_SOURCES_RELPATH)  # derived from rapidapi_feed/feed-urls/linkedin-alerts (#680)
     paths.append(_SENTINEL_RELPATH)
     paths.append(_ENV_FILE_RELPATH)  # data/.env is mutated via merge — must back up
     return paths
@@ -337,11 +382,18 @@ def inject(
     example_env = env_example_path.read_text(encoding="utf-8") if env_example_path.is_file() else ""
     new_env_content = merge_env_content(existing_env, example_env, env_updates) if env_updates else None
 
+    # Derive active_sources.txt content from the source-selection emission
+    # files (#680). Empty list = user picked 'none' or skipped every source
+    # branch; no file should be written.
+    derived_active_sources = _derive_active_sources(found)
+
     # Ensure target directories exist (required + any optional that was provided)
     parent_relpaths: list[str] = list(_ALL_DESTINATIONS.values())
     for opt_name, opt_relpath in _OPTIONAL_DESTINATIONS.items():
         if opt_name in found:
             parent_relpaths.append(opt_relpath)
+    if derived_active_sources:
+        parent_relpaths.append(_DERIVED_ACTIVE_SOURCES_RELPATH)
     if new_env_content is not None:
         parent_relpaths.append(_ENV_FILE_RELPATH)
     for relpath in parent_relpaths:
@@ -392,6 +444,19 @@ def inject(
             tempfiles.append((tmp_name, dest))  # register immediately so rollback sees it
             with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
                 fh.write(body)
+
+        # Stage the derived config/active_sources.txt (#680). One line per
+        # adapter name, trailing newline. Skipped entirely when the user
+        # picked 'none' / skipped every source branch — absence is the
+        # signal that /settings/active-sources/ uses to show its banner.
+        if derived_active_sources:
+            active_dest = base_root / _DERIVED_ACTIVE_SOURCES_RELPATH
+            fd, active_tmp_name = tempfile.mkstemp(
+                prefix=active_dest.name + ".", suffix=".tmp", dir=str(active_dest.parent)
+            )
+            tempfiles.append((active_tmp_name, active_dest))
+            with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+                fh.write("\n".join(derived_active_sources) + "\n")
 
         # Stage the merged data/.env if there are any env updates
         if new_env_content is not None:
@@ -450,6 +515,14 @@ def inject(
                 if name not in classes_by_name:
                     continue
                 instance = classes_by_name[name]()
+                # Only env-var-bearing adapters (RapidAPI-flavored) belong in
+                # the feed-config gate — feed-config exists to onboard API
+                # keys. Env-less adapters (greenhouse/ashby/lever public APIs,
+                # gmail_linkedin via the downstream Gmail-config gate) check
+                # their config differently and would otherwise mis-route here
+                # after #680's multi-adapter derivation.
+                if not instance.required_env_vars:
+                    continue
                 if not instance.is_configured():
                     needs_gate = True
                     pending = name
