@@ -117,6 +117,13 @@ mkdir -p "$SCRATCH/state"/{data,config,candidate_context,companies,logs}
 cp "$SRC_ENV" "$SCRATCH/state/data/.env"
 chmod 600 "$SCRATCH/state/data/.env"
 
+# Strip perimeter-auth env vars — the throwaway stack must be reachable
+# without HTTP Basic Auth for the /materials/ assertion below. Real stacks
+# gate /materials/ behind FINDAJOB_AUTH_USER/PASS; the smoke doesn't run
+# `verify_auth` (that's a per-stack post-deploy step), so it's safe to
+# drop these here. Idempotent — no-op if the source .env didn't have them.
+sed -i '/^FINDAJOB_AUTH_USER=/d; /^FINDAJOB_AUTH_PASS=/d' "$SCRATCH/state/data/.env"
+
 # Candidate profile → state/candidate_context/profile.md
 cp "$FIXTURES/smoke_profile.md" "$SCRATCH/state/candidate_context/profile.md"
 
