@@ -176,6 +176,27 @@ Convention:
 
 Epics are *not* a replacement for milestones. Milestones are release boundaries ("what ships together by date X"); epics are thematic ("all the work related to Y, whenever it ships").
 
+## Acceptance criteria — canonical format
+
+Every pullable issue must have an `## Acceptance criteria` section wrapped in `<details><summary>Expand</summary>...</details>`, with at least one bullet starting with `-`:
+
+```markdown
+## Acceptance criteria
+
+<details><summary>Expand</summary>
+
+- [ ] First criterion
+- [ ] Second criterion
+
+</details>
+```
+
+Why the wrapper: keeps long, granular criteria collapsed by default so issue bodies stay readable in the GitHub UI. The `/jared-stage` proposal script enforces this format — unwrapped `## Acceptance criteria` sections (or variants like `## Acceptance`) are silently filtered out of staging proposals and never promoted from Backlog → Up Next.
+
+Bullet shape matters: `is_pullable` counts only lines starting with `-`. Numbered lists (`1.`, `2.`) and prose paragraphs render fine in the UI but don't pass the filter — convert to `-` (with or without `[ ]`) when authoring or normalizing.
+
+Heading must be exactly `## Acceptance criteria` — trailing qualifiers (`## Acceptance criteria (post-experiment)`) break the canonical regex. Put qualifiers in the bullets themselves.
+
 ## Triage checklist — new issue
 
 When a new issue is filed (by the user, by Claude, or by auto-add):
