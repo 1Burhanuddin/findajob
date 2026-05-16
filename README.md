@@ -134,11 +134,11 @@ One optional API key:
 
 - **RapidAPI (jobs-api14)** — LinkedIn/Indeed/Bing search ingestion. BASIC plan is 150 req/month free, no credit card. Skipping it means LinkedIn/Indeed search is inactive, but Greenhouse/Ashby/Lever feeds and Gmail alerts still work.
 
-Sign-up walkthroughs + cost expectations: [`docs/getting-started/api-keys.md`](docs/getting-started/api-keys.md). You collect both keys on the onboarding page once your container is up.
+Sign-up walkthroughs: [`docs/getting-started/api-keys.md`](docs/getting-started/api-keys.md). Cost expectations (hosting + LLM, monthly ranges, spend ceiling): [`docs/getting-started/cost.md`](docs/getting-started/cost.md). You collect both keys on the onboarding page once your container is up.
 
 ### Deploy
 
-> Prefer hosted? findajob also runs on [Fly.io](https://fly.io/) — see [`docs/getting-started/install-fly.md`](docs/getting-started/install-fly.md) (~$3–5/mo, ~20 min to first onboarding screen).
+> Prefer hosted? findajob also runs on [Fly.io](https://fly.io/) — see [`docs/getting-started/install-fly.md`](docs/getting-started/install-fly.md) (~$3–5/mo Fly hosting, ~20 min to first onboarding screen). What it'll cost you per month, all-in: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
 
 Pick any directory for your stack:
 
