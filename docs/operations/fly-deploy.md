@@ -1,5 +1,7 @@
 # Deploying findajob to Fly.io
 
+> **First-time deployer?** See [`../getting-started/install-fly.md`](../getting-started/install-fly.md) — the average-user runbook. This page is the operator-tier reference: deeper command surface, no hand-holding, assumes you've already deployed once.
+
 A cloud alternative to running the compose stack on a host you own. One Fly app per tenant. The image runs unchanged — Fly executes the same `ENTRYPOINT` as Docker Compose, supercronic stays PID 1, uvicorn is a child process, SQLite lives on a Fly Volume (POSIX block device, not network filesystem).
 
 ## What this gives you

@@ -10,9 +10,12 @@ Allow 45–90 minutes end-to-end. Most of that is waiting for API key approvals.
 
 What you need to have before touching the stack: a Linux host, Docker + Compose, a handful of API keys (LLM providers, RapidAPI for LinkedIn + Indeed, Gmail OAuth if you want job alerts ingested), and an ntfy topic for push notifications. The linked doc walks through each one with the sign-up URL and the minimum plan/quota you'll need.
 
-## 2. Install → [`install-docker.md`](install-docker.md)
+## 2. Install — pick one path
 
-Create `/opt/stacks/findajob-<you>/`, drop `compose.yaml`, start the container. The guide explains each mount, each env var, and what happens on first boot. Docker is the only supported install path.
+Two supported install paths. Pick the one that matches how you want to run the pipeline; both reach the same dashboard.
+
+- **[`install-fly.md`](install-fly.md)** — hosted on [Fly.io](https://fly.io/) (~$3–5/mo). One Fly app per person. No server to operate. ~20 minutes from `fly auth login` to the first onboarding screen. Recommended for most people.
+- **[`install-docker.md`](install-docker.md)** — self-host with docker-compose on a Linux box you own. Free if you already have the box; more knobs, more responsibility. Good if you already operate Linux servers.
 
 ## 3. Configure → in-app interview (or manual)
 

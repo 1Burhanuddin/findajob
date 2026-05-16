@@ -24,11 +24,13 @@ _PAGES: dict[str, str] = {
     "getting-started": "getting-started/README.md",
     "getting-started/prerequisites": "getting-started/prerequisites.md",
     "getting-started/install-docker": "getting-started/install-docker.md",
+    "getting-started/install-fly": "getting-started/install-fly.md",
     "getting-started/configure": "getting-started/configure.md",
     "getting-started/gmail": "getting-started/gmail.md",
     "getting-started/api-keys": "getting-started/api-keys.md",
     "getting-started/notifications": "getting-started/notifications.md",
     "operations": "operations/README.md",
+    "operations/fly-deploy": "operations/fly-deploy.md",
     "operations/internet-exposure": "operations/internet-exposure.md",
     "operations/restore": "operations/restore.md",
 }

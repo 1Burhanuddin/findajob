@@ -10,6 +10,9 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Added
+- **#669 docs(getting-started): `install-fly.md` — average-user runbook for Fly.io deploy.** Promotes the Fly install path from operator-only documentation (`docs/operations/fly-deploy.md`) to a first-time-deployer-shaped runbook living alongside `install-docker.md`. New file at `docs/getting-started/install-fly.md`: time-to-value claim at top, prerequisites with sign-up links, 8 numbered steps from flyctl install through first triage, inline screenshots of the onboarding flow under `docs/getting-started/install-fly/`, brief cost section that cross-links the operator-tier guide. `docs/operations/fly-deploy.md` retained as the operator-tier reference with a top-of-file banner pointing first-time deployers at the new doc. `docs/getting-started/README.md` Install section now offers Docker (self-host) and Fly.io (hosted) as parallel paths. Root `README.md` `### Deploy` gains a one-line cross-link to `install-fly.md` (full headline shift deferred to a separate sub-issue). **No `migration-required`** — docs-only. Closes #669.
+
 ## [0.26.0] — 2026-05-16
 
 ### Added

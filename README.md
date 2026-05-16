@@ -138,6 +138,8 @@ Sign-up walkthroughs + cost expectations: [`docs/getting-started/api-keys.md`](d
 
 ### Deploy
 
+> Prefer hosted? findajob also runs on [Fly.io](https://fly.io/) — see [`docs/getting-started/install-fly.md`](docs/getting-started/install-fly.md) (~$3–5/mo, ~20 min to first onboarding screen).
+
 Pick any directory for your stack:
 
 - Linux server: `/opt/stacks/findajob-<you>/` is the conventional system-path layout
