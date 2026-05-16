@@ -24,7 +24,8 @@ def validate_openrouter_format(key: str) -> tuple[bool, str]:
     if not stripped.startswith("sk-or-v1-"):
         return (
             False,
-            'OpenRouter API key must start with "sk-or-v1-". Check that you copied the full key from openrouter.ai.',
+            'OpenRouter API key must start with "sk-or-v1-". Copy the full key from '
+            "https://openrouter.ai/settings/keys (it is shown only once at creation).",
         )
     return True, ""
 

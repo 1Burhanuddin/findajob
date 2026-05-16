@@ -37,7 +37,7 @@ with a "Change keys" link that posts back to /onboarding/keys with a
   {% if keys_error %}
   <div class="border border-red-300 bg-red-50 text-red-900 px-4 py-3 rounded text-sm">
     <p class="font-medium">Couldn't save your keys.</p>
-    <p class="mt-1">{{ keys_error }}</p>
+    <p class="mt-1">{{ keys_error|urlize(target="_blank", rel="noopener") }}</p>
   </div>
   {% endif %}
 

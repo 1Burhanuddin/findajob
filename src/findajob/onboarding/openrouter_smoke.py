@@ -75,21 +75,33 @@ def verify_openrouter_key(api_key: str) -> tuple[bool, str | None]:
             )
         if e.code == 429:
             return False, ("OpenRouter rate-limited the verification request. Wait a minute and re-paste.")
-        return False, f"OpenRouter returned HTTP {e.code}: {error_body[:200]}"
+        return False, (
+            f"OpenRouter returned HTTP {e.code}: {error_body[:200]}. "
+            "Verify the key at https://openrouter.ai/settings/keys and check OpenRouter status at https://status.openrouter.ai/."
+        )
     except urllib.error.URLError as e:
         return False, (
             f"Could not reach OpenRouter ({e.reason}). Check that the container has network access and re-paste."
         )
     except Exception as e:  # noqa: BLE001
-        return False, f"Unexpected error verifying OpenRouter key: {type(e).__name__}: {str(e)[:200]}"
+        return False, (
+            f"Unexpected error verifying OpenRouter key: {type(e).__name__}: {str(e)[:200]}. "
+            "Verify the key at https://openrouter.ai/settings/keys."
+        )
 
     try:
         data = json.loads(body)
     except json.JSONDecodeError:
-        return False, f"OpenRouter returned non-JSON response: {body[:200]}"
+        return False, (
+            f"OpenRouter returned non-JSON response: {body[:200]}. "
+            "Check OpenRouter status at https://status.openrouter.ai/."
+        )
 
     if not isinstance(data, dict) or not data.get("choices"):
-        return False, f"OpenRouter returned unexpected response shape: {body[:200]}"
+        return False, (
+            f"OpenRouter returned unexpected response shape: {body[:200]}. "
+            "Check OpenRouter status at https://status.openrouter.ai/."
+        )
 
     return True, None
 
