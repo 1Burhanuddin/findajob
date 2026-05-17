@@ -207,4 +207,14 @@ docker compose exec scheduler /app/scripts/rescore_all.py
 
 Only rescores jobs still in `scored` or `manual_review` — won't touch jobs you've already actioned on.
 
+### Reading a single value from `data/.env`
+
+Use the helper instead of bash-sourcing the file:
+
+```bash
+docker compose exec scheduler /app/scripts/read_env_value.py --key NTFY_TOPIC
+```
+
+`bash -c 'set -a; . data/.env; set +a; printf %s "$KEY"'` looks tempting but silently fails on values containing shell metacharacters — a path like `/srv/example/state` is treated as a command and exits `Permission denied` while the surrounding script still appears to "succeed". The helper parses values literally and exits non-zero on missing key or missing file.
+
 </details>
