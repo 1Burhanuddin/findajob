@@ -2319,6 +2319,8 @@ class TestRegenerateCell:
     def test_404_unknown_fingerprint(self, client: TestClient):
         response = client.get("/board/jobs/fp_nonexistent/regenerate/cell")
         assert response.status_code == 404
+
+
 # ── Review/Waitlist affordance buttons (#702 F8) ──────────────────────────
 
 
@@ -2499,6 +2501,8 @@ class TestReactivateAndPrep:
         assert _fetch_audit(client, "fp_waitlisted") == []
         prep_calls = [c for c in popen_calls if "prep_application.py" in c[1]]
         assert prep_calls == []
+
+
 # ── /un-apply route + /apply OOB toast (#699 F3) ──────────────────────────
 
 
