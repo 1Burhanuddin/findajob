@@ -328,7 +328,9 @@ Fetches jobs from all sources, deduplicates, enriches with JD text, then scores 
 
 **Key events logged:** `triage_started`, `job_ingested`, `job_deduplicated`, `job_scored`, `pipeline_complete`.
 
-#### `prep_application.py`
+#### `scripts/prep_application.py` (entry-point shim)
+*Entry-point shim; implementation in `src/findajob/prep/orchestrator.py`.*
+
 **Run by:** `POST /board/jobs/{fp}/prep` or `/regenerate` (detached subprocess); also callable manually. Args: `company title url job_id`.
 **Manual run:** `docker compose exec scheduler python3 scripts/prep_application.py "Acme" "Engineer" "https://..." "<job_id>"`
 
@@ -355,8 +357,10 @@ Resets any job stuck in `stage='prep_in_progress'` for more than 60 minutes back
 **Run by:** scheduler (8 subcommands; see [Notifications](#notifications) above for the per-subcommand schedule and content).
 **Manual run:** `docker compose exec scheduler python3 scripts/notify.py <subcommand>`
 
-#### `find_contacts.py`
-**Run by:** `prep_application.py` (step 5). Args: `company jd_text_excerpt outdir`.
+#### `scripts/find_contacts.py` (entry-point shim)
+*Entry-point shim; implementation in `src/findajob/find_contacts.py`.*
+
+**Run by:** `scripts/prep_application.py` (step 5). Args: `company jd_text_excerpt outdir`.
 **Manual run:** `docker compose exec scheduler python3 scripts/find_contacts.py "Acme" "<jd-excerpt>" companies/<folder>`
 
 Reads `data/connections.csv`, finds LinkedIn connections at the target company, generates personalized outreach drafts via the OpenRouter wrapper.
@@ -378,7 +382,7 @@ url: https://...
 Full JD text below this line
 ```
 
-Inserts the job into DB and calls `prep_application.py` immediately.
+Inserts the job into DB and calls `scripts/prep_application.py` immediately.
 
 #### `rescore_all.py`
 **Run by:** manually (after model or prompt changes). No arguments.

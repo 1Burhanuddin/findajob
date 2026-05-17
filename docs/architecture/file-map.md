@@ -47,12 +47,14 @@ When this map drifts from the actual code (renamed file, new route module, retir
 <repo>/src/findajob/web/routes/materials.py  # GET /materials/ — candidate materials viewer; POST /materials/{fp}/files/{name} — in-browser .md editor w/ .docx auto-regen (#210); uses folder_resolver
 <repo>/src/findajob/web/folder_resolver.py   # stage→filesystem resolver with path-traversal guards
 <repo>/src/findajob/web/templates/           # Jinja2 templates — base.html + one subdir per route group + shared _*.html partials
+<repo>/src/findajob/prep/orchestrator.py     # prep_application implementation (called by scripts/prep_application.py shim)
+<repo>/src/findajob/find_contacts.py         # find_contacts implementation (called by scripts/find_contacts.py shim)
 
 # ── Entry point scripts (called by systemd / CLI) ──────────────────────────
 <repo>/scripts/triage.py                    # daily ingest → score → DB
 <repo>/scripts/watchdog.py                  # resets stuck prep_in_progress jobs > 60 min (every 10 min cron)
-<repo>/scripts/prep_application.py          # on-demand LLM material generation
-<repo>/scripts/find_contacts.py             # LinkedIn contact matching + outreach drafts
+<repo>/scripts/prep_application.py          # entry-point shim → findajob.prep.orchestrator
+<repo>/scripts/find_contacts.py             # entry-point shim → findajob.find_contacts
 <repo>/scripts/ingest_form.py               # Google Form → DB ingestion (retired; kept for manual drains)
 <repo>/scripts/notify.py                    # ntfy push notifications — subcommands: send-raw, scoreboard, health-check, etc.
 <repo>/scripts/rename_folders.py            # rename company folders to new format (idempotent)
