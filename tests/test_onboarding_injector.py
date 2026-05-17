@@ -623,15 +623,15 @@ def test_inject_preserves_other_env_keys(tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     data_dir.mkdir()
     (data_dir / ".env").write_text(
-        "OPENROUTER_API_KEY=old-shared-key\nRAPIDAPI_KEY=preserve-me\nGOOGLE_API_KEY=preserve-me-too\n"
+        "OPENROUTER_API_KEY=old-shared-key\nRAPIDAPI_KEY=preserve-me\nOPERATOR_CUSTOM_VAR=preserve-me-too\n"
     )
     inject(tmp_path, _MIN_FILES, openrouter_api_key="user-own-key", skip_smoke_check=True)
     env_content = (data_dir / ".env").read_text()
     assert "OPENROUTER_API_KEY=user-own-key" in env_content
     assert "old-shared-key" not in env_content
     assert "RAPIDAPI_KEY=preserve-me" in env_content
-    # GOOGLE_API_KEY from the existing .env must be preserved by merge_env_content.
-    assert "GOOGLE_API_KEY=preserve-me-too" in env_content
+    # An arbitrary operator-set var (not managed by findajob) must survive the merge.
+    assert "OPERATOR_CUSTOM_VAR=preserve-me-too" in env_content
 
 
 # ── #339: per-tester RapidAPI key injection ───────────────────────────────────

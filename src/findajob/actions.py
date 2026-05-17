@@ -2,8 +2,8 @@
 """Stage-transition actions for the job pipeline.
 
 All state transitions that move a job between stages, move its prep folder,
-or drop marker files live here. Invoked from `scripts/poll_flags.py` today and
-from the web POST handlers in `findajob.web.routes.board_actions` (14c).
+or drop marker files live here. Invoked from `scripts/watchdog.py` and from
+the web POST handlers in `findajob.web.routes.board_actions`.
 
 Every function takes an open `sqlite3.Connection` as its first argument and
 commits itself. Functions return a `bool` indicating whether a folder was

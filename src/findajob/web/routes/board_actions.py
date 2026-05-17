@@ -44,10 +44,9 @@ router = APIRouter()
 MAX_CONCURRENT_PREPS = 3
 """Upper bound on simultaneously-running prep subprocesses.
 
-Mirrors scripts/poll_flags.py's cap. Keeps LLM-API spending bounded when the
-operator mass-flags a morning's worth of jobs. When the cap is reached,
-/prep and /regenerate return 429; the dashboard row stays actionable so the
-operator can retry in a few minutes.
+Keeps LLM-API spending bounded when the operator mass-flags a morning's worth
+of jobs. When the cap is reached, /prep and /regenerate return 429; the
+dashboard row stays actionable so the operator can retry in a few minutes.
 """
 
 
