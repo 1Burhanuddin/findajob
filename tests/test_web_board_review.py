@@ -8,23 +8,34 @@ from fastapi.testclient import TestClient
 
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
     db = tmp_path / "pipeline.db"
+    init_test_db(db)
     conn = sqlite3.connect(db)
     conn.execute(
-        "CREATE TABLE jobs (fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
-        "score_flag_reason TEXT, source TEXT, user_notes TEXT, url TEXT, created_at TEXT, stage_updated TEXT)"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, "
+        "stage, score_flag_reason, source, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            "jid-rev",
+            "fp-rev",
+            "https://x.test/rev",
+            "Ambiguous Title",
+            "Meta",
+            "manual_review",
+            "target company bump",
+            "greenhouse",
+            "2026-04-20",
+        ),
     )
     conn.execute(
-        "INSERT INTO jobs (fingerprint, title, company, stage, score_flag_reason, source, created_at) "
-        "VALUES ('fp-rev','Ambiguous Title','Meta','manual_review','target company bump','greenhouse','2026-04-20')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage) "
+        "VALUES ('jid-sc','fp-scored','https://x.test/sc','Other','Acme','test','scored')"
     )
-    conn.execute("INSERT INTO jobs (fingerprint, title, company, stage) VALUES ('fp-scored','Other','Acme','scored')")
-    ensure_view_prefs_table(conn)
     conn.commit()
     conn.close()
     companies = tmp_path / "companies"

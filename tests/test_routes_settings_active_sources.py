@@ -14,7 +14,6 @@ pattern (#490). Tests use the same fixture shape as
 
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 
 import pytest
@@ -23,7 +22,7 @@ from fastapi.testclient import TestClient
 from findajob.fetchers.adapters import registry
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 @pytest.fixture
@@ -48,28 +47,9 @@ def client(tmp_path: Path, active_sources_path: Path, monkeypatch: pytest.Monkey
     # writes its own sentinel under tmp_path/data/.onboarding-complete.
     monkeypatch.setattr(registry, "_onboarding_complete_path", lambda: tmp_path / "data" / ".onboarding-complete")
 
-    # Minimal pipeline.db schema for the dashboard route.
+    # pipeline.db schema via production migration runner.
     db = tmp_path / "pipeline.db"
-    conn = sqlite3.connect(db)
-    conn.execute(
-        "CREATE TABLE jobs ("
-        "id TEXT PRIMARY KEY, fingerprint TEXT, title TEXT, company TEXT, "
-        "stage TEXT, reject_reason TEXT, relevance_score INTEGER, "
-        "fit_score REAL, probability_score REAL, interview_likelihood INTEGER, "
-        "location TEXT, remote_status TEXT, known_contacts TEXT, user_notes TEXT, "
-        "comp_estimate TEXT, ai_notes TEXT, created_at TEXT, "
-        "stage_updated TEXT, url TEXT, prep_folder_path TEXT"
-        ")"
-    )
-    conn.execute(
-        "CREATE TABLE audit_log ("
-        "id INTEGER PRIMARY KEY, job_id TEXT, field_changed TEXT, "
-        "old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT"
-        ")"
-    )
-    conn.commit()
-    ensure_view_prefs_table(conn)
-    conn.close()
+    init_test_db(db)
 
     companies = tmp_path / "companies"
     companies.mkdir()

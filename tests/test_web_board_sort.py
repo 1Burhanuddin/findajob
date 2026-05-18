@@ -8,32 +8,21 @@ from fastapi.testclient import TestClient
 
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
     db = tmp_path / "pipeline.db"
+    init_test_db(db)
     conn = sqlite3.connect(db)
-    conn.execute(
-        "CREATE TABLE jobs (id TEXT, fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
-        "relevance_score INTEGER, fit_score REAL, probability_score REAL, interview_likelihood INTEGER, "
-        "location TEXT, remote_status TEXT, known_contacts TEXT, comp_estimate TEXT, "
-        "ai_notes TEXT, user_notes TEXT, score_flag_reason TEXT, source TEXT, url TEXT, "
-        "created_at TEXT, stage_updated TEXT, prep_folder_path TEXT)"
-    )
-    conn.execute(
-        "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, job_id TEXT, field_changed TEXT, "
-        "old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT)"
-    )
     # Three scored jobs spanning score values, passing the Dashboard WHERE
-    for fp, company, score in [("fp-a", "Alpha", 9), ("fp-b", "Bravo", 7), ("fp-c", "Charlie", 8)]:
+    for i, (fp, company, score) in enumerate([("fp-a", "Alpha", 9), ("fp-b", "Bravo", 7), ("fp-c", "Charlie", 8)]):
         conn.execute(
-            "INSERT INTO jobs (fingerprint, title, company, stage, relevance_score, created_at) "
-            "VALUES (?, 't', ?, 'scored', ?, '2026-04-01')",
-            (fp, company, score),
+            "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, relevance_score, created_at) "
+            "VALUES (?, ?, ?, 't', ?, 'test', 'scored', ?, '2026-04-01')",
+            (f"jid-{i}", fp, f"https://x.test/{fp}", company, score),
         )
-    ensure_view_prefs_table(conn)
     conn.commit()
     conn.close()
     companies = tmp_path / "companies"

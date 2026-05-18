@@ -8,41 +8,44 @@ from fastapi.testclient import TestClient
 
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
     db = tmp_path / "pipeline.db"
+    init_test_db(db)
     conn = sqlite3.connect(db)
-    conn.execute(
-        "CREATE TABLE jobs (id TEXT, fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
-        "relevance_score INTEGER, fit_score REAL, probability_score REAL, "
-        "interview_likelihood REAL, "
-        "location TEXT, remote_status TEXT, user_notes TEXT, ai_notes TEXT, "
-        "url TEXT, created_at TEXT, stage_updated TEXT, prep_folder_path TEXT)"
-    )
-    # #234 — /board/waitlist LEFT JOINs audit_log for the company-history cell.
-    conn.execute(
-        "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, job_id TEXT, field_changed TEXT, "
-        "old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT)"
-    )
     # Meta has two jobs: one waitlisted (with all scores), one actively applied
     conn.execute(
-        "INSERT INTO jobs (fingerprint, title, company, stage, relevance_score, "
-        "fit_score, probability_score, interview_likelihood, stage_updated) "
-        "VALUES ('fp-wait','Ops Lead','Meta','waitlisted',8,72.0,48.0,55.0,'2026-04-18')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, "
+        "stage, relevance_score, fit_score, probability_score, "
+        "interview_likelihood, stage_updated) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            "id-wait",
+            "fp-wait",
+            "https://x.test/wait",
+            "Ops Lead",
+            "Meta",
+            "test",
+            "waitlisted",
+            8,
+            72.0,
+            55.0,
+            8,
+            "2026-04-18",
+        ),
     )
     conn.execute(
-        "INSERT INTO jobs (fingerprint, title, company, stage, stage_updated) "
-        "VALUES ('fp-blocker','NPI PM','Meta','applied','2026-04-20')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, stage_updated) "
+        "VALUES ('id-blocker','fp-blocker','https://x.test/blocker','NPI PM','Meta','test','applied','2026-04-20')"
     )
     # Anthropic has only a waitlisted job with NULL fit/prob scores — should render a dash
     conn.execute(
-        "INSERT INTO jobs (fingerprint, title, company, stage, relevance_score) "
-        "VALUES ('fp-solo','Eng','Anthropic','waitlisted',6)"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, relevance_score) "
+        "VALUES ('id-solo','fp-solo','https://x.test/solo','Eng','Anthropic','test','waitlisted',6)"
     )
-    ensure_view_prefs_table(conn)
     conn.commit()
     conn.close()
     companies = tmp_path / "companies"

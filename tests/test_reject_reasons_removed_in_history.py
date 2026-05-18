@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from findajob import config_loader
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 @pytest.fixture
@@ -24,77 +24,18 @@ def client_with_orphan_feedback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     yaml_path.write_text("reasons:\n  - Skills Mismatch\n  - Wrong Domain\n")
     monkeypatch.setattr(config_loader, "_REJECT_REASONS_PATH", yaml_path)
 
-    # 2. SQLite with the schemas the three views need.
+    # 2. SQLite via production migration runner.
     db = tmp_path / "pipeline.db"
+    init_test_db(db)
     conn = sqlite3.connect(db)
-    conn.executescript(
-        """
-        CREATE TABLE jobs (
-            id TEXT PRIMARY KEY,
-            fingerprint TEXT UNIQUE NOT NULL,
-            loose_fingerprint TEXT,
-            url TEXT NOT NULL,
-            title TEXT NOT NULL,
-            company TEXT NOT NULL,
-            location TEXT DEFAULT '',
-            source TEXT NOT NULL,
-            raw_jd_text TEXT,
-            remote_status TEXT DEFAULT 'Unknown',
-            known_contacts TEXT DEFAULT '',
-            ai_notes TEXT,
-            relevance_score INTEGER,
-            fit_score REAL,
-            probability_score REAL,
-            interview_likelihood INTEGER,
-            stage TEXT DEFAULT 'discovered',
-            apply_flag INTEGER DEFAULT 0,
-            reject_reason TEXT DEFAULT '',
-            prep_folder_path TEXT,
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now')),
-            stage_updated TEXT,
-            dupe_of TEXT DEFAULT '',
-            synthetic INTEGER NOT NULL DEFAULT 0,
-            score_flag_reason TEXT,
-            comp_estimate TEXT,
-            user_notes TEXT
-        );
-        CREATE TABLE audit_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id TEXT NOT NULL,
-            field_changed TEXT NOT NULL,
-            old_value TEXT,
-            new_value TEXT,
-            changed_at TEXT DEFAULT (datetime('now')),
-            changed_by TEXT DEFAULT 'system'
-        );
-        CREATE TABLE feedback_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id TEXT NOT NULL,
-            title TEXT NOT NULL,
-            company TEXT NOT NULL,
-            relevance_score INTEGER,
-            reject_reason TEXT NOT NULL,
-            jd_excerpt TEXT DEFAULT '',
-            created_at TEXT DEFAULT (datetime('now'))
-        );
-        CREATE TABLE cost_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id TEXT,
-            cost_usd REAL,
-            created_at TEXT DEFAULT (datetime('now'))
-        );
-        """
-    )
-    ensure_view_prefs_table(conn)
 
     # 3. Insert one rejected job + a feedback_log row whose reason is
     #    NOT in the current YAML — this is the orphan condition.
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, reject_reason, "
-        "source, url, created_at) "
-        "VALUES ('fp-orphan', 'fp-orphan', 'Some Job', 'Acme', 'rejected', "
-        "'Orphaned Reason', 'test', 'https://example.com/j1', '2026-04-01 00:00:00')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, reject_reason, "
+        "created_at) "
+        "VALUES ('fp-orphan', 'fp-orphan', 'https://example.com/j1', 'Some Job', 'Acme', "
+        "'test', 'rejected', 'Orphaned Reason', '2026-04-01 00:00:00')"
     )
     conn.execute(
         "INSERT INTO feedback_log (job_id, title, company, relevance_score, reject_reason, "

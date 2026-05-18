@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 
 import pytest
@@ -10,50 +9,14 @@ from fastapi.testclient import TestClient
 
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
-
-_MINIMAL_SCHEMA = """
-CREATE TABLE jobs (
-    id TEXT,
-    fingerprint TEXT,
-    title TEXT,
-    company TEXT,
-    stage TEXT,
-    relevance_score INTEGER,
-    fit_score REAL,
-    probability_score REAL,
-    interview_likelihood INTEGER,
-    location TEXT,
-    remote_status TEXT,
-    known_contacts TEXT,
-    user_notes TEXT,
-    comp_estimate TEXT,
-    ai_notes TEXT,
-    created_at TEXT,
-    stage_updated TEXT,
-    url TEXT,
-    prep_folder_path TEXT,
-    synthetic INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE audit_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    job_id TEXT NOT NULL,
-    field_changed TEXT NOT NULL,
-    old_value TEXT,
-    new_value TEXT,
-    changed_at TEXT DEFAULT (datetime('now'))
-);
-"""
+from tests.conftest import init_test_db
 
 
 @pytest.fixture()
 def unconfigured_client(tmp_path: Path) -> TestClient:
     """Stack with no sentinel = not yet onboarded."""
     db_path = tmp_path / "pipeline.db"
-    conn = sqlite3.connect(db_path)
-    conn.executescript(_MINIMAL_SCHEMA)
-    ensure_view_prefs_table(conn)
-    conn.close()
+    init_test_db(db_path)
     (tmp_path / "companies").mkdir()
     app = create_app(
         companies_root=tmp_path / "companies",
@@ -67,10 +30,7 @@ def unconfigured_client(tmp_path: Path) -> TestClient:
 def configured_client(tmp_path: Path) -> TestClient:
     """Stack with sentinel written = onboarded."""
     db_path = tmp_path / "pipeline.db"
-    conn = sqlite3.connect(db_path)
-    conn.executescript(_MINIMAL_SCHEMA)
-    ensure_view_prefs_table(conn)
-    conn.close()
+    init_test_db(db_path)
     (tmp_path / "companies").mkdir()
     mark_complete(tmp_path)
     app = create_app(

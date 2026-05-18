@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 @pytest.fixture
@@ -30,45 +30,21 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     monkeypatch.setattr(config_loader, "_REJECT_REASONS_PATH", yaml_path)
 
-    # 2. Minimal schema sufficient for /board/dashboard and /board/rejected.
-    #    Dashboard requires: id, fingerprint, title, company, stage,
-    #      relevance_score, fit_score, probability_score, interview_likelihood,
-    #      location, remote_status, known_contacts, comp_estimate, ai_notes,
-    #      created_at, stage_updated, url, prep_folder_path
-    #    Rejected additionally requires: reject_reason; both routes LEFT JOIN
-    #      audit_log.
+    # 2. Schema via production migration runner.
     db = tmp_path / "pipeline.db"
+    init_test_db(db)
     conn = sqlite3.connect(db)
-    conn.execute(
-        "CREATE TABLE jobs ("
-        "id TEXT PRIMARY KEY, fingerprint TEXT, title TEXT, company TEXT, "
-        "stage TEXT, reject_reason TEXT, relevance_score INTEGER, "
-        "fit_score REAL, probability_score REAL, interview_likelihood INTEGER, "
-        "location TEXT, remote_status TEXT, known_contacts TEXT, user_notes TEXT, "
-        "comp_estimate TEXT, ai_notes TEXT, created_at TEXT, "
-        "stage_updated TEXT, url TEXT, prep_folder_path TEXT, "
-        "synthetic INTEGER NOT NULL DEFAULT 0"
-        ")"
-    )
-    conn.execute(
-        "CREATE TABLE audit_log ("
-        "id INTEGER PRIMARY KEY, job_id TEXT, field_changed TEXT, "
-        "old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT"
-        ")"
-    )
     # A high-scoring dashboard row (score >= 7 passes the default floor).
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, relevance_score, url) "
-        "VALUES ('id-dash','fp-dash','Staff Eng','Meta','scored',9,"
-        "'https://example.com/j1')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, relevance_score) "
+        "VALUES ('id-dash','fp-dash','https://example.com/j1','Staff Eng','Meta','test','scored',9)"
     )
     # A rejected row — ensures /board/rejected/ renders filter chips even with data.
     # Use a reject_reason value that is NOT one of the YAML reasons being tested
     # so that row-data text doesn't interfere with chip-value assertions.
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, reject_reason, url) "
-        "VALUES ('id-rej','fp-rej','Old Role','Acme','rejected','Geography',"
-        "'https://example.com/j2')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, reject_reason) "
+        "VALUES ('id-rej','fp-rej','https://example.com/j2','Old Role','Acme','test','rejected','Geography')"
     )
     conn.execute(
         "INSERT INTO audit_log (job_id, field_changed, old_value, new_value, "
@@ -76,7 +52,6 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         "VALUES ('id-rej','stage','scored','rejected','2026-01-01 00:00:00','user')"
     )
     conn.commit()
-    ensure_view_prefs_table(conn)
     conn.close()
 
     companies = tmp_path / "companies"

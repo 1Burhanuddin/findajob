@@ -17,42 +17,13 @@ from fastapi.testclient import TestClient
 
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 @pytest.fixture
 def app_with_db(tmp_path: Path) -> Iterator[tuple[TestClient, Path]]:
     db_path = tmp_path / "pipeline.db"
-    conn = sqlite3.connect(db_path)
-    conn.executescript("""
-    CREATE TABLE IF NOT EXISTS jobs (
-      id TEXT PRIMARY KEY,
-      fingerprint TEXT UNIQUE NOT NULL,
-      title TEXT, company TEXT, location TEXT, remote_status TEXT,
-      known_contacts TEXT, comp_estimate TEXT, ai_notes TEXT,
-      relevance_score INTEGER, fit_score REAL, probability_score REAL,
-      interview_likelihood REAL,
-      stage TEXT, created_at TEXT, stage_updated TEXT,
-      url TEXT, prep_folder_path TEXT, source TEXT,
-      score_flag_reason TEXT, reject_reason TEXT, user_notes TEXT,
-      synthetic INTEGER NOT NULL DEFAULT 0
-    );
-    CREATE TABLE IF NOT EXISTS audit_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      job_id TEXT, field_changed TEXT, old_value TEXT, new_value TEXT,
-      changed_at TEXT, changed_by TEXT
-    );
-    CREATE TABLE IF NOT EXISTS cost_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      job_id TEXT, operation TEXT NOT NULL, model TEXT NOT NULL,
-      latency_ms INTEGER, success INTEGER DEFAULT 1, error_message TEXT,
-      input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL,
-      logged_at TEXT DEFAULT (datetime('now'))
-    );
-    """)
-    ensure_view_prefs_table(conn)
-    conn.commit()
-    conn.close()
+    init_test_db(db_path)
 
     companies = tmp_path / "companies"
     companies.mkdir()
@@ -79,6 +50,7 @@ def _insert_job(
     cols: dict[str, object] = {
         "id": id,
         "fingerprint": fingerprint,
+        "url": f"https://x.test/{fingerprint}",
         "title": title,
         "company": company,
         "location": location,

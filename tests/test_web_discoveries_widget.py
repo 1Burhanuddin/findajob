@@ -7,7 +7,6 @@ states the widget renders on /board/dashboard.
 from __future__ import annotations
 
 import json
-import sqlite3
 from datetime import date
 from pathlib import Path
 
@@ -17,7 +16,7 @@ from fastapi.testclient import TestClient
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
 from findajob.web.discoveries import STALE_THRESHOLD_DAYS, load_discoveries_summary
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 def _write_json(base_root: Path, payload: dict) -> Path:
@@ -99,20 +98,7 @@ def test_load_marks_stale_past_threshold(tmp_path: Path) -> None:
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
     db = tmp_path / "pipeline.db"
-    conn = sqlite3.connect(db)
-    conn.execute(
-        "CREATE TABLE jobs (id TEXT, fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
-        "relevance_score INTEGER, fit_score REAL, probability_score REAL, interview_likelihood INTEGER, "
-        "location TEXT, remote_status TEXT, known_contacts TEXT, user_notes TEXT, comp_estimate TEXT, "
-        "ai_notes TEXT, created_at TEXT, stage_updated TEXT, url TEXT, prep_folder_path TEXT)"
-    )
-    conn.execute(
-        "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, job_id TEXT, field_changed TEXT, "
-        "old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT)"
-    )
-    conn.commit()
-    ensure_view_prefs_table(conn)
-    conn.close()
+    init_test_db(db)
     companies = tmp_path / "companies"
     companies.mkdir()
     mark_complete(tmp_path)

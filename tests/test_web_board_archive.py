@@ -8,27 +8,21 @@ from fastapi.testclient import TestClient
 
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
     db = tmp_path / "pipeline.db"
+    init_test_db(db)
     conn = sqlite3.connect(db)
-    conn.execute(
-        "CREATE TABLE jobs (fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
-        "relevance_score INTEGER, fit_score REAL, probability_score REAL, location TEXT, "
-        "remote_status TEXT, source TEXT, url TEXT, created_at TEXT, stage_updated TEXT, "
-        "user_notes TEXT)"
-    )
     for i in range(150):
         conn.execute(
-            "INSERT INTO jobs (fingerprint, title, company, stage, relevance_score, "
+            "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, relevance_score, "
             "fit_score, created_at) "
-            "VALUES (?, ?, ?, 'scored', ?, ?, '2026-01-01')",
-            (f"fp-{i:03}", f"Role {i}", f"Co {i}", 1 + i % 10, 1.0 + i % 10),
+            "VALUES (?, ?, ?, ?, ?, 'test', 'scored', ?, ?, '2026-01-01')",
+            (f"jid-{i:03}", f"fp-{i:03}", f"https://x.test/{i}", f"Role {i}", f"Co {i}", 1 + i % 10, 1.0 + i % 10),
         )
-    ensure_view_prefs_table(conn)
     conn.commit()
     conn.close()
     companies = tmp_path / "companies"
@@ -63,33 +57,27 @@ def test_archive_rows_endpoint_returns_fragment_not_full_page(client: TestClient
 def scored_client(tmp_path: Path) -> TestClient:
     """Small hand-crafted fixture with varied relevance_score + stage for filter/promote tests."""
     db = tmp_path / "pipeline.db"
+    init_test_db(db)
     conn = sqlite3.connect(db)
-    conn.execute(
-        "CREATE TABLE jobs (id TEXT, fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
-        "relevance_score INTEGER, fit_score REAL, probability_score REAL, location TEXT, "
-        "remote_status TEXT, source TEXT, url TEXT, created_at TEXT, stage_updated TEXT, "
-        "user_notes TEXT)"
-    )
     # Two score-6 rows at stage='scored' — should appear with min_score=6 and have Promote button
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, relevance_score, created_at) "
-        "VALUES ('id-6a','fp-6a','Six Alpha','Co6A','scored',6,'2026-04-24')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, relevance_score, created_at) "
+        "VALUES ('id-6a','fp-6a','https://x.test/6a','Six Alpha','Co6A','test','scored',6,'2026-04-24')"
     )
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, relevance_score, created_at) "
-        "VALUES ('id-6b','fp-6b','Six Bravo','Co6B','scored',6,'2026-04-24')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, relevance_score, created_at) "
+        "VALUES ('id-6b','fp-6b','https://x.test/6b','Six Bravo','Co6B','test','scored',6,'2026-04-24')"
     )
     # One score-3 row (below min_score=6, should be filtered out)
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, relevance_score, created_at) "
-        "VALUES ('id-3','fp-3','Three Only','Co3','scored',3,'2026-04-24')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, relevance_score, created_at) "
+        "VALUES ('id-3','fp-3','https://x.test/3','Three Only','Co3','test','scored',3,'2026-04-24')"
     )
     # One score-9 row at stage='applied' — appears with min_score=6 but NO Promote button (already applied)
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, relevance_score, created_at) "
-        "VALUES ('id-9','fp-9','Nine Applied','Co9','applied',9,'2026-04-24')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, relevance_score, created_at) "
+        "VALUES ('id-9','fp-9','https://x.test/9','Nine Applied','Co9','test','applied',9,'2026-04-24')"
     )
-    ensure_view_prefs_table(conn)
     conn.commit()
     conn.close()
     companies = tmp_path / "companies"
@@ -153,22 +141,16 @@ def test_archive_shows_relevance_score_column(scored_client: TestClient) -> None
 def reject_mix_client(tmp_path: Path) -> TestClient:
     """Fixture with mixed scored + rejected rows for #281 default-exclude tests."""
     db = tmp_path / "pipeline.db"
+    init_test_db(db)
     conn = sqlite3.connect(db)
     conn.execute(
-        "CREATE TABLE jobs (id TEXT, fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
-        "relevance_score INTEGER, fit_score REAL, probability_score REAL, location TEXT, "
-        "remote_status TEXT, source TEXT, url TEXT, created_at TEXT, stage_updated TEXT, "
-        "user_notes TEXT)"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, relevance_score, created_at) "
+        "VALUES ('id-s','fp-s','https://x.test/s','Scored Job','CoS','test','scored',6,'2026-04-24')"
     )
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, relevance_score, created_at) "
-        "VALUES ('id-s','fp-s','Scored Job','CoS','scored',6,'2026-04-24')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, relevance_score, created_at) "
+        "VALUES ('id-r','fp-r','https://x.test/r','Rejected Job','CoR','test','rejected',5,'2026-04-24')"
     )
-    conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, relevance_score, created_at) "
-        "VALUES ('id-r','fp-r','Rejected Job','CoR','rejected',5,'2026-04-24')"
-    )
-    ensure_view_prefs_table(conn)
     conn.commit()
     conn.close()
     companies = tmp_path / "companies"

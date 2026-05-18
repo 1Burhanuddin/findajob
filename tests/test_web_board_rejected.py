@@ -13,31 +13,33 @@ from fastapi.testclient import TestClient
 
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("FINDAJOB_MATERIALS_BASE_URL", "http://test:8090")
     db = tmp_path / "pipeline.db"
+    init_test_db(db)
     conn = sqlite3.connect(db)
-    conn.execute(
-        "CREATE TABLE jobs (id TEXT PRIMARY KEY, fingerprint TEXT, title TEXT, company TEXT, "
-        "stage TEXT, reject_reason TEXT, url TEXT, created_at TEXT, stage_updated TEXT, "
-        "prep_folder_path TEXT, relevance_score INTEGER, location TEXT, remote_status TEXT, "
-        "ai_notes TEXT, user_notes TEXT, synthetic INTEGER NOT NULL DEFAULT 0)"
-    )
-    conn.execute(
-        "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, job_id TEXT, field_changed TEXT, "
-        "old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT)"
-    )
     three_days_ago = (datetime.now(UTC) - timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")
     one_day_ago = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
 
     # User rejection: scored → rejected
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, reject_reason, url) "
-        "VALUES ('id-rej','fp-rej','Wrong Stack','Acme','rejected','Tech Stack Mismatch','https://example.com/j1')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, "
+        "stage, reject_reason) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            "id-rej",
+            "fp-rej",
+            "https://example.com/j1",
+            "Wrong Stack",
+            "Acme",
+            "test",
+            "rejected",
+            "Tech Stack Mismatch",
+        ),
     )
     conn.execute(
         "INSERT INTO audit_log (job_id, field_changed, old_value, new_value, changed_at, changed_by) "
@@ -47,8 +49,8 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     # Company rejection: applied → not_selected
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, reject_reason, url) "
-        "VALUES ('id-ns','fp-ns','Principal Eng','Meta','not_selected','No Response','https://example.com/j2')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, reject_reason) "
+        "VALUES ('id-ns','fp-ns','https://example.com/j2','Principal Eng','Meta','test','not_selected','No Response')"
     )
     conn.execute(
         "INSERT INTO audit_log (job_id, field_changed, old_value, new_value, changed_at, changed_by) "
@@ -58,11 +60,10 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     # Active application — must NOT appear on /board/rejected
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage) "
-        "VALUES ('id-app','fp-app','Staff Eng','Google','applied')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage) "
+        "VALUES ('id-app','fp-app','https://example.com/j5','Staff Eng','Google','test','applied')"
     )
 
-    ensure_view_prefs_table(conn)
     conn.commit()
     conn.close()
     companies = tmp_path / "companies"

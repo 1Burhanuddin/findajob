@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
 from findajob.web.company_history import _company_key
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 def _iso_days_ago(days: int) -> str:
@@ -29,21 +29,14 @@ def _iso_days_ago(days: int) -> str:
 
 
 def _make_client(tmp_path: Path) -> tuple[sqlite3.Connection, Path]:
-    """Build a tmp pipeline.db via the production migration runner.
-
-    Pre-M5/M6 this fixture maintained a hand-written subset of the
-    schema. Using ``apply_pending`` matches production exactly.
-    """
-    from findajob.db.migrate import apply_pending
-
+    """Build a tmp pipeline.db via the production migration runner."""
     db = tmp_path / "pipeline.db"
+    init_test_db(db)
     conn = sqlite3.connect(db)
-    apply_pending(conn)
     return conn, db
 
 
 def _finalize(tmp_path: Path, conn: sqlite3.Connection, db: Path) -> TestClient:
-    ensure_view_prefs_table(conn)
     conn.commit()
     conn.close()
     companies = tmp_path / "companies"

@@ -26,18 +26,7 @@ from fastapi.testclient import TestClient
 from findajob import audit
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
-
-
-def _build_pipeline_db(db_path: Path) -> None:
-    from findajob.db.migrate import apply_pending
-
-    conn = sqlite3.connect(db_path)
-    try:
-        apply_pending(conn)
-        ensure_view_prefs_table(conn)
-    finally:
-        conn.close()
+from tests.conftest import init_test_db
 
 
 @pytest.fixture()
@@ -57,7 +46,7 @@ def folder_client(tmp_path: Path, monkeypatch):
 
         db_path = tmp_path / "pipeline.db"
         if not db_path.exists():
-            _build_pipeline_db(db_path)
+            init_test_db(db_path)
         conn = sqlite3.connect(db_path)
         conn.execute(
             "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, prep_folder_path) "

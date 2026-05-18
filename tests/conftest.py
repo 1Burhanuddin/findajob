@@ -17,29 +17,31 @@ from findajob import config_loader
 FIXTURES = Path(__file__).parent / "fixtures" / "config"
 
 
-def ensure_view_prefs_table(conn: sqlite3.Connection) -> None:
-    """Create migration 0005's view_prefs table on a hand-rolled test schema.
+def init_test_db(db_path: Path) -> None:
+    """Create a fresh ``pipeline.db`` at ``db_path`` with the production
+    migration chain applied (mirrors ``scripts/init_db.py`` → ``apply_pending``).
 
-    Existing board-route tests build their own minimal schema directly
-    (jobs, audit_log) rather than running ``apply_pending``. The #277
-    persistence layer auto-saves on every page + /rows GET, so any test
-    that hits a board route now needs this table to exist or the route
-    raises ``sqlite3.OperationalError: no such table: view_prefs``.
+    Test fixtures that need a SQLite pipeline DB call this helper instead
+    of hand-rolling schema. Hand-rolled CREATE-TABLE statements were a
+    documented anti-pattern (#721): every migration that introduced a new
+    table (e.g. 0005's ``view_prefs``) silently broke every fixture that
+    hit a route touching the new table, requiring a whack-a-mole
+    ``ensure_<table>_table()`` helper. Routing schema setup through the
+    real migration runner eliminates that fragility class — fixtures
+    inherit every future table automatically.
 
-    Production fixes this at container start via ``scripts/init_db.py``.
-    Tests fix it by calling this helper after their hand-built CREATEs.
-    Keep the DDL in sync with ``src/findajob/migrations/0005_view_prefs.sql``.
+    Opens and closes its own connection; the caller opens a fresh
+    connection afterward for INSERTs / assertions. Idempotent — calling
+    twice against the same path is harmless (``apply_pending`` short-
+    circuits when the DB is already at the head version).
     """
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS view_prefs (
-            tab TEXT PRIMARY KEY CHECK (tab IN (
-                'dashboard','applied','review','waitlist',
-                'rejected','not_selected','archive'
-            )),
-            query_string TEXT NOT NULL,
-            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-        )"""
-    )
+    from findajob.db.migrate import apply_pending
+
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_pending(conn)
+    finally:
+        conn.close()
 
 
 @pytest.fixture(autouse=True)

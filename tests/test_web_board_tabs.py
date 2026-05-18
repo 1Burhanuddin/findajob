@@ -5,7 +5,6 @@ Each board page includes board/_tabs.html which renders seven tabs
 is visually distinct via aria-current="page".
 """
 
-import sqlite3
 from pathlib import Path
 
 import pytest
@@ -13,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 TAB_LINKS = [
     "/board/dashboard",
@@ -29,28 +28,7 @@ TAB_LINKS = [
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
     db = tmp_path / "pipeline.db"
-    conn = sqlite3.connect(db)
-    conn.execute(
-        "CREATE TABLE jobs (id TEXT PRIMARY KEY, fingerprint TEXT, title TEXT, company TEXT, "
-        "stage TEXT, fit_score REAL, probability_score REAL, relevance_score INTEGER, "
-        "interview_likelihood INTEGER, location TEXT, remote_status TEXT, known_contacts TEXT, "
-        "comp_estimate TEXT, ai_notes TEXT, user_notes TEXT, score_flag_reason TEXT, "
-        "source TEXT, reject_reason TEXT, url TEXT, created_at TEXT, stage_updated TEXT, "
-        "prep_folder_path TEXT, synthetic INTEGER NOT NULL DEFAULT 0)"
-    )
-    conn.execute(
-        "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, job_id TEXT, field_changed TEXT, "
-        "old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT)"
-    )
-    conn.execute(
-        "CREATE TABLE cost_log (id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT, "
-        "operation TEXT NOT NULL, model TEXT NOT NULL, latency_ms INTEGER, "
-        "success INTEGER DEFAULT 1, error_message TEXT, input_tokens INTEGER, "
-        "output_tokens INTEGER, cost_usd REAL, logged_at TEXT DEFAULT (datetime('now')))"
-    )
-    ensure_view_prefs_table(conn)
-    conn.commit()
-    conn.close()
+    init_test_db(db)
     companies = tmp_path / "companies"
     companies.mkdir()
     mark_complete(tmp_path)

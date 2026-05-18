@@ -14,31 +14,33 @@ from fastapi.testclient import TestClient
 
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
-from tests.conftest import ensure_view_prefs_table
+from tests.conftest import init_test_db
 
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("FINDAJOB_MATERIALS_BASE_URL", "http://test:8090")
     db = tmp_path / "pipeline.db"
+    init_test_db(db)
     conn = sqlite3.connect(db)
-    conn.execute(
-        "CREATE TABLE jobs (id TEXT PRIMARY KEY, fingerprint TEXT, title TEXT, company TEXT, "
-        "stage TEXT, reject_reason TEXT, url TEXT, created_at TEXT, stage_updated TEXT, "
-        "prep_folder_path TEXT, relevance_score INTEGER, location TEXT, remote_status TEXT, "
-        "ai_notes TEXT, user_notes TEXT, synthetic INTEGER NOT NULL DEFAULT 0)"
-    )
-    conn.execute(
-        "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, job_id TEXT, field_changed TEXT, "
-        "old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT)"
-    )
     one_day_ago = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
 
     # Two not_selected rows
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, reject_reason, url, location) "
-        "VALUES ('id-ns1','fp-ns1','Principal Eng','Meta','not_selected','No Response',"
-        "'https://example.com/j1','Menlo Park')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, "
+        "stage, reject_reason, location) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            "id-ns1",
+            "fp-ns1",
+            "https://example.com/j1",
+            "Principal Eng",
+            "Meta",
+            "test",
+            "not_selected",
+            "No Response",
+            "Menlo Park",
+        ),
     )
     conn.execute(
         "INSERT INTO audit_log (job_id, field_changed, old_value, new_value, changed_at, changed_by) "
@@ -46,23 +48,33 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         (one_day_ago,),
     )
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, reject_reason, url) "
-        "VALUES ('id-ns2','fp-ns2','Director','Google','not_selected','Compensation','https://example.com/j2')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, reject_reason) "
+        "VALUES ('id-ns2','fp-ns2','https://example.com/j2','Director','Google','test','not_selected','Compensation')"
     )
 
     # User rejection — must NOT appear on /board/not-selected (rejected, not not_selected)
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage, reject_reason, url) "
-        "VALUES ('id-rej','fp-rej','Wrong Stack','Acme','rejected','Tech Stack Mismatch','https://example.com/j3')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, "
+        "stage, reject_reason) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            "id-rej",
+            "fp-rej",
+            "https://example.com/j3",
+            "Wrong Stack",
+            "Acme",
+            "test",
+            "rejected",
+            "Tech Stack Mismatch",
+        ),
     )
 
     # Active application — must NOT appear either
     conn.execute(
-        "INSERT INTO jobs (id, fingerprint, title, company, stage) "
-        "VALUES ('id-app','fp-app','Staff Eng','Stripe','applied')"
+        "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage) "
+        "VALUES ('id-app','fp-app','https://example.com/j4','Staff Eng','Stripe','test','applied')"
     )
 
-    ensure_view_prefs_table(conn)
     conn.commit()
     conn.close()
     companies = tmp_path / "companies"
