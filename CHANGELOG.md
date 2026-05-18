@@ -10,6 +10,10 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Changed
+
+- **#726 refactor(actions): `un_apply_job` + `reactivate_from_ingest` gain `deferred_fs` parity with #709.** The two remaining helpers in `findajob.actions` that carried the same fs-then-DB ordering #709 removed from the other seven. Not bug-triggering today (no composing callers), but eliminates the inconsistency while the pattern is still fresh. `un_apply_job` intentionally collapses its folder-move + per-snapshot deletes into one closure whose body iterates `glob("*.md")` at execution time — different shape from #709's `un_not_selected_job` (N closures, each binding one `marker_path`); both are valid. New regression test `test_un_apply_job_multiple_snapshots_single_closure_no_capture_trap` seeds 2 snapshot files and asserts both are deleted on execute, locking in the single-closure shape. **No `migration-required`** — pure refactor, no schema/config/cron/mount changes.
+
 ## [0.27.1] — 2026-05-18
 
 ### Added
