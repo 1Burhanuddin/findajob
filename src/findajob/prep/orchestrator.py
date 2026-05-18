@@ -28,6 +28,7 @@ from findajob.db import connect
 from findajob.llm.role_runner import run_role
 from findajob.notifications.ntfy import quick_notify
 from findajob.paths import BASE, PANDOC, load_env
+from findajob.prep.cost_projection import compute_projection
 from findajob.prep.docx_postprocess import _add_cover_letter_spacing, _linkify_contact_info
 from findajob.prep.docx_render import render_md_to_docx
 from findajob.prep.quarantine import quarantine_stale_prep_folders
@@ -230,6 +231,43 @@ def _run_prep_phase_a(company: str, title: str, url: str, job_id: str) -> None:
             reset_prep_to_scored(conn, job_id, reason="missing_candidate_files")
             quick_notify(f"PREP ABORTED (missing candidate files): {company} — {title}\n{'; '.join(missing_files)}")
             return
+
+        # ── Per-prep cost projection (#713) ──
+        # Whole-prep projection at Phase A start. Best-effort: a projection
+        # failure never blocks the prep — the operator wanted early warning,
+        # not a gate. ``prep_cost_projection_high`` fires only when both
+        # values are populated and projection exceeds 1.5x recent median.
+        try:
+            projection = compute_projection(conn)
+            log_event(
+                "prep_cost_projection",
+                job_id=job_id,
+                company=company,
+                title=title,
+                projected_cost_usd=projection.projected_usd,
+                n_roles=projection.n_roles,
+                n_roles_with_history=projection.n_roles_with_history,
+                expensive_role=projection.expensive_role,
+                recent_median_usd=projection.recent_median_usd,
+                n_history_preps=projection.n_history_preps,
+                ceiling_usd=projection.ceiling_usd,
+            )
+            if (
+                projection.projected_usd is not None
+                and projection.ceiling_usd is not None
+                and projection.projected_usd > projection.ceiling_usd
+            ):
+                log_event(
+                    "prep_cost_projection_high",
+                    job_id=job_id,
+                    company=company,
+                    title=title,
+                    projected_cost_usd=projection.projected_usd,
+                    ceiling_usd=projection.ceiling_usd,
+                    expensive_role=projection.expensive_role,
+                )
+        except Exception as e:  # noqa: BLE001 — projection is best-effort
+            log_event("prep_cost_projection_failed", job_id=job_id, error=f"{type(e).__name__}: {e}")
 
         # ── Build shared cached_prefix strings for Opus stages ──
         # Stable content shared across briefing_writer, resume_tailor, cover_letter_writer,
