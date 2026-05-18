@@ -179,15 +179,16 @@ def test_recent_median_excludes_scoring(db: sqlite3.Connection) -> None:
     assert result.n_history_preps == 2
 
 
-def test_ceiling_trigger_when_projection_exceeds_ceiling(db: sqlite3.Connection) -> None:
+def test_projection_at_or_below_ceiling_does_not_exceed(db: sqlite3.Connection) -> None:
+    """Sanity: when role-median sum equals per-prep median, projection is at
+    the median (well under 1.5x median ceiling). Caller must not fire
+    ``prep_cost_projection_high`` in this case.
+    """
     from findajob.prep.cost_projection import compute_projection
 
     resolver = _stub_resolver({"briefing_writer": "opus"})
-    # One historical prep at $0.50 → recent_median 0.50, ceiling 0.75.
     _seed_job(db, "hist")
     _seed_cost_row(db, job_id="hist", operation="briefing_writer", model="opus", cost_usd=0.50, days_ago=2)
-    # Seed three more (role, model) rows so the role-median for the projection
-    # is $1.00 — well above the 0.75 ceiling.
     for i in range(3):
         jid = f"recent-{i}"
         _seed_job(db, jid)
@@ -196,10 +197,52 @@ def test_ceiling_trigger_when_projection_exceeds_ceiling(db: sqlite3.Connection)
 
     result = compute_projection(db, roles=("briefing_writer",), role_model_fn=resolver)
 
-    # role_median over 4 rows {0.50, 1.00, 1.00, 1.00} = 1.00. ceiling = 1.5x median per-prep.
+    # role_median over 4 rows {0.50, 1.00, 1.00, 1.00} = 1.00.
     # per_prep totals: {0.50, 1.00, 1.00, 1.00} → median 1.00 → ceiling 1.50.
-    # Projection (1.00) <= ceiling (1.50). To trigger HIGH, projection must exceed ceiling.
-    # Caller-side comparison; the helper just exposes both numbers.
     assert result.projected_usd == pytest.approx(1.00, rel=1e-3)
     assert result.ceiling_usd == pytest.approx(1.50, rel=1e-3)
     assert result.projected_usd <= result.ceiling_usd
+
+
+def test_projection_exceeds_ceiling_triggers_high(db: sqlite3.Connection) -> None:
+    """AC5 trigger case: when a multi-role projection exceeds 1.5x recent
+    per-prep median, the orchestrator should fire ``prep_cost_projection_high``.
+
+    Setup decouples role-median sum from per-prep median: history is
+    five preps of one cheap role at $0.10 each (per-prep median 0.10,
+    ceiling 0.15), and the projection runs over three roles each at $0.10
+    median → $0.30 projected. $0.30 > $0.15 ceiling fires HIGH.
+    """
+    from findajob.prep.cost_projection import compute_projection
+
+    resolver = _stub_resolver(
+        {"company_researcher": "perplexity", "briefing_writer": "opus", "fit_analyst": "perplexity"}
+    )
+    # Historical preps: 5 single-role preps, each $0.10. per-prep median = $0.10.
+    for i in range(5):
+        jid = f"hist-{i}"
+        _seed_job(db, jid)
+        _seed_cost_row(db, job_id=jid, operation="company_researcher", model="perplexity", cost_usd=0.10, days_ago=2)
+    # Role-median fixtures: 3 separate roles each with $0.10 median, summed into the projection.
+    for role, model in (
+        ("briefing_writer", "opus"),
+        ("fit_analyst", "perplexity"),
+    ):
+        for j in range(3):
+            jid = f"role-{role}-{j}"
+            _seed_job(db, jid)
+            _seed_cost_row(db, job_id=jid, operation=role, model=model, cost_usd=0.10, days_ago=3 + j)
+    db.commit()
+
+    result = compute_projection(
+        db,
+        roles=("company_researcher", "briefing_writer", "fit_analyst"),
+        role_model_fn=resolver,
+    )
+
+    # company_researcher contributes 0.10 (median of 5 hist rows), briefing_writer 0.10,
+    # fit_analyst 0.10 → projection 0.30. per-prep median across hist-* = 0.10, ceiling 0.15.
+    assert result.projected_usd == pytest.approx(0.30, rel=1e-3)
+    assert result.ceiling_usd == pytest.approx(0.15, rel=1e-3)
+    assert result.projected_usd > result.ceiling_usd
+    assert result.n_roles_with_history == 3
