@@ -94,7 +94,16 @@ def handle_rejection(conn: sqlite3.Connection, job: Any, reason: str) -> bool:
     folder_moved = False
     folder = jd["prep_folder_path"] if jd else None
     if folder and os.path.isdir(folder):
-        rejected_dir = os.path.join(BASE, "companies", "_rejected")
+        # Derive companies_root from the folder being moved rather than the
+        # process-global `BASE`. The folder lives at `<companies_root>/<name>/`
+        # by convention, so `Path(folder).parent` recovers companies_root.
+        # `BASE`-relative paths broke fixture isolation under the full test
+        # suite — the move target landed at the operator's literal cwd, not
+        # `tmp_path` (#716). The other BASE-relative call sites in this file
+        # (handle_waitlist, handle_reactivate, un_reject, un_apply,
+        # un_withdraw_job) carry the same anti-pattern but aren't exercised
+        # by failing tests today — fix them when a test surfaces.
+        rejected_dir = str(Path(folder).parent / "_rejected")
         os.makedirs(rejected_dir, exist_ok=True)
         dest = os.path.join(rejected_dir, os.path.basename(folder))
         shutil.move(folder, dest)

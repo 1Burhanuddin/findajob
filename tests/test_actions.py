@@ -210,6 +210,36 @@ class TestHandleRejection:
         assert "\\" not in markers[0]
         assert "!" not in markers[0]
 
+    def test_move_target_derived_from_folder_not_base(self, db, tmp_path, monkeypatch):
+        """#716 regression: move target must come from the folder being moved
+        (its parent IS companies_root by convention), NOT module-level BASE.
+
+        Inversion check: this test re-overrides BASE to a path that has no
+        ``companies/`` parent. If ``handle_rejection`` consults BASE to build
+        the rejected dir, the assertion below catches it — the move lands
+        under ``<wrong_base>/companies/_rejected/``, not the fixture's
+        ``tmp_path/companies/_rejected/``. The earlier failure mode (full-
+        suite shutil.Error on a colliding repo-rooted dir) was an artifact
+        of this same bug; containment is the cleaner invariant.
+        """
+        wrong_base = tmp_path / "wrong-base"
+        wrong_base.mkdir()
+        monkeypatch.setattr(actions, "BASE", str(wrong_base))
+
+        folder = tmp_path / "companies" / "Acme_Ops_2026-04-13_120000"
+        folder.mkdir(parents=True)
+        job = insert_job(db, stage="materials_drafted", folder=str(folder), score=8)
+
+        actions.handle_rejection(db, job, "Low Fit Score")
+
+        new_path = db.execute("SELECT prep_folder_path FROM jobs WHERE id=?", (job["id"],)).fetchone()[0]
+        expected_root = str(tmp_path / "companies" / "_rejected")
+        assert new_path.startswith(expected_root), (
+            f"move target {new_path} must be under {expected_root}; "
+            f"BASE-relative anti-pattern would land it under {wrong_base}"
+        )
+        assert "wrong-base" not in new_path
+
 
 # ── handle_not_selected ─────────────────────────────────────────────────────
 
