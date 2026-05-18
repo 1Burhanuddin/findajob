@@ -20,11 +20,18 @@ from findajob.config_loader import load_spend_ceiling
 router = APIRouter(prefix="/settings/spend-ceiling", tags=["settings"])
 
 # ── recommendation constants ──────────────────────────────────────────────────
-# Derived from cost_log analysis as of 2026-05.
+# Derived from cost_log analysis (see #688). Last validated 2026-05-18 on
+# a production stack, n=50 preps over 30 days:
+#   median $0.99, mean $1.07, p75 $1.14, p90 $1.32, max $2.98.
 # SCORING_FLOOR_USD: estimated monthly baseline (triage + scoring overhead).
-# PER_PREP_USD:      estimated cost per full prep run (briefing + resume + cover).
+# PER_PREP_USD:      $1.20 — biased above median to cover ~75% of preps plus
+#                    a small buffer for non-prep operations (interview_prep,
+#                    candidate_led_briefing) that share the user's monthly
+#                    ceiling but aren't modeled in this formula. Matches the
+#                    "Triage + 3 preps/week → ~$30" entry in
+#                    docs/getting-started/cost.md.
 SCORING_FLOOR_USD: float = 15.0
-PER_PREP_USD: float = 0.25
+PER_PREP_USD: float = 1.20
 _APPLIES_PER_WEEK_OPTIONS: tuple[int, ...] = (1, 3, 5, 10, 20)
 _DEFAULT_APPLIES_PER_WEEK: int = 3
 

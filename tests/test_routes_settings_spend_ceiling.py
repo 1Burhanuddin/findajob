@@ -108,6 +108,29 @@ def test_recommendation_formula_matches_constants() -> None:
         assert abs(_recommended_ceiling(n) - expected) < 0.001
 
 
+def test_recommendation_values_per_option_locked() -> None:
+    """Numeric lock-in: each applies_per_week option recommends the value
+    promised in ``docs/getting-started/cost.md``'s "Monthly scenarios" table.
+
+    Formula-shape coverage (``test_recommendation_formula_matches_constants``)
+    accepts any value of ``PER_PREP_USD`` because both sides of the assertion
+    import it. This test pins the *output* the user actually sees, so an
+    accidental constant drift (#688 cause: $0.25 instead of the prep cost)
+    fails loudly. Values match SCORING_FLOOR_USD=$15, PER_PREP_USD=$1.20.
+    """
+    expected = {
+        1: 20.16,
+        3: 30.48,
+        5: 40.80,
+        10: 66.60,
+        20: 118.20,
+    }
+    for applies, dollars in expected.items():
+        assert _recommended_ceiling(applies) == pytest.approx(dollars, abs=0.01), (
+            f"applies_per_week={applies}: got {_recommended_ceiling(applies):.2f}, expected {dollars:.2f}"
+        )
+
+
 # ── POST with override ────────────────────────────────────────────────────────
 
 
