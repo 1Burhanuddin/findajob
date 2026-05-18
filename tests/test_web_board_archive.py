@@ -213,3 +213,51 @@ def test_archive_non_scored_row_does_not_render_reject_affordance(scored_client:
     r = scored_client.get("/board/archive?relevance_score_min=6")
     assert r.status_code == 200
     assert "/board/jobs/fp-9/reject" not in r.text
+
+
+def test_archive_chip_shows_hidden_rejected_count(reject_mix_client: TestClient) -> None:
+    """#718: bare /board/archive renders a chip with the count of default-excluded rejected rows."""
+    r = reject_mix_client.get("/board/archive")
+    assert r.status_code == 200
+    assert "Hiding 1 rejected row" in r.text
+    # "Show them" link sets stage=rejected so the operator can navigate to the hidden rows.
+    assert "stage=rejected" in r.text
+
+
+def test_archive_chip_suppressed_when_stage_explicit(reject_mix_client: TestClient) -> None:
+    """#718: when ?stage= is set, the operator has chosen — no nudge needed."""
+    r = reject_mix_client.get("/board/archive?stage=rejected")
+    assert r.status_code == 200
+    assert "Hiding" not in r.text
+    r2 = reject_mix_client.get("/board/archive?stage=scored")
+    assert r2.status_code == 200
+    assert "Hiding" not in r2.text
+
+
+def test_archive_chip_suppressed_when_no_rejected_rows(scored_client: TestClient) -> None:
+    """#718: scored_client fixture has no rejected rows — chip must not render."""
+    r = scored_client.get("/board/archive")
+    assert r.status_code == 200
+    assert "Hiding" not in r.text
+
+
+def test_archive_chip_show_them_link_preserves_other_filters(reject_mix_client: TestClient) -> None:
+    """#718: the [Show them] link must keep other active filters intact alongside stage=rejected."""
+    r = reject_mix_client.get("/board/archive?relevance_score_min=5")
+    assert r.status_code == 200
+    assert "Hiding 1 rejected row" in r.text
+    # Both the existing filter and the added stage=rejected must appear in the link's querystring.
+    assert "relevance_score_min=5" in r.text
+    assert "stage=rejected" in r.text
+
+
+def test_archive_chip_count_narrows_with_other_filters(reject_mix_client: TestClient) -> None:
+    """#718: a filter that excludes the rejected row drops the count to 0 → chip suppressed.
+
+    Catches the regression where `_hidden_rejected_count` is refactored to ignore
+    `parsed` and just count all rejected rows. The fixture's rejected row is
+    score=5; min_score=6 must narrow the count to 0.
+    """
+    r = reject_mix_client.get("/board/archive?relevance_score_min=6")
+    assert r.status_code == 200
+    assert "Hiding" not in r.text

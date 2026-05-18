@@ -655,6 +655,22 @@ def _archive_query(parsed: ParsedFilters, offset: int, page_size: int = _ARCHIVE
     return sql, params
 
 
+def _hidden_rejected_count(db: sqlite3.Connection, parsed: ParsedFilters) -> int:
+    """#718: count rows that the default-exclude would hide given current filters.
+
+    Mirrors `_archive_query`'s WHERE composition but pins `stage='rejected'`
+    instead of the `stage != 'rejected'` default-exclude. Caller is responsible
+    for only invoking when `"stage" not in parsed.enum` — otherwise the
+    operator's explicit `stage=` choice would be silently overridden here.
+    """
+    specs = filter_registry.ARCHIVE_COLUMNS
+    clauses, filter_params = build_filter_clauses(specs, parsed)
+    stripped = clauses[len(" AND ") :] if clauses else ""
+    where_body = f"stage = 'rejected' AND {stripped}" if stripped else "stage = 'rejected'"
+    row = db.execute(f"SELECT COUNT(*) FROM jobs WHERE {where_body}", filter_params).fetchone()
+    return int(row[0]) if row else 0
+
+
 @router.get("/board/archive", response_class=HTMLResponse)
 def archive(
     request: Request,
@@ -672,6 +688,9 @@ def archive(
     has_more = len(rows) == _ARCHIVE_PAGE_SIZE
     materials_base_url = os.environ.get("FINDAJOB_MATERIALS_BASE_URL", "")
     visible = _resolve_visible(specs, parsed)
+    # #718: count hidden rejects only when the default-exclude is active. The chip
+    # is suppressed at template time when the count is zero.
+    hidden_rejected = _hidden_rejected_count(db, parsed) if "stage" not in parsed.enum else 0
     templates = request.app.state.templates
     return templates.TemplateResponse(
         request=request,
@@ -685,6 +704,7 @@ def archive(
             "tab": "archive",
             "next_offset": _ARCHIVE_PAGE_SIZE if has_more else None,
             "materials_base_url": materials_base_url,
+            "hidden_rejected_count": hidden_rejected,
         },
     )
 

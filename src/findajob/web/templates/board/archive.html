@@ -4,6 +4,15 @@
 {% block content %}
 <h1 class="text-2xl font-semibold mb-4">Archive ({{ rows|length }}{% if next_offset %}+{% endif %})</h1>
 {% include "board/_tabs.html" %}
+{% if hidden_rejected_count and hidden_rejected_count > 0 %}
+<div class="mt-2 mb-2 text-xs text-slate-600">
+  <span class="inline-flex items-center gap-2 px-2 py-1 bg-amber-50 border border-amber-200 rounded">
+    Hiding {{ hidden_rejected_count }} rejected row{{ '' if hidden_rejected_count == 1 else 's' }}.
+    <a href="?{{ filter_qs_with(request.url.query, 'stage', 'rejected') }}"
+       class="text-amber-900 underline hover:text-amber-700">Show them</a>
+  </span>
+</div>
+{% endif %}
 {% include "_filters.html" %}
 <table class="min-w-full bg-white shadow-sm rounded-sm density-{{ density | default('compact') }}">
   {% set leading_cols = [('Promote', '')] %}
