@@ -238,9 +238,28 @@ def _rebuild_table_with_indexes(
 
     The recipe: PRAGMA foreign_keys=OFF, rename original to ``legacy_alias``,
     run the migration's CREATE TABLE, INSERT INTO new SELECT FROM old over
-    the legacy column set, re-execute every CREATE INDEX from the migration,
-    DROP the legacy shell. Caller commits inside this function so the
-    rebuild lands atomically.
+    the column set the two schemas share, re-execute every CREATE INDEX from
+    the migration, DROP the legacy shell.
+
+    Column-set discipline: the source schema may carry drift columns the
+    head schema no longer defines (see ``_DOCUMENTED_DEAD_COLUMNS`` in the
+    test suite for the historical set). Copying those raises
+    ``no such column`` mid-INSERT. The fix is to intersect ``legacy_cols``
+    with the head schema's columns and only carry forward the overlap.
+    Drift columns are dropped silently on the rebuild.
+
+    Row-count invariant: assert ``new == legacy`` before dropping the
+    legacy shell. Defense in depth against any future case where the
+    INSERT silently under-copies (e.g. a CHECK violation on one row);
+    without this, the rebuild can leave an empty new table next to a
+    populated legacy shell. The on-disk evidence of #723 was exactly
+    that shape.
+
+    Atomicity: an explicit BEGIN wraps every DDL/DML statement so a
+    failure in any step (rename / create / insert / drop / index)
+    rolls back to the pre-rebuild state instead of leaving a renamed
+    legacy + an empty new ``jobs`` for the next triage cycle to
+    repopulate from scratch.
 
     Index re-creation is non-negotiable: ``DROP TABLE`` removes the named
     indexes that ``ALTER TABLE RENAME`` left attached to the renamed
@@ -251,17 +270,28 @@ def _rebuild_table_with_indexes(
     create_sql, index_sqls = _extract_table_ddl(migration_filename, table)
 
     legacy_cols = [row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
-    cols_csv = ",".join(legacy_cols)
 
     conn.execute("PRAGMA foreign_keys=OFF")
     try:
-        conn.execute(f"ALTER TABLE {table} RENAME TO {legacy_alias}")
-        conn.executescript(create_sql)
-        conn.execute(f"INSERT INTO {table} ({cols_csv}) SELECT {cols_csv} FROM {legacy_alias}")
-        conn.execute(f"DROP TABLE {legacy_alias}")
-        for index_sql in index_sqls:
-            conn.execute(index_sql)
-        conn.commit()
+        conn.execute("BEGIN")
+        try:
+            conn.execute(f"ALTER TABLE {table} RENAME TO {legacy_alias}")
+            conn.execute(create_sql)
+            new_cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+            copy_cols = [c for c in legacy_cols if c in new_cols]
+            cols_csv = ",".join(copy_cols)
+            conn.execute(f"INSERT INTO {table} ({cols_csv}) SELECT {cols_csv} FROM {legacy_alias}")
+            legacy_count = conn.execute(f"SELECT COUNT(*) FROM {legacy_alias}").fetchone()[0]
+            new_count = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            if new_count != legacy_count:
+                raise RuntimeError(f"row count mismatch rebuilding {table}: legacy={legacy_count}, new={new_count}")
+            conn.execute(f"DROP TABLE {legacy_alias}")
+            for index_sql in index_sqls:
+                conn.execute(index_sql)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
     finally:
         conn.execute("PRAGMA foreign_keys=ON")
 

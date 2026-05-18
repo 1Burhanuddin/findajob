@@ -567,6 +567,124 @@ def test_briefing_ready_rebuild_preserves_jobs_indexes(tmp_path: Path) -> None:
         conn.close()
 
 
+# ── #723: rebuild must tolerate drift columns in the legacy schema ────────
+#
+# The operator's pre-M5 production ``jobs`` table carried two columns the
+# head schema no longer defines: ``company_signal`` and ``feedback_version``.
+# Pre-fix, the rebuild built ``cols_csv`` from ``PRAGMA table_info(jobs)``
+# before the rename and tried ``INSERT INTO jobs (..., company_signal, ...,
+# feedback_version, ...) SELECT ... FROM _jobs_pre_briefing_ready``. The new
+# table has no such columns; SQLite raised ``no such column`` mid-INSERT.
+# Because the helper ran outside the per-migration transaction wrapper,
+# the rename was already committed: legacy got stuck under its alias and
+# the new ``jobs`` stayed empty until the next triage repopulated it from
+# scratch — severing every prior ``audit_log`` job_id link. (#723.)
+#
+# Fix: intersect ``legacy_cols`` with the new table's columns and only
+# copy the overlap. Plus row-count invariant + BEGIN/COMMIT wrapper as
+# defense in depth.
+
+
+def test_rebuild_tolerates_drift_columns_absent_from_head_schema(tmp_path: Path) -> None:
+    """A legacy ``jobs`` carrying drift columns the head schema doesn't
+    define must still rebuild cleanly when the helper fires for an
+    unrelated CHECK relaxation. The drift columns are dropped silently;
+    row count is preserved; the new schema reaches its expected shape.
+
+    Regression target: #723. A pre-M5 stack carrying drift columns
+    on ``jobs`` caused the v0.27 ``briefing_ready`` CHECK relaxation
+    to silently abandon all historical rows under the legacy alias —
+    the rename committed, the INSERT raised mid-flight on a missing
+    column in the new schema, the DROP never ran, the new ``jobs``
+    sat empty until the next data-producing run repopulated it from
+    scratch.
+    """
+    db = tmp_path / "drift_columns.db"
+
+    # First: bring the DB to head so a clean jobs table exists.
+    conn = sqlite3.connect(str(db))
+    try:
+        apply_pending(conn)
+    finally:
+        conn.close()
+
+    # Now: simulate the operator's pre-v0.27 schema — jobs has the OLD
+    # CHECK (no ``briefing_ready``) AND two drift columns the head
+    # schema doesn't define.
+    conn = sqlite3.connect(str(db))
+    try:
+        old_with_drift = """
+        CREATE TABLE jobs_old_drift (
+            id TEXT PRIMARY KEY,
+            fingerprint TEXT UNIQUE NOT NULL,
+            url TEXT NOT NULL,
+            title TEXT NOT NULL,
+            company TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'test',
+            company_signal TEXT DEFAULT '',
+            feedback_version TEXT,
+            stage TEXT DEFAULT 'discovered' CHECK(stage IN (
+                'discovered', 'enriched', 'scored', 'manual_review',
+                'prep_in_progress', 'materials_drafted', 'waitlisted', 'applied',
+                'response_received', 'interview', 'offer', 'rejected',
+                'not_selected', 'withdrawn'
+            ))
+        )
+        """
+        conn.execute("PRAGMA foreign_keys=OFF")
+        conn.execute("ALTER TABLE jobs RENAME TO _jobs_v1_clean")
+        conn.executescript(old_with_drift.replace("jobs_old_drift", "jobs"))
+        # Seed sentinel rows that exercise both shared cols and drift cols.
+        conn.execute(
+            "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage, "
+            "company_signal, feedback_version) "
+            "VALUES ('drift-1', 'fp-drift-1', 'https://x', 'T1', 'C1', 'test', 'applied', "
+            "'positive', 'v2024-01-01')"
+        )
+        conn.execute(
+            "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage) "
+            "VALUES ('drift-2', 'fp-drift-2', 'https://y', 'T2', 'C2', 'test', 'scored')"
+        )
+        conn.execute("DROP TABLE _jobs_v1_clean")
+        conn.commit()
+        conn.execute("PRAGMA foreign_keys=ON")
+
+        # Sanity: drift columns present, CHECK rejects briefing_ready.
+        drift_cols = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+        assert "company_signal" in drift_cols and "feedback_version" in drift_cols, (
+            "fixture-baseline broken: drift columns missing from simulated old jobs"
+        )
+        assert not _stage_check_accepts(conn, "briefing_ready"), (
+            "fixture-baseline broken: simulated-old-state should reject briefing_ready"
+        )
+    finally:
+        conn.close()
+
+    # The actual regression check: apply_pending must rebuild cleanly
+    # despite the drift columns, NOT raise no-such-column, NOT silently
+    # leave an empty new jobs next to a populated legacy shell.
+    conn = sqlite3.connect(str(db))
+    try:
+        apply_pending(conn)
+        # Drift columns dropped, head shape reached.
+        post_cols = {row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+        assert "company_signal" not in post_cols, "drift column 'company_signal' must be dropped by rebuild"
+        assert "feedback_version" not in post_cols, "drift column 'feedback_version' must be dropped by rebuild"
+        # Both sentinel rows survived (row count + content).
+        row_count = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+        assert row_count == 2, f"sentinel rows lost: expected 2, got {row_count}"
+        ids_preserved = {r[0] for r in conn.execute("SELECT id FROM jobs").fetchall()}
+        assert ids_preserved == {"drift-1", "drift-2"}, f"specific ids lost: {ids_preserved}"
+        # Relaxed CHECK in effect.
+        assert _stage_check_accepts(conn, "briefing_ready"), "post-rebuild CHECK still rejects briefing_ready"
+        # No legacy table residue.
+        assert not _has_table(conn, "_jobs_pre_briefing_ready"), (
+            "rebuild left _jobs_pre_briefing_ready behind — atomic-rollback or drop step skipped"
+        )
+    finally:
+        conn.close()
+
+
 # ── #691: background_tasks.kind gains 'prep_phase_b' ──────────────────────
 #
 # Phase B is dispatched as a distinct ``background_tasks.kind`` so the
