@@ -119,11 +119,11 @@ def test_recommendation_values_per_option_locked() -> None:
     fails loudly. Values match SCORING_FLOOR_USD=$15, PER_PREP_USD=$1.20.
     """
     expected = {
-        1: 20.16,
-        3: 30.48,
-        5: 40.80,
-        10: 66.60,
-        20: 118.20,
+        1: 22.16,
+        3: 32.48,
+        5: 42.80,
+        10: 68.60,
+        20: 120.20,
     }
     for applies, dollars in expected.items():
         assert _recommended_ceiling(applies) == pytest.approx(dollars, abs=0.01), (

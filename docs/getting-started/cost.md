@@ -109,9 +109,9 @@ The cap acts on the *next* LLM call: brief overshoots are possible (a call alrea
 
 The Settings page shows a suggested ceiling based on your expected weekly prep cadence. The recommendation uses a per-prep cost biased above the observed median so the cap covers roughly the upper-quartile of prep runs plus a small buffer for non-prep operations (interview prep, candidate-led briefing). The values it suggests align with the [Monthly scenarios](#monthly-scenarios) table:
 
-- 1 prep / week → ~$20
-- 3 preps / week → ~$30
-- 1 prep / day → ~$67
+- 1 prep / week → ~$22
+- 3 preps / week → ~$32
+- 1 prep / day → ~$69
 - Heavier than that → either set a ceiling near the upper bound of your scenario row, or disable the cap and watch the cost chip in the top nav
 
 You can change the cap any time; resetting it doesn't lose state. If you'd rather not have a hard cap at all, the cost chip in the top nav shows running month-to-date spend regardless.
