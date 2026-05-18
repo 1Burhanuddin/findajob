@@ -1,0 +1,32 @@
+{# Destructive-action confirm zone, mirroring the #700 regenerate-confirm
+   pattern. Replaces #remove-zone via HTMX outerHTML swap. Confirm submits a
+   regular form POST (no HTMX) so the response 200's the full page with the
+   post-remove state. Cancel HTMX-GETs /remove/cancel which restores the
+   initial Remove button. #}
+<div id="remove-zone" class="rounded-lg border border-rose-300 bg-rose-50 p-4">
+  <p class="text-sm font-medium text-rose-900 mb-1">
+    Remove connections.csv from this stack?
+  </p>
+  <ul class="text-xs text-rose-800 mb-3 list-disc list-inside">
+    <li>Current rows: {{ row_count }}</li>
+    <li>Last imported: {{ last_imported_pt }} ({{ last_imported_relative }})</li>
+    <li>
+      To get the file back, you'd re-export from LinkedIn (about 10 minutes from request to email).
+    </li>
+  </ul>
+  <div class="flex gap-2">
+    <form method="post" action="/settings/connections/remove" class="inline">
+      <button type="submit"
+              class="inline-flex items-center px-3 py-1.5 rounded-md bg-rose-600 text-white hover:bg-rose-700 text-sm">
+        Confirm remove
+      </button>
+    </form>
+    <button type="button"
+            hx-get="/settings/connections/remove/cancel"
+            hx-target="#remove-zone"
+            hx-swap="outerHTML"
+            class="inline-flex items-center px-3 py-1.5 rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 text-sm">
+      Cancel
+    </button>
+  </div>
+</div>

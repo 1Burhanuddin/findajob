@@ -1,0 +1,17 @@
+{# Initial "Remove file" affordance — clicking swaps the confirm partial into
+   #remove-zone via HTMX. Re-rendered (in this default shape) by the
+   /remove/cancel endpoint when the user backs out of the confirm step. #}
+<div id="remove-zone" class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+  <p class="text-sm text-slate-700 mb-2">
+    Don't want findajob to draft outreach anymore? Remove the file. Outreach
+    drafting silently becomes a no-op; everything else keeps working. You can
+    upload a new export here at any time to re-enable it.
+  </p>
+  <button type="button"
+          hx-get="/settings/connections/remove/confirm"
+          hx-target="#remove-zone"
+          hx-swap="outerHTML"
+          class="inline-flex items-center px-4 py-2 rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200">
+    Remove file
+  </button>
+</div>

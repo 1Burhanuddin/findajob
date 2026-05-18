@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}LinkedIn connections — Settings{% endblock %}
+{% block content %}
+<div class="max-w-2xl space-y-6">
+  <div>
+    <h1 class="text-2xl font-semibold mb-1">LinkedIn connections</h1>
+    <p class="text-sm text-slate-600">
+      Your <code>Connections.csv</code> export drives outreach drafting. The file
+      lives on this stack and is never sent anywhere — findajob just reads it
+      when generating outreach messages for jobs at companies where you have
+      contacts.
+    </p>
+  </div>
+
+  {% if save_success %}
+  <p class="rounded bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800">
+    File refreshed. New row count and timestamp shown below.
+  </p>
+  {% endif %}
+
+  {% if remove_success %}
+  <p class="rounded bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800">
+    Removed. Outreach drafting is disabled until you upload a new export.
+  </p>
+  {% endif %}
+
+  {% if validation_error %}
+  <p class="rounded bg-rose-50 border border-rose-200 p-3 text-sm text-rose-800">
+    {{ validation_error }}
+  </p>
+  {% endif %}
+
+  <div class="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Current state</h2>
+    {% if file_present %}
+    <dl class="text-sm text-slate-800 space-y-1">
+      <div class="flex gap-2">
+        <dt class="text-slate-500 w-32">Last imported:</dt>
+        <dd>{{ last_imported_pt }} <span class="text-slate-500">({{ last_imported_relative }})</span></dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="text-slate-500 w-32">Rows:</dt>
+        <dd>{{ row_count }}</dd>
+      </div>
+    </dl>
+    {% else %}
+    <p class="text-sm text-slate-600">
+      No connections file on this stack. Upload one below to enable outreach
+      drafting on every prep run.
+    </p>
+    {% endif %}
+  </div>
+
+  {% with explainer_open = not file_present %}
+    {% include "settings/_linkedin_export_explainer.html" %}
+  {% endwith %}
+
+  <form method="post" action="/settings/connections/upload"
+        enctype="multipart/form-data"
+        class="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+    <label class="block text-sm font-medium text-slate-800">
+      {% if file_present %}Replace with a newer export{% else %}Upload Connections.csv{% endif %}
+      <input type="file" name="connections_csv" accept=".csv,text/csv" required
+             class="mt-2 block w-full text-sm text-slate-700
+                    file:mr-3 file:rounded-md file:border-0
+                    file:bg-slate-900 file:px-3 file:py-1.5
+                    file:text-sm file:font-medium file:text-white
+                    hover:file:bg-slate-700" />
+    </label>
+    <div class="flex flex-wrap gap-2 pt-2">
+      <button type="submit"
+              class="inline-flex items-center px-4 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-700">
+        {% if file_present %}Replace file{% else %}Upload{% endif %}
+      </button>
+      <span class="text-xs text-slate-500 self-center">
+        Validated locally before save; nothing leaves this stack.
+      </span>
+    </div>
+  </form>
+
+  {% if file_present %}
+  <div id="remove-zone">
+    {% include "settings/_connections_remove_zone.html" %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
