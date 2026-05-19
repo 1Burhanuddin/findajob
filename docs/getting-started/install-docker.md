@@ -2,7 +2,7 @@
 
 > **New here?** Start at [`README.md`](README.md) — it sequences prerequisites → install → configure in order.
 
-This is the install + operations guide for external users running findajob from the prebuilt `ghcr.io/brockamer/findajob` image via Docker Compose. Claude's release orchestration runbook lives separately at [`docs/maintainers/release-process.md`](../release-process.md).
+This is the install + operations guide for external users running findajob from the prebuilt `ghcr.io/brockamer/findajob` image via Docker Compose. Claude's release orchestration runbook lives separately at [`docs/maintainers/release-process.md`](../maintainers/release-process.md).
 
 ## Who this is for
 
@@ -445,7 +445,7 @@ Before running `docker compose pull && docker compose up -d`:
    ```
    Or click **Pull** + **Deploy** in Dockge.
 
-The "Action required" section is driven by PRs labeled `migration-required` (see [`docs/maintainers/release-process.md`](../release-process.md) for the criteria). If a release has no such PRs in its range, the section won't appear.
+The "Action required" section is driven by PRs labeled `migration-required` (see [`docs/maintainers/release-process.md`](../maintainers/release-process.md) for the criteria). If a release has no such PRs in its range, the section won't appear.
 
 ### Optional tuning: RapidAPI multi-page
 
@@ -469,7 +469,7 @@ If a pull broke your stack and you need to get back to a working state immediate
    docker compose pull
    docker compose up -d
    ```
-3. Report the regression via a GitHub issue so the shared `:v0.1` alias can be rolled back globally (the upstream maintainer's call — see [release-process.md Rollback section](../release-process.md#rollback)).
+3. Report the regression via a GitHub issue so the shared `:v0.1` alias can be rolled back globally (the upstream maintainer's call — see [release-process.md Rollback section](../maintainers/release-process.md#rollback)).
 
 A local rollback via `.env` pin doesn't affect other users on `:v0.1`.
 

@@ -2,7 +2,7 @@
 
 The hosted path: findajob runs as one app per person on [Fly.io](https://fly.io/), reachable at a `findajob-<your-handle>.fly.dev` URL with HTTPS terminated by Fly. You don't operate a Linux server. You pay Fly directly for the machine + 8 GB volume, and your LLM provider directly for AI calls — no middleman.
 
-**Time to value: ~20 minutes** from `fly auth login` to your first onboarding screen, plus the 60–90 minute onboarding interview itself.
+**Time to value: ~20 minutes to first onboarding screen, ~2 hours total to a populated dashboard.** Setup + deploy takes ~20 minutes from `fly auth login` through to the auth gate. The in-app onboarding interview that follows takes 60–90 minutes (one-time, ~$3–6 of OpenRouter spend — make sure you've topped up at least $10 before starting). Your dashboard fills overnight when the daily triage runs at midnight in your timezone.
 
 This page is for someone who has never deployed anything to Fly before. If you operate Linux servers and would rather run a docker-compose stack on a host you own, see [`install-docker.md`](install-docker.md) instead. Both paths run the same image and reach the same dashboard.
 

@@ -10,6 +10,10 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Documentation
+
+- **#672 dry-run doc cleanup.** `docs/getting-started/install-fly.md` "Time to value" framing rewritten to honestly state ~2 hours total to a populated dashboard (~20 min deploy + 60–90 min interview, with $10 OpenRouter top-up reminder for the ~$3–6 interview cost), instead of leading with "~20 minutes" and burying the interview duration as a parenthetical. Three broken doc links repaired: `docs/getting-started/install-docker.md` (3 occurrences of `../release-process.md` corrected to `../maintainers/release-process.md`) and `docs/getting-started/README.md` §6 (`restore.md` corrected to `../operations/restore.md`). Surfaced during the unaffiliated-tester walkthrough pre-flight (#672 dry-run, 2026-05-19).
+
 ## [0.27.2] — 2026-05-19
 
 ### Added

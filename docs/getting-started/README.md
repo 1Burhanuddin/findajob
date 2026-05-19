@@ -55,7 +55,7 @@ Google app password and wiring it into `/config/gmail/`. The pipeline runs
 without it — Greenhouse / Ashby / Lever and RapidAPI LinkedIn search still
 cover most ingestion volume.
 
-## 6. Restore from backup → [`restore.md`](restore.md)
+## 6. Restore from backup → [`restore.md`](../operations/restore.md)
 
 If you have a backup mechanism in place (sibling-host tarballs, S3 sync, or
 similar), you also need a documented restore procedure — and you need to have
