@@ -1,12 +1,12 @@
 # Release Parity Validation Matrix — Docker ↔ Fly
 
-Findajob ships to two deployment substrates that share the same image but differ in runtime, persistence, and proxy fronting. This matrix asserts every user-visible feature surface behaves identically on both. It is the **pre-tag gate for major-point releases** per [`release-process.md`](release-process.md).
+Findajob ships to two deployment substrates that share the same image but differ in runtime, persistence, and proxy fronting. This matrix asserts every user-visible feature surface behaves identically on both. It is the **pre-tag gate for every minor bump and every major bump** per [`release-process.md`](release-process.md). Patch releases re-verify only the rows the patch touched.
 
 Tracking issue: [#747](https://github.com/brockamer/findajob/issues/747).
 
 ## How to use
 
-Before a major-point tag (e.g. `v0.28.0`, `v1.0.0`), run a verification pass on both substrates. Update each cell to one of:
+Before a gated tag (minor bump like `v0.28.0`, or any major like `v1.0.0`), run a verification pass on both substrates. Update each cell to one of:
 
 | Cell value | Meaning |
 |------------|---------|
@@ -331,7 +331,7 @@ Coverage this pass:
 - Scheduled-job health derived from `/app/logs/pipeline.jsonl` (last 500 events): `triage` (2 cycles), `watchdog` (278 runs), `detect-rejections` (93 scans), prep Phase A (8 completes), and source adapters (Greenhouse, Ashby, Lever, jobs-api14) all confirmed active.
 - Schema migrations + `verify_auth` confirmed clean post-recreate.
 
-Operational observation, not a code gap: at start of the pass, `findajob-staging` was running a `:latest` image digest that predated [#729](https://github.com/brockamer/findajob/issues/729) — `settings_excluded_employers.py` was not present in the image, and the `/settings/excluded-employers/` route returned 404. After `docker compose pull && up -d` the new route returned 200. The pattern means `:latest` rebuilds on `main` don't propagate to staging without an explicit pull. This is not a Docker↔Fly parity issue; flagging here so the next session decides whether to file (e.g., a Watchtower-style auto-update for staging) or treat as deliberate manual cadence.
+Operational observation, not a code gap: at start of the pass, `findajob-staging` was running a `:latest` image digest that predated [#729](https://github.com/brockamer/findajob/issues/729) — `settings_excluded_employers.py` was not present in the image, and the `/settings/excluded-employers/` route returned 404. After `docker compose pull && up -d` the new route returned 200. The pattern means `:latest` rebuilds on `main` don't propagate to staging without an explicit pull. Filed as [#768](https://github.com/brockamer/findajob/issues/768) for explicit resolution (auto-update vs. documented pre-soak pull vs. accept-as-cadence).
 
 Unverified surfaces remaining on the Docker leg this pass: every POST route, per-file `/config/files/{relpath}` loop, per-slug `/docs/{slug}` loop, subprocess launchers other than prep Phase A, JSearch adapter (no events surfaced), WorkdayCXS adapter, ntfy push (needs end-to-end), Gmail IMAP ingestion (not configured on staging), spend-ceiling cap-breach scenario. These are honest gaps in the verification pass; they need follow-up sessions or expanded probes to mark ✓.
 
