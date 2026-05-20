@@ -122,28 +122,55 @@ Full DAG + per-stage I/O contracts + failure handling: [`docs/architecture.md`](
 
 ## Quick start
 
-The pipeline ships as `ghcr.io/brockamer/findajob`, pulled via Docker Compose. Multi-arch image (`linux/amd64` + `linux/arm64`) — Apple Silicon and ARM Linux hosts get a native build automatically.
+There are two ways to run findajob — pick based on whether you want to operate a Linux server:
+
+- **Hosted on Fly.io** *(recommended for most people)* — runs on Fly's infrastructure under your account. ~$5/month for the always-on machine + 8 GB volume; you don't operate a server. Setup is `fly auth login` + a deploy script that prompts for your API keys, then ~60 minutes inside the app to complete the onboarding interview.
+- **Self-hosted with Docker Compose** *(for operators)* — runs as `ghcr.io/brockamer/findajob` (`linux/amd64` + `linux/arm64`) on a server you operate. Zero hosting cost beyond what you already pay for the box. You handle backups, reverse proxy, TLS, and updates.
+
+Both paths run the same image, complete the same onboarding interview, and reach the same dashboard. Full cost breakdown across paths and LLM cadences: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
 
 ### What you'll need
 
-One required API key:
+One required API key (both paths):
 
-- **OpenRouter** — funds every LLM call (triage scoring, materials writing, in-app onboarding interview). Pay-as-you-go from $0; expect ~$0.50/day when triaging only, ~$1–2 per fully-prepped job.
+- **OpenRouter** — funds every LLM call (triage scoring, materials writing, in-app onboarding interview). Pay-as-you-go from $0; the one-time onboarding interview runs ~$2–6 in spend, then ~$0.50/day for triage-only and ~$1–2 per fully-prepped job. **Top up at least $10 before you start the interview.**
 
-One optional API key:
+One optional API key (both paths):
 
 - **RapidAPI (jobs-api14)** — LinkedIn/Indeed/Bing search ingestion. BASIC plan is 150 req/month free, no credit card. Skipping it means LinkedIn/Indeed search is inactive, but Greenhouse/Ashby/Lever feeds and Gmail alerts still work.
 
-Sign-up walkthroughs: [`docs/getting-started/api-keys.md`](docs/getting-started/api-keys.md). Cost expectations (hosting + LLM, monthly ranges, spend ceiling): [`docs/getting-started/cost.md`](docs/getting-started/cost.md). You collect both keys on the onboarding page once your container is up.
+Sign-up walkthroughs: [`docs/getting-started/api-keys.md`](docs/getting-started/api-keys.md). Both keys get pasted into the in-app onboarding form once your stack is up.
 
-### Deploy
+### Deploy — Fly.io (hosted)
 
-> Prefer hosted? findajob also runs on [Fly.io](https://fly.io/) — see [`docs/getting-started/install-fly.md`](docs/getting-started/install-fly.md) (~$3–5/mo Fly hosting, ~20 min to first onboarding screen). What it'll cost you per month, all-in: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
+Full runbook (15 minutes of reading + executing): [`docs/getting-started/install-fly.md`](docs/getting-started/install-fly.md). What it'll cost per month, all-in: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
 
-Pick any directory for your stack:
+In short:
 
-- Linux server: `/opt/stacks/findajob-<you>/` is the conventional system-path layout
-- macOS or anywhere under your home directory: works fine for personal use
+```bash
+# Install flyctl
+brew install flyctl                                    # macOS
+curl -L https://fly.io/install.sh | sh                 # Linux
+
+# Clone the repo (you'll only edit one config line)
+git clone https://github.com/brockamer/findajob.git
+cd findajob
+
+# Sign in and deploy
+fly auth login
+cp ops/fly.toml.example ops/fly.toml
+$EDITOR ops/fly.toml                                   # change `app = "findajob-<your-handle>"`
+bash ops/fly-deploy.sh                                 # prompts for API keys, creates app + volume, deploys
+```
+
+The script provisions the Fly app + 8 GB volume, stages your API keys as Fly secrets, runs `fly deploy`, and verifies the basic-auth gate post-deploy. On success it prints your URL: `https://findajob-<your-handle>.fly.dev/`.
+
+### Deploy — Docker Compose (self-host)
+
+For operators running their own Linux server. Pick any directory:
+
+- `/opt/stacks/findajob-<you>/` is the conventional system-path layout
+- Anywhere under your home directory works fine for personal use
 
 ```bash
 # Replace <stack-dir> with your chosen path
@@ -168,18 +195,19 @@ docker compose up -d
 
 > If you placed the stack in `/opt/stacks/`, prefix `mkdir` with `sudo` and follow with `sudo chown -R $(id -u):$(id -g) <stack-dir>/`. Skip both for paths under your home directory.
 
-### First-run onboarding
-
-Open `http://<your-host>:<port>/`. A fresh stack redirects to `/onboarding/`:
-
-1. **Paste your OpenRouter key** (plus optional RapidAPI). The OpenRouter key is smoke-checked against the live API before being saved.
-2. **Click Start interview.** A chat surface opens inside findajob and walks you through a 60–90 minute conversation about your background, target role, exclusions, and writing voice. The session is server-side persistent — close the tab anytime and the page surfaces a Resume affordance. Cost: ~$3–6 per interview with prompt caching.
-3. **Gmail config** (optional) — wire up IMAP + an app password for LinkedIn job-alert ingestion. Skippable; configure later at `/config/gmail/`.
-4. **LinkedIn Connections.csv** (optional) — drop in your LinkedIn connections export so outreach drafts can name real contacts at target companies. Skippable; upload later at `/onboarding/connections/`.
-
-After both gates you land on the dashboard. The next scheduled triage run (00:00 in your `TZ`) ingests its first batch of jobs.
-
 Full walkthrough → [`docs/getting-started/install-docker.md`](docs/getting-started/install-docker.md)
+
+### First-run onboarding (both paths)
+
+Open your stack URL. A fresh deploy redirects to `/onboarding/`:
+
+1. **Step 1 — API keys.** OpenRouter (required) + RapidAPI (optional). The OpenRouter key is smoke-checked against the live API before being saved. On Fly, the keys you set via `fly secrets` during deploy are pre-detected and you can click *Use detected keys* to skip re-typing.
+2. **Step 2 — Onboarding interview.** A chat surface inside findajob walks you through a 60–90 minute conversation about your background, target role, exclusions, and writing voice. Five phases, with file-block "📄 captured" chips streaming live as each section locks in. The session is server-side persistent — close the tab anytime and a *Resume* button surfaces on return. Cost: **~$1.50–$3 per interview** with prompt caching enabled.
+3. **Spend-ceiling gate.** Optional monthly LLM cap; the pipeline halts at the cap. Skippable; configure later at `/settings/spend-ceiling/`.
+4. **Gmail config gate** *(optional)*. Wire up IMAP + an app password for LinkedIn job-alert ingestion and ATS rejection-email detection. Skippable; configure later at `/config/gmail/`.
+5. **LinkedIn Connections.csv** *(optional)*. Drop in your LinkedIn data export so outreach drafts can name real contacts at target companies. Skippable; upload later at `/onboarding/connections/`.
+
+After the gates you land on the dashboard. The next scheduled triage run (00:00 in your stack's `TZ`) ingests the first batch — by midday you'll have a scored shortlist of 20–50 jobs. To populate immediately, the [install-fly.md](docs/getting-started/install-fly.md#7-verify-and-wait-for-first-triage) and [install-docker.md](docs/getting-started/install-docker.md) runbooks document a manual-trigger command (5–60 minutes depending on how many target companies you named).
 
 ---
 

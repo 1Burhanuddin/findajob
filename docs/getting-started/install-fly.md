@@ -155,7 +155,9 @@ After onboarding lands you on the dashboard, the feed is empty — no jobs have 
 fly ssh console --app findajob-<your-handle> --command "python3 /app/scripts/triage.py"
 ```
 
-This takes 5–15 minutes the first time. When it finishes, refresh `/board/` and you should see scored jobs.
+**Plan for 5–60 minutes** on the first run — the wide range depends on how many target companies you named in the onboarding interview (more companies → more Greenhouse / Ashby feeds to walk → more jobs to score). Engineering / hyperscaler-flavored candidates with 20+ named companies often see 30–45 minutes; smaller named lists finish in 5–15. Subsequent daily runs are delta-only and complete in 1–5 minutes.
+
+When it finishes, refresh `/board/` and you should see a scored shortlist (typically 20–50 jobs at score ≥ 5 out of several hundred to a few thousand ingested).
 
 ## 8. Daily operation
 
