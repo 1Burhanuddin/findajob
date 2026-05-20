@@ -35,6 +35,21 @@ Exit codes:
 
 SECRET HYGIENE: keys are never passed on the command line, never logged,
 and are redacted from DOM snapshots before being written to disk.
+
+Chat-turn submission mechanism (post-#740):
+The onboarding chat form is SSE-driven, not HTMX. The harness submits a
+user turn by clicking the `<button type="submit">` inside the streaming
+form, selected by `form[data-stream-endpoint="/onboarding/interview/turn-stream"]`.
+The button click fires the form's submit event, which `static/onboarding-stream.js`
+intercepts (with `event.preventDefault()`), reads the `data-stream-endpoint`
+attribute, and POSTs FormData via `fetch()` to `/onboarding/interview/turn-stream`.
+The server streams back `captured` / `finish` / `error` events; on `finish`
+the JS appends a new `[data-role="assistant"]` bubble — the harness waits
+on the bubble-count increment as the turn-complete signal. If a future
+refactor changes the chat-form shape (e.g. removes the form wrapper or
+drops the streaming endpoint attribute), update the selector here AND the
+regression test in `tests/test_web_onboarding_interview_render.py` that
+pins the selector path.
 """
 
 from __future__ import annotations
@@ -763,9 +778,14 @@ def run_walkthrough(
                 page.wait_for_selector("textarea", timeout=10_000)
                 page.fill("textarea", answer)
                 prev_bubble_count = count_assistant_bubbles()
-                # The hx-post attribute is on the <form>, not the button.
-                page.click('form[hx-post*="/turn"] button[type="submit"]')
-                # Wait for HTMX to append a new assistant bubble
+                # The streaming chat form (#740) is SSE-driven by
+                # static/onboarding-stream.js: its submit handler reads
+                # `data-stream-endpoint` from the form and POSTs FormData via
+                # fetch(). A native button click inside the form fires the
+                # form's submit event, which the JS handler intercepts.
+                page.click('form[data-stream-endpoint="/onboarding/interview/turn-stream"] button[type="submit"]')
+                # On the SSE `finish` event the JS appends a new
+                # [data-role="assistant"] bubble — still the right signal.
                 page.wait_for_function(
                     f"document.querySelectorAll('[data-role=\\'assistant\\']').length > {prev_bubble_count}",
                     timeout=60_000,

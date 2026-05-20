@@ -212,6 +212,50 @@ def test_interview_page_includes_streaming_form_pointing_at_turn_stream(
     )
 
 
+def test_interview_page_streaming_form_contains_submit_button_for_harness(
+    client_with_key: TestClient, base_root: Path
+) -> None:
+    """Pin the exact selector path scripts/walkthrough_harness.py clicks to
+    submit a user turn:
+    `form[data-stream-endpoint="/onboarding/interview/turn-stream"] button[type="submit"]`.
+
+    The companion test above pins the form-level attributes (data-stream-endpoint,
+    hx-boost='false', module load). This one pins the *button-inside-form*
+    relationship — a refactor that, for example, removes the <form> wrapper
+    and drives submission from an Alpine `@click` on a bare <button> would
+    silently break the harness's selector and only fail during an audit run.
+    Caught here at unit-test time per #750.
+    """
+    sid = _create_session_with_history(base_root, [])
+    resp = client_with_key.get(f"/onboarding/interview/{sid}")
+    assert resp.status_code == 200
+    body = resp.text
+
+    # Slice out the streaming form's full HTML so the submit-button assertion
+    # can't be satisfied by a sibling form (e.g. /feedback/submit).
+    endpoint_idx = body.find('data-stream-endpoint="/onboarding/interview/turn-stream"')
+    assert endpoint_idx != -1, "streaming form (data-stream-endpoint) not found in page"
+    form_open = body.rfind("<form", 0, endpoint_idx)
+    form_close = body.find("</form>", endpoint_idx)
+    assert form_open != -1 and form_close != -1, "could not bracket streaming form HTML"
+    streaming_form_html = body[form_open : form_close + len("</form>")]
+
+    # Positive: the harness's click target must live inside the streaming form.
+    assert 'type="submit"' in streaming_form_html, (
+        'Streaming form must contain a `<button type="submit">` so '
+        "`scripts/walkthrough_harness.py` can click it to drive a chat turn. "
+        f"Form HTML was: {streaming_form_html!r}"
+    )
+    # Negative pair: a future refactor that re-introduces hx-post on the
+    # streaming form would race with the JS submit handler (same shape as
+    # the original #740 regression that necessitated `hx-boost='false'`).
+    # Defends in depth alongside the global-absence check in the companion test.
+    assert "hx-post=" not in streaming_form_html, (
+        "Streaming form must not carry hx-post attrs; submission is JS-driven "
+        f"via the SSE endpoint. Form HTML was: {streaming_form_html!r}"
+    )
+
+
 def test_interview_page_hides_finalize_block_when_not_ready(client_with_key: TestClient, base_root: Path) -> None:
     """Finalize block must be hidden until captured_count == required_count."""
     sid = _create_session_with_history(base_root, [{"role": "user", "content": "hi"}])
