@@ -50,6 +50,19 @@ refactor changes the chat-form shape (e.g. removes the form wrapper or
 drops the streaming endpoint attribute), update the selector here AND the
 regression test in `tests/test_web_onboarding_interview_render.py` that
 pins the selector path.
+
+Start Interview click timing budget (#754):
+POST /onboarding/interview/start runs a synchronous LLM call inline to
+generate the initial assistant greeting. On a freshly-reset stack with a
+cold model, this takes ~25-28s p50 (measured: 25.0s/26.7s/28.1s across
+curl, requestSubmit, and click probes against findajob-clean v0.27.2).
+Playwright's `page.click()` default 30s implicit nav-wait races this
+response, especially when Alpine hydration retry overhead adds ~5s before
+the click dispatches. The harness uses `no_wait_after=True` on the Start
+Interview click and a 120s `wait_for_url` budget so the click returns
+immediately and the explicit nav-wait has proper headroom. The proper fix
+(server-side) is to defer the greeting LLM call to lazy-render on the chat
+page so /start returns in <1s; until then, do not reduce these timeouts.
 """
 
 from __future__ import annotations
@@ -599,11 +612,26 @@ def run_walkthrough(
 
         # Use page.click(selector) — auto-waits for visible+enabled and
         # re-evaluates the selector each retry, surviving DOM re-attachment.
-        page.click('form[action*="/onboarding/interview/start"] button[type="submit"]')
+        #
+        # `no_wait_after=True` is load-bearing: POST /onboarding/interview/start
+        # makes a synchronous LLM call inline to generate the initial assistant
+        # greeting, taking ~25-28s on a freshly-reset stack (cold model).
+        # Playwright's default implicit nav-wait after a submit-button click is
+        # 30s; Alpine hydration retry overhead pushes the click's dispatch
+        # forward by ~5s, so the nav lands at ~30s and races the timeout. With
+        # `no_wait_after=True` the click returns immediately and the explicit
+        # `wait_for_url` below owns the nav-wait budget. Don't remove this flag
+        # without also re-tuning the route to defer the LLM call (#754).
+        page.click(
+            'form[action*="/onboarding/interview/start"] button[type="submit"]',
+            timeout=60_000,
+            no_wait_after=True,
+        )
 
-        # Wait for redirect to /onboarding/interview/{sid}
+        # Wait for redirect to /onboarding/interview/{sid}. 120s budget covers
+        # the cold-start LLM call inside the start route plus headroom.
         try:
-            page.wait_for_url(re.compile(r"/onboarding/interview/[^/]+$"), timeout=30_000)
+            page.wait_for_url(re.compile(r"/onboarding/interview/[^/]+$"), timeout=120_000)
         except PWTimeout:
             page.wait_for_load_state("networkidle")
         snapshot("turn-01-interview-start")
