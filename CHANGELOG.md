@@ -10,6 +10,10 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Removed
+
+- **`indeed_title_allow:` per-stack post-filter retired (#417 → reversed).** The `JobsApi14IndeedAdapter` no longer post-filters titles against an inclusion regex. The infrastructure shipped in #417 (loader `load_indeed_title_allow_rules()`, adapter call, four field-specific example templates in `prefilter_rules.yaml.example`, doc note in `api-keys.md`, test class `TestLoadIndeedTitleAllowRules`) is deleted. Off-target Indeed rows now flow through the standard downstream layers — prefilter `hard_rejects:`, LLM scoring, and the rejection-tag feedback loop — same as every other adapter. Consolidates the invariant: feed-quality filtering happens at the prefilter/scorer layer, not per-adapter. Stacks with `indeed_title_allow:` configured in their `config/prefilter_rules.yaml` can leave the key in place (silently ignored); no migration action required. Engineering rationale: adding a per-adapter, per-stack-tunable knob to compensate for upstream-API deficits was duplicative of layers already present and required onboarding-time field-aware synthesis that was never implemented.
+
 ### Documentation
 
 - **#672 dry-run doc cleanup.** `docs/getting-started/install-fly.md` "Time to value" framing rewritten to honestly state ~2 hours total to a populated dashboard (~20 min deploy + 60–90 min interview, with $10 OpenRouter top-up reminder for the ~$3–6 interview cost), instead of leading with "~20 minutes" and burying the interview duration as a parenthetical. Three broken doc links repaired: `docs/getting-started/install-docker.md` (3 occurrences of `../release-process.md` corrected to `../maintainers/release-process.md`) and `docs/getting-started/README.md` §6 (`restore.md` corrected to `../operations/restore.md`). Surfaced during the unaffiliated-tester walkthrough pre-flight (#672 dry-run, 2026-05-19).

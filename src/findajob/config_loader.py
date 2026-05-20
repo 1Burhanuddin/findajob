@@ -1,7 +1,7 @@
 """Loads prefilter rules and companies-of-interest from gitignored configs.
 
 Reads from BASE/config/:
-  - prefilter_rules.yaml        (hard_rejects + context_suppressors + indeed_title_allow)
+  - prefilter_rules.yaml        (hard_rejects + context_suppressors)
   - in_domain_patterns.yaml     (positive + poison)
   - target_companies.md         (Tier 1 section parsed for case-insensitive match)
 
@@ -58,8 +58,6 @@ _NEVER_MATCH = re.compile(r"(?!x)x")
 _hard_reject_cache: tuple[re.Pattern[str], re.Pattern[str] | None] | None = None
 _in_domain_cache: tuple[re.Pattern[str], re.Pattern[str] | None] | None = None
 _companies_cache: frozenset[str] | None = None
-_indeed_title_allow_cache: re.Pattern[str] | None = None
-_indeed_title_allow_loaded: bool = False  # distinguishes "cached None" from "not yet loaded"
 _excluded_employers_cache: tuple[frozenset[str], re.Pattern[str] | None] | None = None
 # Note: reject_reasons is intentionally NOT cached so /settings/reject-reasons/
 # saves take effect on the next request without a process restart (#490).
@@ -229,49 +227,6 @@ def _warn_once(msg: str) -> None:
         return
     _warned.add(msg)
     warnings.warn(msg, UserWarning, stacklevel=3)
-
-
-def load_indeed_title_allow_rules() -> re.Pattern[str] | None:
-    """Compiled inclusion regex for JobsApi14IndeedAdapter, or None if unconfigured.
-
-    Reads the optional `indeed_title_allow` top-level key in
-    `config/prefilter_rules.yaml`. Returns:
-
-    - `None` if the file is missing, the key is absent, or the list is empty.
-      The adapter treats `None` as "allow all titles" (no post-filter).
-    - A compiled case-insensitive alternation regex when one or more patterns
-      are configured.
-
-    Raises ConfigError on shape errors (non-list, non-string entries, invalid
-    regex). #417 lifted this from a hardcoded engineering-tuned regex in
-    `JobsApi14IndeedAdapter` so non-engineering testers can configure their
-    own allowlist via the `/config/` editor or onboarding picker.
-    """
-    global _indeed_title_allow_cache, _indeed_title_allow_loaded
-    if _indeed_title_allow_loaded:
-        return _indeed_title_allow_cache
-
-    data = _safe_load_yaml(_RULES_PATH, "prefilter_rules.yaml")
-    if data is None:
-        _indeed_title_allow_cache = None
-        _indeed_title_allow_loaded = True
-        return None
-
-    patterns = data.get("indeed_title_allow", []) or []
-    if not isinstance(patterns, list):
-        raise ConfigError(f"prefilter_rules.yaml: 'indeed_title_allow' must be a list, got {type(patterns).__name__}")
-    for p in patterns:
-        if not isinstance(p, str):
-            raise ConfigError(f"prefilter_rules.yaml: indeed_title_allow pattern is not a string: {p!r}")
-
-    if not patterns:
-        _indeed_title_allow_cache = None
-        _indeed_title_allow_loaded = True
-        return None
-
-    _indeed_title_allow_cache = _compile_patterns(patterns, _RULES_PATH, "indeed_title_allow")
-    _indeed_title_allow_loaded = True
-    return _indeed_title_allow_cache
 
 
 def load_excluded_employers() -> tuple[frozenset[str], re.Pattern[str] | None]:
@@ -463,13 +418,10 @@ def save_reject_reasons(
 def _reset_cache() -> None:
     """Test-only. Clears module-level caches and warning dedup."""
     global _hard_reject_cache, _in_domain_cache, _companies_cache
-    global _indeed_title_allow_cache, _indeed_title_allow_loaded
     global _excluded_employers_cache
     _hard_reject_cache = None
     _in_domain_cache = None
     _companies_cache = None
-    _indeed_title_allow_cache = None
-    _indeed_title_allow_loaded = False
     _excluded_employers_cache = None
     _warned.clear()
 

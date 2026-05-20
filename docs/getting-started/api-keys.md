@@ -132,14 +132,6 @@ that haven't migrated (#414).
 > per-account quota — upgrading raises the limit for all three feeds
 > together (PRO: 20,000 req/month shared).
 
-> **Note (Indeed title allowlist).** The `jobs-api14-indeed` adapter
-> applies a hardcoded title allowlist tuned for engineering /
-> operations / program-management / hardware / data-center families.
-> Non-engineering candidates may see sparse Indeed pulls until a
-> follow-up issue lifts this to a config file. See
-> `_TITLE_ALLOW_PATTERN` in
-> `src/findajob/fetchers/adapters/jobs_api14_indeed.py` for the full regex.
-
 > **Note (Bing — no allowlist initially).** Unlike Indeed, Bing ships
 > with no title-allowlist post-filter; #422 / #601 track the empirical
 > decision after one triage-day measurement. Until that lands, all

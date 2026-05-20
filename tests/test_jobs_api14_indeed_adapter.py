@@ -140,60 +140,6 @@ def test_fetch_drops_rows_with_no_title_or_url(monkeypatch: pytest.MonkeyPatch) 
     assert rows[0]["api_id"] == "z"
 
 
-def test_fetch_post_filter_drops_titles_outside_allowlist(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("JOBS_API14_KEY", "test-key")
-    fake_response = MagicMock()
-    fake_response.status_code = 200
-    fake_response.raise_for_status.return_value = None
-    fake_response.json.return_value = {
-        "hasError": False,
-        "data": [
-            {
-                "id": "1",
-                "title": "Cashier",
-                "company": {"name": "A"},
-                "location": {"location": "X"},
-                "applyUrl": "u1",
-                "description": "d",
-            },
-            {
-                "id": "2",
-                "title": "Senior Data Center Engineer",
-                "company": {"name": "A"},
-                "location": {"location": "X"},
-                "applyUrl": "u2",
-                "description": "d",
-            },
-            {
-                "id": "3",
-                "title": "Operations Manager",
-                "company": {"name": "A"},
-                "location": {"location": "X"},
-                "applyUrl": "u3",
-                "description": "d",
-            },
-            {
-                "id": "4",
-                "title": "Bartender",
-                "company": {"name": "A"},
-                "location": {"location": "X"},
-                "applyUrl": "u4",
-                "description": "d",
-            },
-        ],
-        "meta": {"count": 4},
-    }
-
-    with patch("findajob.fetchers.adapters.jobs_api14_indeed.requests.get", return_value=fake_response):
-        rows = JobsApi14IndeedAdapter().fetch(["q"])
-
-    titles = [r["title"] for r in rows]
-    assert "Senior Data Center Engineer" in titles
-    assert "Operations Manager" in titles
-    assert "Cashier" not in titles
-    assert "Bartender" not in titles
-
-
 def test_fetch_handles_429_with_retry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("JOBS_API14_KEY", "test-key")
     rate_limited = MagicMock(status_code=429, headers={"Retry-After": "1"})

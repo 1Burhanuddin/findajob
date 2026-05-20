@@ -1,14 +1,16 @@
-"""JobsApi14IndeedAdapter — restored Indeed coverage via jobs-api14 (#414).
+"""JobsApi14IndeedAdapter — Indeed coverage via the jobs-api14 RapidAPI feed (#414).
 
-Indeed endpoint exposes no recency / experience-level / employment-type
-filters (unlike LinkedIn), so the legacy fetcher (retired pre-#408) returned
-~89% off-target rows. This adapter compensates with three knobs:
+The Indeed endpoint exposes no recency / experience-level / employment-type
+filters (unlike LinkedIn), so the adapter compensates with two server-side
+knobs:
 
 1. sortType=date — most-recent first, daily triage captures fresh jobs.
 2. countryCode=us + location="United States" — geo-narrow.
-3. Adapter-side title regex post-filter — inclusion allowlist before storing.
-   Configured per-stack via `indeed_title_allow:` in
-   `config/prefilter_rules.yaml` (#417). Missing/empty key = no post-filter.
+
+Off-target rows that pass through are handled at the standard downstream
+layers (prefilter hard-rejects + LLM scoring + feedback-loop training) —
+same as every other adapter. Per-adapter title-allowlist filtering was
+retired in favor of the single scoring path.
 
 Per-page count is 20 (vs LinkedIn's 10). Description is inline in the
 search response, so no separate /v2/linkedin/get-equivalent call needed.
@@ -27,7 +29,6 @@ import requests
 
 from findajob.audit import log_event
 from findajob.cleaning import clean_company, clean_title
-from findajob.config_loader import load_indeed_title_allow_rules
 
 from ._keys import resolve_rapidapi_key
 from ._locations import read_target_locations
@@ -205,16 +206,11 @@ class JobsApi14IndeedAdapter:
             return None
 
     def _parse_rows(self, data: dict, query: str) -> list[dict]:
-        allow_pattern = load_indeed_title_allow_rules()
         rows: list[dict] = []
         for job in data.get("data", []) or []:
             raw_title = job.get("title", "")
             title = clean_title(raw_title)
             if not title:
-                continue
-            # Inclusion post-filter — drop titles outside the allowlist.
-            # Missing/empty config = allow-all (no filter applied).
-            if allow_pattern is not None and not allow_pattern.search(title):
                 continue
 
             url = job.get("applyUrl", "")
