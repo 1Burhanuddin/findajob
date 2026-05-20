@@ -16,6 +16,8 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ### Documentation
 
+- **#672 live walkthrough — Fly template pin two minors stale.** `ops/fly.toml.example` was pinned to `:v0.25.0`, two minor releases behind current. A new user following `install-fly.md` step 3 ("Don't change anything else in `fly.toml` for a first deploy") would deploy code predating onboarding env-key detection (#676), RapidAPI live smoke (#689), the briefing-first prep gate (#691), the board UX surge (#696–#702), the Indeed allowlist retirement (#746), and SSE streaming (#740). Bumped to `:v0.27.2`. Root cause: `docs/maintainers/release-process.md` had no step covering the Fly template; a new bullet now makes it part of every release. Surfaced during the unaffiliated-tester live walkthrough (#672).
+
 - **#672 dry-run doc cleanup.** `docs/getting-started/install-fly.md` "Time to value" framing rewritten to honestly state ~2 hours total to a populated dashboard (~20 min deploy + 60–90 min interview, with $10 OpenRouter top-up reminder for the ~$3–6 interview cost), instead of leading with "~20 minutes" and burying the interview duration as a parenthetical. Three broken doc links repaired: `docs/getting-started/install-docker.md` (3 occurrences of `../release-process.md` corrected to `../maintainers/release-process.md`) and `docs/getting-started/README.md` §6 (`restore.md` corrected to `../operations/restore.md`). Surfaced during the unaffiliated-tester walkthrough pre-flight (#672 dry-run, 2026-05-19).
 
 ## [0.27.2] — 2026-05-19

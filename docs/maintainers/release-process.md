@@ -117,6 +117,8 @@ reference the new tag, the file is inconsistent — fix before cutting.
 
 - For releases that include any `migration-required` PR touching schema, onboarding, mounts, or the entrypoint: confirm a recent (≤ 1 release cycle) restore exercise has passed against a backup tarball produced by the current image. The procedure is documented in [`operations/restore.md`](operations/restore.md). If no recent exercise is on file, run one before tagging — a backup that has not been restored is not a backup, and a release that breaks restore must not ship.
 
+- [ ] **Bump `ops/fly.toml.example` image pin.** A new user following `install-fly.md` copies this template verbatim and is told not to change the image line for a first deploy. The template's `[build] image = ...` must therefore advance with each tagged release; otherwise a fresh Fly deploy ships outdated code. Edit the line to `ghcr.io/brockamer/findajob:vX.Y.Z` matching the tag being cut, in the same release PR (or as the CHANGELOG-pivot commit on `main`). No corresponding bump is needed for `ops/compose.yaml.example` because compose users set their image tag via the top-level `.env` (`FINDAJOB_IMAGE_TAG`), not the compose file itself.
+
 - [ ] **Staging soak.** Ensure `findajob-staging` has been on `:latest` for at least one completed daily triage cycle. Run the green-check from `<deployment-host>`:
 
       ```
