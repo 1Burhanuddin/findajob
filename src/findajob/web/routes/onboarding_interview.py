@@ -19,10 +19,8 @@ Cross-task constraints (from #336 Session 2026-05-01):
 
 from __future__ import annotations
 
-import asyncio
 import json
 import sqlite3
-import threading
 from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
@@ -451,8 +449,6 @@ def _stream_turn(
     message: str,
     sess_history: list[dict],
     sess_captured: dict,
-    cancel_event: threading.Event,
-    done_event: threading.Event,
 ) -> Iterator[bytes]:
     """Drive ``complete_stream()`` and yield formatted SSE events.
 
@@ -467,15 +463,6 @@ def _stream_turn(
       update_captured_blocks at that point.
     - ``error`` SSE event (and ``set_error``) on failure paths:
       mid-stream error chunk, or ``finish_reason == "length"``.
-
-    Cancellation (#743):
-        ``cancel_event`` is set by the route's async watcher task when the
-        client disconnects. ``complete_stream`` polls ``cancel_event.is_set``
-        once per SSE line read and early-returns without yielding
-        StreamFinish — persistence (cost_log, append_turn,
-        update_captured_blocks) lives inside the ``finish`` branch, so
-        cancellation auto-skips them. ``done_event`` is set in this
-        generator's ``finally`` to signal the watcher to stop polling.
     """
     conn = connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
@@ -488,7 +475,6 @@ def _stream_turn(
                 pin_provider="anthropic",
                 history=sess_history,
                 api_key=chat_key,
-                is_cancelled=cancel_event.is_set,
             ):
                 chunk_type = chunk["type"]
 
@@ -617,25 +603,11 @@ def _stream_turn(
                 },
             )
     finally:
-        # #743 observability: log cancellation when the cancel_event was set
-        # before the stream emitted a terminal chunk. Persistence-skipping is
-        # automatic — the `finish` branch never executes for cancelled
-        # streams — so this is the operator-visible signal that an OpenRouter
-        # call was aborted mid-flight.
-        if cancel_event.is_set():
-            log_event(
-                "stream_cancelled",
-                session_id=session_id,
-                route="turn-stream",
-                reason="client_disconnect",
-            )
-        # Tell the watcher task it can stop polling request.is_disconnected().
-        done_event.set()
         conn.close()
 
 
 @router.post("/onboarding/interview/turn-stream", response_model=None)
-async def post_turn_stream(
+def post_turn_stream(
     request: Request,
     session_id: str = Form(...),
     message: str = Form(...),
@@ -653,15 +625,6 @@ async def post_turn_stream(
     Pre-flight checks (missing session, no key, spend ceiling) return
     non-streaming HTTP errors (404 / 503 / 402) BEFORE the SSE response
     is opened so the client can handle them as normal HTTP failures.
-
-    Client-disconnect cancellation (#743):
-        Spawns an asyncio watcher task that polls ``request.is_disconnected()``
-        and sets a ``threading.Event`` on disconnect. ``complete_stream``
-        polls that event once per SSE line read and aborts the urllib stream
-        — stopping the OpenRouter bill and skipping persistence (which lives
-        inside the ``chunk_type == "finish"`` branch). On natural stream
-        finish, the inner generator's ``finally`` sets ``done_event`` to tell
-        the watcher to stop polling.
     """
     db_path: Path = request.app.state.db_path
     conn = connect(db_path, timeout=30)
@@ -695,56 +658,15 @@ async def post_turn_stream(
     finally:
         conn.close()
 
-    # #743 cancellation plumbing. Two events:
-    #   - cancel_event: set when the client disconnects; polled by
-    #     complete_stream's inner loop (thread-safe via threading.Event).
-    #   - done_event: set by _stream_turn's finally on natural finish; tells
-    #     the watcher to stop polling.
-    cancel_event = threading.Event()
-    done_event = threading.Event()
-
-    async def _watch_disconnect() -> None:
-        """Poll request.is_disconnected() until either done or disconnect."""
-        while not done_event.is_set():
-            try:
-                if await request.is_disconnected():
-                    cancel_event.set()
-                    return
-            except Exception:  # noqa: BLE001
-                # Receive-channel issues should not crash the watcher;
-                # the stream will finish naturally and done_event will fire.
-                return
-            await asyncio.sleep(0.25)
-
-    watcher = asyncio.create_task(_watch_disconnect())
-
-    def _stream_with_watcher_cleanup() -> Iterator[bytes]:
-        """Wrap _stream_turn to guarantee the watcher task is cleaned up.
-
-        Starlette holds a strong reference to this generator for the
-        response's lifetime, so the watcher reference also lives that long.
-        """
-        try:
-            yield from _stream_turn(
-                db_path=db_path,
-                session_id=session_id,
-                chat_key=chat_key,
-                message=message,
-                sess_history=sess_history,
-                sess_captured=sess_captured,
-                cancel_event=cancel_event,
-                done_event=done_event,
-            )
-        finally:
-            # _stream_turn already set done_event in its own finally; this is
-            # defense-in-depth in case the generator was closed before
-            # reaching its finally (e.g. ASGI scope teardown).
-            done_event.set()
-            if not watcher.done():
-                watcher.cancel()
-
     return StreamingResponse(
-        _stream_with_watcher_cleanup(),
+        _stream_turn(
+            db_path=db_path,
+            session_id=session_id,
+            chat_key=chat_key,
+            message=message,
+            sess_history=sess_history,
+            sess_captured=sess_captured,
+        ),
         media_type="text/event-stream",
         headers={
             "X-Accel-Buffering": "no",
