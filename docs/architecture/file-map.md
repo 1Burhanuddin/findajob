@@ -20,6 +20,7 @@ When this map drifts from the actual code (renamed file, new route module, retir
 <repo>/src/findajob/llm/openrouter.py       # canonical OpenRouter HTTP wrapper (#470) — complete(), CompletionResult, OpenRouterError; cache_control on cached_prefix + cache_system axes
 <repo>/src/findajob/cost_rollups.py         # SQL helpers backing all cost surfaces — per_job_cost, per_job_breakdown, weekly_spend, projected_monthly, spend_this_month
 <repo>/src/findajob/web/app.py               # FastAPI app factory (create_app)
+<repo>/src/findajob/web/middleware/disconnect_state.py # ASGI middleware wrapping receive() to record http.disconnect into scope["findajob.client_disconnected"] (#743) — passive observation, no race with Starlette's listen_for_disconnect; SSE route reads the flag via is_cancelled closure
 <repo>/src/findajob/web/routes/ingest.py     # GET /ingest/ form + POST /ingest/manual handler
 <repo>/src/findajob/web/routes/config.py     # GET /config/, GET/POST /config/files/{path} — in-browser config editor
 <repo>/src/findajob/web/routes/gmail_config.py # GET/POST /config/gmail/ — IMAP/app-password integration setup (#330)
