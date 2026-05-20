@@ -42,8 +42,13 @@ _SCHEMA_VERSION = 1
 # next load — acceptable today because no UI exposes per-sender removal.
 #
 # Workday tenants with custom mail domains (talent.{company}.com instead of
-# myworkday.com) still slip through this filter — tracked separately at #659
-# (Option B/C broad-pattern proposal from #658's body).
+# myworkday.com) bypass this filter. Empirically rare: a 90-day probe of the
+# operator's mailbox found 1 rejection from talent.{company}.com (Digital
+# Realty) — well under the threshold that would justify the broad-pattern
+# alternatives (FROM "no-reply" or BODY-marker SEARCH), both of which carry
+# false-positive rates that outweigh the coverage gain at current volumes.
+# If a target employer using a custom Workday tenant emerges, add its bare
+# domain to this tuple directly.
 DEFAULT_REJECTION_ALLOWLIST: tuple[str, ...] = (
     "us.greenhouse-mail.io",
     "eu.greenhouse-mail.io",
