@@ -35,7 +35,20 @@ A handful of these (OpenRouter + RapidAPI + ntfy + auth) are collected at deploy
 
 ## 1. Install flyctl on your laptop
 
-flyctl is the command-line tool. Install on your platform — see <https://fly.io/docs/flyctl/install/> for the current installer for macOS, Linux, or Windows. After installing:
+flyctl is the command-line tool that drives the deploy. Install for your OS:
+
+```
+# macOS (Homebrew)
+brew install flyctl
+
+# Linux
+curl -L https://fly.io/install.sh | sh
+
+# Windows (PowerShell)
+iwr https://fly.io/install.ps1 -useb | iex
+```
+
+The Fly installer page (<https://fly.io/docs/flyctl/install/>) has alternative installers and PATH-troubleshooting tips if any of the above don't work. After installing:
 
 ```
 fly version            # confirm install
@@ -85,7 +98,7 @@ bash ops/fly-deploy.sh
 
 The script is idempotent — safe to re-run. On a clean run it:
 
-1. Creates the Fly app (asks before consuming the name).
+1. Creates the Fly app under the slug you set in `fly.toml`. (No confirmation prompt — a typo there consumes a wrong slug on your account; verify `app =` is exactly what you want before running. Re-typing the slug is fine, but you'll need to `fly apps destroy` the wrong one first.)
 2. Creates the `findajob_state` volume (8 GB, holds all your data).
 3. Prompts you for each secret you haven't already set (`OPENROUTER_API_KEY`, `RAPIDAPI_KEY`, `NTFY_TOPIC`, `FINDAJOB_AUTH_USER`, `FINDAJOB_AUTH_PASS`). Each is stored in Fly's encrypted secrets store, not in `fly.toml` or your shell history.
 4. Runs `fly deploy`. First build pulls the image (~1 GB; takes 2–4 minutes), then the machine boots and runs `ops/entrypoint.sh` — which materializes the data subdirectories under `/app/state/` and creates an empty `pipeline.db`.
