@@ -29,7 +29,7 @@ import re
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypedDict
@@ -354,6 +354,7 @@ def complete_stream(
     max_tokens: int | None = None,
     timeout_s: int = DEFAULT_TIMEOUT_S,
     roles_dir: Path | None = None,
+    is_cancelled: Callable[[], bool] | None = None,
 ) -> Iterator[StreamChunk]:
     """Streaming variant of :func:`complete`.
 
@@ -388,8 +389,15 @@ def complete_stream(
         ``GeneratorExit`` (e.g. client disconnect) triggers the ``finally``
         without needing an explicit close call on the caller's side.
 
-    TODO(#740 route): SSE route handler POST /onboarding/interview/turn-stream
-    TODO(#740 frontend): vanilla JS EventSource consumer
+    Cooperative cancellation (#743):
+        When ``is_cancelled`` is provided, the streaming inner loop polls it
+        once per SSE line read. On True, the generator calls ``resp.close()``
+        and returns WITHOUT yielding a terminal :class:`StreamFinish` —
+        absence of a terminal chunk is the cancellation signal to the caller.
+        Pre-first-yield retries are not interrupted (the callable is only
+        consulted after the HTTP connection is open). The callable must be
+        cheap and thread-safe (e.g. ``threading.Event.is_set``); it runs in
+        whatever thread/context is iterating the generator.
     """
     key = api_key if api_key is not None else os.environ.get("OPENROUTER_API_KEY", "")
     if not key or not key.strip():
@@ -532,6 +540,12 @@ def complete_stream(
 
     try:
         for raw_line_bytes in resp:
+            # Cooperative cancellation (#743): early-return without yielding
+            # StreamFinish. Caller distinguishes cancellation from natural
+            # finish by the absence of a terminal chunk.
+            if is_cancelled is not None and is_cancelled():
+                return
+
             raw_line = raw_line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
 
             # SSE comment lines (e.g. ": OPENROUTER PROCESSING") — skip.
