@@ -24,6 +24,7 @@ from findajob.web.helpers import (
     remote_cell_class,
     stage_row_class,
 )
+from findajob.web.middleware import DisconnectStateMiddleware
 from findajob.web.onboarding_guard import onboarding_complete, require_onboarding_complete
 from findajob.web.routes import materials as _materials_routes
 from findajob.web.routes import router as _aggregated_router
@@ -162,6 +163,11 @@ def create_app(
 
     app.include_router(onboarding_interview.router)
     install_basic_auth(app)
+    # #743: register AFTER install_basic_auth so it lands outermost in the
+    # middleware stack, ensuring every http.disconnect is recorded into
+    # scope before any inner consumer (e.g. Starlette's listen_for_disconnect)
+    # gets a chance to consume it.
+    app.add_middleware(DisconnectStateMiddleware)
     return app
 
 

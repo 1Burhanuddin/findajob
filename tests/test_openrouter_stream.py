@@ -531,3 +531,121 @@ def test_done_terminates_stream(monkeypatch, tmp_path):
     assert finish[0]["text"] == "legitimate content"
     # Confirm "leak.md" is not in any captured name.
     assert not any(c.get("name") == "leak.md" for c in chunks)
+
+
+# ---------------------------------------------------------------------------
+# Test 11+12: is_cancelled callback (#743)
+# ---------------------------------------------------------------------------
+
+
+def test_is_cancelled_true_from_start_yields_no_chunks(monkeypatch, tmp_path):
+    """is_cancelled returning True before any line is read → no chunks, resp.close() called."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
+    roles = _setup_role(tmp_path)
+    raw = _FIXTURE_PATH.read_bytes()
+    fake_resp = _FakeStreamResp(raw)
+
+    with patch("findajob.llm.openrouter.urllib.request.urlopen", return_value=fake_resp):
+        chunks = list(
+            complete_stream(
+                role="test_role",
+                prompt="test",
+                roles_dir=roles,
+                is_cancelled=lambda: True,
+            )
+        )
+
+    # No chunks emitted — the cancellation check fires before any line is parsed.
+    assert chunks == []
+    # Critical: resp.close() must still be called (via the early-return branch's
+    # explicit close + the existing finally).
+    assert fake_resp.close_called
+
+
+def test_is_cancelled_flips_mid_stream_no_terminal_chunk(monkeypatch, tmp_path):
+    """is_cancelled returning True after N polls → captured chunks emitted, no finish."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
+    roles = _setup_role(tmp_path)
+
+    # Synthesize a stream with two FILE markers BEFORE the finish chunk.
+    # Cancellation fires after the first captured event so we can observe both:
+    # (a) chunks before cancellation are yielded normally,
+    # (b) no terminal finish chunk after cancellation.
+    payloads = [
+        _delta_chunk("<<<FILE: profile.md>>>content_a<<<END FILE: profile.md>>>"),
+        _delta_chunk("more text"),
+        _delta_chunk("<<<FILE: voice_samples_a.md>>>content_b<<<END FILE: voice_samples_a.md>>>"),
+        _delta_chunk(
+            "",
+            finish_reason="stop",
+            usage={
+                "prompt_tokens": 5,
+                "completion_tokens": 10,
+                "prompt_tokens_details": {"cached_tokens": 0},
+                "cost": 0.0001,
+            },
+        ),
+    ]
+    raw = _make_sse_bytes(*payloads)
+    fake_resp = _FakeStreamResp(raw)
+
+    # Counter-driven cancellation: True only after enough polls to yield the
+    # first captured event but before the second.
+    poll_count = [0]
+
+    def _cancel_after_n_polls() -> bool:
+        poll_count[0] += 1
+        # _FakeStreamResp yields one byte-line per __next__ call. Each SSE event
+        # block is 2 lines (data + blank). After ~3-4 polls we've seen the first
+        # captured marker and emitted it; flip True on the next poll.
+        return poll_count[0] >= 4
+
+    with patch("findajob.llm.openrouter.urllib.request.urlopen", return_value=fake_resp):
+        chunks = list(
+            complete_stream(
+                role="test_role",
+                prompt="test",
+                roles_dir=roles,
+                is_cancelled=_cancel_after_n_polls,
+            )
+        )
+
+    # Captured events from before cancellation may be present (typically 1 of 2).
+    captured = [c for c in chunks if c["type"] == "captured"]
+    finish = [c for c in chunks if c["type"] == "finish"]
+    error = [c for c in chunks if c["type"] == "error"]
+
+    # The critical assertion: NO terminal finish chunk.
+    assert len(finish) == 0, "is_cancelled=True must short-circuit before StreamFinish"
+    assert len(error) == 0, "cancellation is not an error"
+    # At least one captured event landed before cancellation kicked in.
+    assert len(captured) >= 1
+    # Negative: voice_samples_a.md is the SECOND marker; it must not have landed
+    # because cancellation fired between captures 1 and 2. Belt-and-suspenders
+    # against the lazy-regex shape (feedback_negative_test_assertions).
+    captured_names = [c["name"] for c in captured]
+    assert "voice_samples_a.md" not in captured_names
+    # resp.close() called on the cancel branch.
+    assert fake_resp.close_called
+
+
+def test_is_cancelled_default_none_preserves_pre_743_behavior(monkeypatch, tmp_path):
+    """is_cancelled=None (default) → existing behavior, terminal finish emitted."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
+    roles = _setup_role(tmp_path)
+    raw = _FIXTURE_PATH.read_bytes()
+    fake_resp = _FakeStreamResp(raw)
+
+    with patch("findajob.llm.openrouter.urllib.request.urlopen", return_value=fake_resp):
+        chunks = list(
+            complete_stream(
+                role="test_role",
+                prompt="test",
+                roles_dir=roles,
+                # is_cancelled omitted — default None.
+            )
+        )
+
+    # Exactly one terminal finish chunk.
+    assert len(chunks) == 1
+    assert chunks[0]["type"] == "finish"

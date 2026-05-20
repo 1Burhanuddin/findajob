@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import cast
 
@@ -56,6 +56,7 @@ from findajob.onboarding.session_store import (
 )
 from findajob.spend_ceiling import check_call_gate
 from findajob.web.markdown import render_chat_assistant_html
+from findajob.web.middleware import SCOPE_KEY as _DISCONNECT_SCOPE_KEY
 
 _INTERVIEWER_MODEL = role_model("onboarding_interviewer")
 
@@ -449,6 +450,7 @@ def _stream_turn(
     message: str,
     sess_history: list[dict],
     sess_captured: dict,
+    is_cancelled: Callable[[], bool] | None = None,
 ) -> Iterator[bytes]:
     """Drive ``complete_stream()`` and yield formatted SSE events.
 
@@ -463,9 +465,19 @@ def _stream_turn(
       update_captured_blocks at that point.
     - ``error`` SSE event (and ``set_error``) on failure paths:
       mid-stream error chunk, or ``finish_reason == "length"``.
+
+    Client disconnect (#743): ``is_cancelled`` is polled inside
+    ``complete_stream``'s SSE-read loop. On True, ``complete_stream`` returns
+    WITHOUT yielding a terminal ``finish`` or ``error`` chunk. The for-loop
+    here exits naturally and persistence (cost_log, append_turn,
+    update_captured_blocks) is automatically skipped — those calls live
+    inside the ``finish`` branch which never executes. A ``stream_cancelled``
+    event is logged so the operator can correlate cancelled streams with
+    pipeline events.
     """
     conn = connect(db_path, timeout=30)
     conn.row_factory = sqlite3.Row
+    saw_terminal = False
     try:
         try:
             for chunk in complete_stream(
@@ -475,6 +487,7 @@ def _stream_turn(
                 pin_provider="anthropic",
                 history=sess_history,
                 api_key=chat_key,
+                is_cancelled=is_cancelled,
             ):
                 chunk_type = chunk["type"]
 
@@ -483,6 +496,7 @@ def _stream_turn(
                     yield _sse_event("captured", {"name": captured_chunk["name"]})
 
                 elif chunk_type == "finish":
+                    saw_terminal = True
                     finish_chunk = cast(StreamFinish, chunk)
                     finish_reason = finish_chunk.get("finish_reason")
                     assistant_text = finish_chunk["text"]
@@ -576,6 +590,7 @@ def _stream_turn(
                     )
 
                 elif chunk_type == "error":
+                    saw_terminal = True
                     error_chunk = cast(StreamError, chunk)
                     translated = _translate(OpenRouterError(error_chunk["message"], kind=error_chunk["kind"]))
                     set_error(conn, session_id, translated.user_message)
@@ -593,6 +608,7 @@ def _stream_turn(
             # ran in a TOCTOU window after the route's gate passed. Yield an
             # SSE error event rather than letting the exception propagate
             # naked (which would close the response with no client signal).
+            saw_terminal = True
             translated = _translate(e)
             yield _sse_event(
                 "error",
@@ -603,6 +619,21 @@ def _stream_turn(
                 },
             )
     finally:
+        # #743: log stream_cancelled iff complete_stream returned without a
+        # terminal chunk AND the callback confirms cancellation was the cause.
+        # Querying is_cancelled() (rather than just trusting `not saw_terminal`)
+        # distinguishes cancellation from a hypothetical unexpected exception
+        # exiting the generator — the latter shouldn't masquerade as a clean
+        # cancel. Persistence (cost_log, append_turn, update_captured_blocks)
+        # is automatically skipped either way because those calls live inside
+        # the never-executed `finish` branch.
+        if not saw_terminal and is_cancelled is not None and is_cancelled():
+            log_event(
+                "stream_cancelled",
+                route="turn-stream",
+                session_id=session_id,
+                reason="client_disconnect",
+            )
         conn.close()
 
 
@@ -658,6 +689,16 @@ def post_turn_stream(
     finally:
         conn.close()
 
+    # #743: callback reads the flag set by DisconnectStateMiddleware. Synchronous
+    # read of scope dict — safe to call from the sync generator running inside
+    # complete_stream's urllib loop. No threading, no async/sync impedance,
+    # no race with Starlette's listen_for_disconnect (the middleware records
+    # disconnect BEFORE that listener sees it).
+    scope = request.scope
+
+    def _client_disconnected() -> bool:
+        return bool(scope.get(_DISCONNECT_SCOPE_KEY, False))
+
     return StreamingResponse(
         _stream_turn(
             db_path=db_path,
@@ -666,6 +707,7 @@ def post_turn_stream(
             message=message,
             sess_history=sess_history,
             sess_captured=sess_captured,
+            is_cancelled=_client_disconnected,
         ),
         media_type="text/event-stream",
         headers={

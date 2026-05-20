@@ -29,7 +29,7 @@ import re
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypedDict
@@ -354,6 +354,7 @@ def complete_stream(
     max_tokens: int | None = None,
     timeout_s: int = DEFAULT_TIMEOUT_S,
     roles_dir: Path | None = None,
+    is_cancelled: Callable[[], bool] | None = None,
 ) -> Iterator[StreamChunk]:
     """Streaming variant of :func:`complete`.
 
@@ -532,6 +533,23 @@ def complete_stream(
 
     try:
         for raw_line_bytes in resp:
+            # #743: cooperative cancellation. The callback typically reads the
+            # client-disconnect flag set by DisconnectStateMiddleware. On True,
+            # close the upstream socket and return WITHOUT yielding StreamFinish.
+            # Absence of the terminal chunk is the route's signal to skip
+            # persistence (cost_log, append_turn, update_captured_blocks).
+            #
+            # Polling cadence is gated by OpenRouter chunk arrival — if the
+            # upstream goes quiet, the flag may be set but unpolled until the
+            # next chunk. Acceptable: that's still ≪ the 50-90s the bug costs
+            # today (whole-response runtime).
+            if is_cancelled is not None and is_cancelled():
+                try:
+                    resp.close()
+                except Exception:  # noqa: BLE001
+                    pass
+                return
+
             raw_line = raw_line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
 
             # SSE comment lines (e.g. ": OPENROUTER PROCESSING") — skip.
