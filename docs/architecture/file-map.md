@@ -93,6 +93,7 @@ When this map drifts from the actual code (renamed file, new route module, retir
 
 # ── Operations ──────────────────────────────────────────────────────────────
 <repo>/docs/maintainers/release-process.md              # Claude's release orchestration runbook — dogfood gate, tag cut, rollback
+<repo>/docs/maintainers/release-parity-matrix.md        # Docker ↔ Fly per-surface parity verification matrix (#747); pre-tag gate for major-point releases
 <repo>/docs/getting-started/install-docker.md         # external-user Docker install + operations guide
 
 # ── Quality ─────────────────────────────────────────────────────────────────

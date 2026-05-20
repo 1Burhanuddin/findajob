@@ -79,6 +79,7 @@ The pre-tag checklist becomes:
 | Pre-tag throwaway smoke (`scripts/test_container_integration.sh`) | ephemeral | Single full triage cycle on empty mounts; image boots cleanly |
 | Pre-tag `findajob-clean` structural pre-flight | persistent factory-fresh | Migration correctness, onboarding gate, app-boot |
 | Pre-tag `findajob-staging` behavioral soak | persistent populated | Triage / scoring / notify / M6-launcher behavior on populated DB |
+| Pre-tag parity matrix verification (major-point only) | Docker + Fly | Every user-visible surface behaves identically on both substrates — see [`release-parity-matrix.md`](release-parity-matrix.md) |
 | Cohort wave per-stack verification | tester + operator | Migration on real populated data, `verify_auth` |
 
 ## Pre-release checklist
@@ -126,6 +127,14 @@ reference the new tag, the file is inconsistent — fix before cutting.
       ```
 
       Must exit 0 before tagging. On non-zero, investigate using the failure summary printed to stderr; either fix and re-run, or document the override justification in the release CHANGELOG entry.
+
+## Pre-tag parity matrix verification (major-point releases)
+
+For major-point releases (any `vX.0.0` or any release the operator explicitly classifies as a milestone cut), the parity matrix at [`release-parity-matrix.md`](release-parity-matrix.md) must be re-verified before tagging. The matrix asserts every user-visible feature surface behaves identically on Docker (`findajob-staging` reference) and Fly (operator's reference deploy).
+
+Each cell in the matrix must be either `✓ YYYY-MM-DD <sha>` against the release SHA, or `✗ #NNN` with a follow-up issue the operator has explicitly classified as release-acceptable. `(unverified)` cells block the tag.
+
+For minor and patch releases, re-verification is not required; the matrix's existing cells stand as long as the surfaces they cover have not changed in the release range. If a release touches a surface, update only that row in the same PR per the same-PR docs rule.
 
 ## Pre-tag smoke check
 

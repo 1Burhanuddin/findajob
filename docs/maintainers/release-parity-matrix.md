@@ -1,0 +1,338 @@
+# Release Parity Validation Matrix — Docker ↔ Fly
+
+Findajob ships to two deployment substrates that share the same image but differ in runtime, persistence, and proxy fronting. This matrix asserts every user-visible feature surface behaves identically on both. It is the **pre-tag gate for major-point releases** per [`release-process.md`](release-process.md).
+
+Tracking issue: [#747](https://github.com/brockamer/findajob/issues/747).
+
+## How to use
+
+Before a major-point tag (e.g. `v0.28.0`, `v1.0.0`), run a verification pass on both substrates. Update each cell to one of:
+
+| Cell value | Meaning |
+|------------|---------|
+| `✓ YYYY-MM-DD ` | Surface exercised, behavior matches expectation. SHA pins the code state verified. |
+| `✗ #NNN` | Parity gap or broken surface; linked follow-up issue tracks the fix. |
+| `(unverified)` | Initial / stale state; this is a gap until populated. |
+
+A release tag is acceptable when every cell is `✓` against the release SHA, or `✗` with a follow-up that the operator has explicitly classified as release-acceptable (filed to a non-blocking milestone).
+
+**Docker reference stack**: `findajob-staging` (operator-private populated soak; runs `:latest`, real triage + synthetic clicker). `findajob-clean` is the unpopulated NUX-rehearsal alternate.
+
+**Fly reference deploy**: operator's Fly app (URL operator-private). Tester Fly deploys may be substituted for Fly-leg verification once the unaffiliated-tester walkthrough ([#672](https://github.com/brockamer/findajob/issues/672)) ships.
+
+---
+
+## Known substrate differences
+
+Behaviors that are not bugs, but legitimately differ between Docker and Fly. The matrix asserts feature parity *despite* these differences.
+
+| Difference | Docker behavior | Fly behavior | Issue |
+|------------|-----------------|--------------|-------|
+| `X-Accel-Buffering: no` | Harmless / no-op (Synology nginx) | Load-bearing for streaming endpoints (Fly edge buffers without it) | [#741](https://github.com/brockamer/findajob/issues/741) |
+| Reverse-proxy redirect semantics | Synology nginx 302 + path-preserve | Fly proxy 308 + scheme-rewrite (`http://` → `https://`) — auth-loop race possible | [#693](https://github.com/brockamer/findajob/issues/693) |
+| Health-check action on failure | docker-compose leaves container running | Fly auto-restarts the machine | — |
+| Persistent storage | Host bind-mounts under `/opt/stacks/findajob-<stack>/state/` (operator-owned) | Fly volume mounted at container's `/app/state/` (root-owned at creation) | — |
+| Perimeter / auth gate | Operator's Synology reverse proxy + HTTP Basic Auth ([#327](https://github.com/brockamer/findajob/issues/327)) | Fly edge + HTTP Basic Auth (same `FINDAJOB_AUTH_USER`/`PASS` mechanism) | — |
+| Scheduler runtime | supercronic co-process inside one container (UTC-set; runs as `America/Los_Angeles` per stack `TZ`) | Same image; same supercronic; Fly machine `TZ` env var must be set per-stack | — |
+| Auth-gate post-deploy verification | `verify_auth` run via `docker exec` after `compose up -d`; 5–7s settle [`feedback_verify_auth_race`] | `verify_auth` run via `flyctl ssh console`; settle time TBD | — |
+
+Add a row here when a new genuine difference is discovered.
+
+---
+
+## Web surfaces
+
+### Landing & navigation
+
+| Surface | Docker (`findajob-staging`) | Fly (operator's deploy) |
+|---------|------------------------------|--------------------------|
+| `GET /` landing | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| Top-nav present, all 9 groups linked | (unverified — needs DOM check) | (unverified) |
+| Spend chip in nav reflects current month | (unverified — needs DOM check) | (unverified) |
+
+### Board tabs (8 user-facing tabs)
+
+Every tab: `GET /board/{tab}` renders the table; `GET /board/{tab}/rows` returns the HTMX partial for filter swaps; per-column filters (`?col=`, `?col_min=`, etc.) parse correctly; Columns dropdown persists; `view_prefs` per-tab persistence redirects cold loads with prior filter state.
+
+| Tab | URL | Docker | Fly |
+|-----|-----|--------|-----|
+| Dashboard | `/board/dashboard` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| Applied | `/board/applied` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| Review | `/board/review` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| Waitlist | `/board/waitlist` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| Rejected | `/board/rejected` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| Not Selected | `/board/not-selected` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| Archive | `/board/archive` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| Rejections Review | `/board/rejections-review/` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+
+Per-tab cross-cuts (verify once per substrate, not per tab):
+
+| Cross-cut | Docker | Fly |
+|-----------|--------|-----|
+| `view_prefs` cold-load redirect adds `?<persisted_qs>` | (unverified) | (unverified) |
+| `POST /board/{tab}/reset-view` clears persisted prefs | (unverified) | (unverified) |
+| Columns dropdown writes `?cols=` and persists | (unverified) | (unverified) |
+| Notes inline edit autosaves (800ms debounce) | (unverified) | (unverified) |
+| Notes blur writes `notes_history` row | (unverified) | (unverified) |
+
+### Job action transitions (POST routes)
+
+Per [CLAUDE.md § Board Routes & Stage Lifecycle](../../CLAUDE.md). Each transition updates `jobs.stage`, writes `audit_log`, may move the prep folder, may fire ntfy.
+
+| Action | Endpoint | Docker | Fly |
+|--------|----------|--------|-----|
+| Flag for Prep (Phase A) | `POST /board/jobs/{fp}/prep` | (unverified) | (unverified) |
+| Continue prep (Phase B) — dashboard | `POST /board/jobs/{fp}/continue-prep` | (unverified) | (unverified) |
+| Regenerate (with confirm modal) | `POST /board/jobs/{fp}/regenerate` | (unverified) | (unverified) |
+| Apply (with 30s undo toast) | `POST /board/jobs/{fp}/apply` | (unverified) | (unverified) |
+| Un-apply (during undo window) | `POST /board/jobs/{fp}/un-apply` | (unverified) | (unverified) |
+| Interview | `POST /board/jobs/{fp}/interview` | (unverified) | (unverified) |
+| Offer | `POST /board/jobs/{fp}/offer` | (unverified) | (unverified) |
+| Withdraw | `POST /board/jobs/{fp}/withdraw` | (unverified) | (unverified) |
+| Waitlist | `POST /board/jobs/{fp}/waitlist` | (unverified) | (unverified) |
+| Reactivate | `POST /board/jobs/{fp}/reactivate` | (unverified) | (unverified) |
+| Reactivate and prep | `POST /board/jobs/{fp}/reactivate-and-prep` | (unverified) | (unverified) |
+| Promote (Review → Scored) | `POST /board/jobs/{fp}/promote` | (unverified) | (unverified) |
+| Reject (with reason) | `POST /board/jobs/{fp}/reject` | (unverified) | (unverified) |
+| Un-reject (with confirm) | `POST /board/jobs/{fp}/un-reject` | (unverified) | (unverified) |
+| Change reject reason | `POST /board/jobs/{fp}/change-reject-reason` | (unverified) | (unverified) |
+| Not Selected (with reason) | `POST /board/jobs/{fp}/not-selected` | (unverified) | (unverified) |
+| Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | (unverified) | (unverified) |
+| Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | (unverified) | (unverified) |
+| Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | (unverified) | (unverified) |
+| Reattribute (from archive) | `POST /board/jobs/{fp}/reattribute-from-archive` | (unverified) | (unverified) |
+| Edit user_notes | `POST /board/jobs/{fp}/notes` | (unverified) | (unverified) |
+| Trigger triage on demand | `POST /board/trigger-triage` | (unverified) | (unverified) |
+
+Helper confirm-modal / cell-restore GETs (Cancel paths):
+
+| Surface | Docker | Fly |
+|---------|--------|-----|
+| `GET /board/jobs/{fp}/regenerate/confirm` (modal) | (unverified) | (unverified) |
+| `GET /board/jobs/{fp}/regenerate/cell` (restore) | (unverified) | (unverified) |
+| `GET /board/jobs/{fp}/un-reject/confirm` | (unverified) | (unverified) |
+| `GET /board/jobs/{fp}/un-reject/cell` | (unverified) | (unverified) |
+| `GET /board/jobs/{fp}/notes/history` | (unverified) | (unverified) |
+| `GET /board/jobs/{fp}/reattribute/modal` | (unverified) | (unverified) |
+| `GET /board/jobs/{fp}/archive-actions-cell` | (unverified) | (unverified) |
+
+### Rejections review queue (Gmail-IMAP rejection detector landing)
+
+| Surface | Docker | Fly |
+|---------|--------|-----|
+| `GET /board/rejections-review/` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `GET /board/rejections-review/widget` (badge HTMX poll) | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `POST .../{id}/confirm` (apply not_selected) | (unverified) | (unverified) |
+| `POST .../{id}/dismiss` | (unverified) | (unverified) |
+| `POST .../{id}/reattribute` (override matched_job_id) | (unverified) | (unverified) |
+
+### Materials & prep flow
+
+| Surface | Docker | Fly |
+|---------|--------|-----|
+| `GET /materials/` index | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `GET /materials/{fp}/` (Phase A briefing-ready state) | (unverified) | (unverified) |
+| `GET /materials/{fp}/` (Phase B materials_drafted state) | (unverified) | (unverified) |
+| Briefing-first gate visible at `briefing_ready` stage | (unverified) | (unverified) |
+| `POST /materials/{fp}/continue-prep` (Phase B from materials page) | (unverified) | (unverified) |
+| `POST /materials/{fp}/reject` (reject from briefing) | (unverified) | (unverified) |
+| `POST /materials/{fp}/regenerate` (materials-page regen) | (unverified) | (unverified) |
+| `GET /materials/{fp}/{filename}` (download artifact) | (unverified) | (unverified) |
+| `POST /materials/{fp}/files/{filename}` (edit artifact) | (unverified) | (unverified) |
+| `GET /jobs/{fp}/jd` (JD modal) | (unverified) | (unverified) |
+
+Subprocess launchers (spawn detached generator processes):
+
+| Surface | Docker | Fly |
+|---------|--------|-----|
+| `prep_application.py --phase=a` reaches `briefing_ready` | ✓ 2026-05-20 `6f5e317` (prep_phase_a_complete × 8) | (unverified) |
+| `prep_application.py --phase=b` reaches `materials_drafted` | (unverified — staging clicker advances Phase B but no event marker tail) | (unverified) |
+| `prep_application.py --phase=all` (cron/manual default) | (unverified — staging clicker uses split phases) | (unverified) |
+| `interview_prep.py` (re-runs on each click; sentinel guard) | (unverified — needs Applied row exercise) | (unverified) |
+| `run_speculative_research.py` (async, status-page polled) | (unverified — needs ingest-speculative exercise) | (unverified) |
+| Per-step ntfy fires during prep ([#738](https://github.com/brockamer/findajob/issues/738)) | (unverified — needs ntfy topic capture during prep run) | (unverified) |
+
+### Ingest
+
+| Surface | Docker | Fly |
+|---------|--------|-----|
+| `GET /ingest/` (manual + speculative form) | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `POST /ingest/manual` (URL paste) | (unverified) | (unverified) |
+| `POST /ingest/speculative` (cold-outreach research kickoff) | (unverified) | (unverified) |
+| `GET /speculative/status/{id}` (status page) | (unverified) | (unverified) |
+| `GET /speculative/status/{id}/poll` (5s HTMX poll) | (unverified) | (unverified) |
+| `GET /speculative/review/{id}` (approval UI) | (unverified) | (unverified) |
+| `POST /speculative/approve/{id}` | (unverified) | (unverified) |
+| `POST /speculative/regenerate/{id}` | (unverified) | (unverified) |
+| `POST /speculative/trash/{id}` | (unverified) | (unverified) |
+
+### Onboarding flow (NUX gate)
+
+First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until present. Cross-substrate behavior must match step-by-step.
+
+| Step | Surface | Docker | Fly |
+|------|---------|--------|-----|
+| Step 1 — API keys page | `GET /onboarding/` | (unverified) | (unverified) |
+| Step 1 — save own keys | `POST /onboarding/keys` | (unverified) | (unverified) |
+| Step 1 — use detected env vars | `POST /onboarding/keys/use-detected` | (unverified) | (unverified) |
+| Step 2 — interview page | `GET /onboarding/interview/{sid}` | (unverified) | (unverified) |
+| Step 2 — start interview | `POST /onboarding/interview/start` | (unverified) | (unverified) |
+| Step 2 — turn (non-stream) | `POST /onboarding/interview/turn` | (unverified) | (unverified) |
+| Step 2 — turn (streaming, [#740](https://github.com/brockamer/findajob/issues/740)) | `POST /onboarding/interview/turn-stream` | (unverified) | (unverified) |
+| Step 2 — finalize | `POST /onboarding/interview/{sid}/finalize` | (unverified) | (unverified) |
+| Step 3 — connections page | `GET /onboarding/connections/{sid}/` | (unverified) | (unverified) |
+| Step 3 — connections upload | `POST /onboarding/connections/{sid}/upload` | (unverified) | (unverified) |
+| Step 3 — skip connections | `POST /onboarding/connections/{sid}/skip` | (unverified) | (unverified) |
+| Step 4 — spend ceiling page | `GET /onboarding/spend-ceiling/{sid}/` | (unverified) | (unverified) |
+| Step 4 — save spend ceiling | `POST /onboarding/spend-ceiling/{sid}/` | (unverified) | (unverified) |
+| Step 4 — finish | `GET /onboarding/spend-ceiling/{sid}/finish` | (unverified) | (unverified) |
+| Step 5 — Gmail config page | `GET /onboarding/gmail-config/{sid}/` | (unverified) | (unverified) |
+| Step 5 — finish Gmail | `POST /onboarding/gmail-config/{sid}/finish` | (unverified) | (unverified) |
+| Step 5 — skip Gmail | `POST /onboarding/gmail-config/{sid}/skip` | (unverified) | (unverified) |
+| Step 6 — feed config page | `GET /onboarding/feed-config/{sid}` | (unverified) | (unverified) |
+| Step 6 — save feed config | `POST /onboarding/feed-config/{sid}` | (unverified) | (unverified) |
+| Step 6 — finish (writes sentinel) | `POST /onboarding/feed-config/{sid}/finish` | (unverified) | (unverified) |
+
+### Settings (domain-aware editors)
+
+| Surface | Docker | Fly |
+|---------|--------|-----|
+| `GET /settings/reject-reasons/` ([#490](https://github.com/brockamer/findajob/issues/490)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `POST /settings/reject-reasons/` | (unverified — POST not exercised) | (unverified) |
+| `GET /settings/active-sources/` ([#603](https://github.com/brockamer/findajob/issues/603)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `POST /settings/active-sources/` | (unverified — POST not exercised) | (unverified) |
+| Per-adapter `is_configured()` badge correct on `/settings/active-sources/` | (unverified — needs DOM check) | (unverified) |
+| `GET /settings/connections/` ([#614](https://github.com/brockamer/findajob/issues/614)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `POST /settings/connections/upload` (atomic replace) | (unverified — POST not exercised) | (unverified) |
+| Connections remove confirm-zone modal | (unverified — needs DOM check) | (unverified) |
+| `GET /settings/spend-ceiling/` ([#671](https://github.com/brockamer/findajob/issues/671)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `POST /settings/spend-ceiling/` | (unverified — POST not exercised) | (unverified) |
+| `GET /settings/excluded-employers/` ([#729](https://github.com/brockamer/findajob/issues/729)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `POST /settings/excluded-employers/` | (unverified — POST not exercised) | (unverified) |
+
+### Config editor (raw text)
+
+| Surface | Docker | Fly |
+|---------|--------|-----|
+| `GET /config/` index | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `GET /config/files/{relpath}` (allowlisted file load) | (unverified — needs per-file loop) | (unverified) |
+| `POST /config/files/{relpath}` (atomic save) | (unverified — POST not exercised) | (unverified) |
+| `GET /config/gmail/` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `POST /config/gmail/save` | (unverified — POST not exercised) | (unverified) |
+| `POST /config/gmail/test` (IMAP smoke; auto-runs on save per [#690](https://github.com/brockamer/findajob/issues/690)) | (unverified — POST not exercised) | (unverified) |
+| `POST /config/gmail/disconnect` | (unverified — POST not exercised) | (unverified) |
+
+### Notifications surfaces
+
+| Surface | Docker | Fly |
+|---------|--------|-----|
+| `GET /notifications/` index | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `GET /notifications/badge` (HTMX nav poll) | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `POST /notifications/{id}/read` | (unverified — POST not exercised) | (unverified) |
+| `POST /notifications/mark-all-read` | (unverified — POST not exercised) | (unverified) |
+
+### Stats, docs, tools, health
+
+| Surface | Docker | Fly |
+|---------|--------|-----|
+| `GET /stats/` redirect | (unverified — redirect not exercised) | (unverified) |
+| `GET /stats/funnel` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `GET /stats/feedback` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `GET /docs/` (renders `docs/usage.md` etc.) | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `GET /docs/{slug}` (allowlisted: see `_PAGES` in `routes/docs.py`) | (unverified — per-slug loop) | (unverified) |
+| `GET /tools/` (LLM-prompt tile gallery) | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `GET /healthz` (container liveness probe) | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| `POST /feedback/submit` (anonymous feedback form) | (unverified — POST not exercised) | (unverified) |
+
+---
+
+## Backend services
+
+### Scheduled jobs (supercronic, container `TZ=America/Los_Angeles`)
+
+| Job | Cadence (PT) | Docker | Fly |
+|-----|--------------|--------|-----|
+| `triage` | 00:00 daily | ✓ 2026-05-20 `6f5e317` (2 cycles in last 500 events) | (unverified) |
+| `watchdog` | every 10 min | ✓ 2026-05-20 `6f5e317` (278 watchdog_run events) | (unverified) |
+| `notify-apply` | 06:00 daily | (unverified — needs event tail before tag) | (unverified) |
+| `notify-stats` | 06:15 daily | (unverified — needs event tail before tag) | (unverified) |
+| `notify-health` | 07:00 daily | (unverified — needs event tail before tag) | (unverified) |
+| `notify-issues` | Mon/Wed/Fri 08:00 | (unverified — needs event tail before tag) | (unverified) |
+| `notify-feedback` | Sunday 08:00 | (unverified — needs event tail before tag) | (unverified) |
+| `discover` (company_discoverer) | Sunday 02:00 | (unverified — runs weekly) | (unverified) |
+| `detect-rejections` | every 30 min | ✓ 2026-05-20 `6f5e317` (93 rejection_scan_* events) | (unverified) |
+| Staging clicker (operator-only; `FINDAJOB_STAGING_*_ENABLED=true`) | — | n/a | n/a |
+
+`notify-scoreboard` (Monday 08:30) is disabled in tracked `scheduled-jobs.yaml` per [#112](https://github.com/brockamer/findajob/issues/112); not part of parity.
+
+### Source adapters (`REGISTERED_ADAPTERS`)
+
+Each adapter declared in `src/findajob/fetchers/adapters/__init__.py`. Selection via `config/active_sources.txt`. Per-adapter `is_configured()` returns deterministic boolean — surfaced on `/settings/active-sources/`.
+
+| Adapter | Class | Docker | Fly |
+|---------|-------|--------|-----|
+| jobs-api14 (RapidAPI) | `JobsApi14Adapter` | ✓ 2026-05-20 `6f5e317` (jobsapi_date_posted × 2) | (unverified) |
+| jobs-api14-indeed (RapidAPI) | `JobsApi14IndeedAdapter` | (unverified — staging may not have it active) | (unverified) |
+| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | (unverified — opt-in, may not be active on staging) | (unverified) |
+| jsearch (LinkedIn via RapidAPI) | `JSearchAdapter` | (unverified — no events in last 500) | (unverified) |
+| greenhouse (ATS direct) | `GreenhouseAdapter` | ✓ 2026-05-20 `6f5e317` (greenhouse_fetch × 14) | (unverified) |
+| ashby (ATS direct) | `AshbyAdapter` | ✓ 2026-05-20 `6f5e317` (ashby_fetch × 10) | (unverified) |
+| lever (ATS direct) | `LeverAdapter` | ✓ 2026-05-20 `6f5e317` (lever_fetch_skip × 14 — adapter reached) | (unverified) |
+| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | (unverified — no events; verify selection on staging) | (unverified) |
+| gmail-linkedin (LinkedIn alerts via IMAP) | `GmailLinkedInAdapter` | (unverified — staging Gmail not configured) | (unverified) |
+
+### External integrations
+
+| Integration | Docker | Fly |
+|-------------|--------|-----|
+| ntfy push (`NTFY_TOPIC` env var) | (unverified — staging topic is private; needs end-to-end notify-* fire) | (unverified) |
+| Gmail IMAP ingestion (`gmail_linkedin` adapter) | (unverified — staging Gmail not configured) | (unverified) |
+| Gmail IMAP rejection detection ([#362](https://github.com/brockamer/findajob/issues/362)) — every 30 min | ✓ 2026-05-20 `6f5e317` (rejection_scan_* × 93; staging skips empty) | (unverified) |
+| OpenRouter LLM (`findajob.llm.openrouter.complete()`) | ✓ 2026-05-20 `6f5e317` (scoring_complete + fit_analysis events) | (unverified) |
+| `cost_log` writes from OpenRouter `response.usage.cost` | ✓ 2026-05-20 `6f5e317` (prep_cost_projection × 7 implies cost_log writes) | (unverified) |
+| Per-call spend-ceiling gate ([#671](https://github.com/brockamer/findajob/issues/671)) | (unverified — needs cap-breach scenario, separate verification) | (unverified) |
+
+### Persistence & operational
+
+| Concern | Docker | Fly |
+|---------|--------|-----|
+| Schema migrations apply at container start (`apply_pending`) | ✓ 2026-05-20 `6f5e317` (staging recreate clean, no migration errors) | (unverified) |
+| SQLite WAL sidecars writable by `lad`/app user | ✓ 2026-05-20 `6f5e317` (in-container writes succeed post-recreate) | (unverified) |
+| Companies folder writes (`prep_folder_path`) atomic with DB updates ([#709](https://github.com/brockamer/findajob/issues/709)) | (unverified — needs prep-run inspection) | (unverified) |
+| `verify_auth` post-deploy exits 0 | ✓ 2026-05-20 `6f5e317` (exit 0 confirmed after recreate) | (unverified) |
+| Auth-gap killswitch hooked (Docker only — `/opt/scripts/findajob-auth-killswitch.sh`) | n/a (operator-only) | n/a |
+
+---
+
+## Update protocol
+
+1. Bump the SHA in cell evidence whenever a surface is reverified against a newer release.
+2. When a parity gap is found mid-verification, file a follow-up issue via `jared file`, set the cell to `✗ #NNN`, and decide blocker vs release-acceptable.
+3. When closing a follow-up that fixed a gap, update the cell to `✓ YYYY-MM-DD <new-sha>` in the same PR.
+4. When adding a new feature surface (new route, new POST, new cron entry), add the corresponding row in the same PR per the same-PR docs rule in [CLAUDE.md](../../CLAUDE.md).
+
+## Verification scope notes
+
+- **Routes-only smoke** (HTTP 200 + expected fragment) catches the common substrate failures (proxy buffering, redirect semantics, auth gate). It does *not* catch behavioral regressions in subprocess workers, scheduled-job correctness, or LLM/IMAP integration health — those need targeted exercise (trigger triage, inspect `pipeline.jsonl`, exercise a prep run).
+- **Subprocess launchers** are verified end-to-end by exercising the originating POST and confirming the spawned process reaches its exit stage (`briefing_ready`, `materials_drafted`, interview prep file present, speculative `ready_for_review`).
+- **Scheduled jobs** are verified by inspecting `logs/pipeline.jsonl` for the expected event names (`pipeline_started`, `pipeline_completed`, plus per-job markers) within the cadence window.
+- **External integrations** (ntfy, IMAP, OpenRouter) require live credentials. Operator's stacks have these; tester stacks have them tester-funded. Verification implies a real outbound call lands.
+
+## Verification log
+
+A short log of each verification pass — date, SHA, observations, gaps surfaced.
+
+### 2026-05-20 — initial Docker-side pass (SHA `6f5e317`)
+
+First population of the matrix, Docker leg only. Pass exercised `findajob-staging` after refreshing the stack to current `:latest`.
+
+Coverage this pass:
+- 33 GET routes smoke-tested in-container via loopback (`docker exec` + curl): all returned 200 with the expected page title.
+- Scheduled-job health derived from `/app/logs/pipeline.jsonl` (last 500 events): `triage` (2 cycles), `watchdog` (278 runs), `detect-rejections` (93 scans), prep Phase A (8 completes), and source adapters (Greenhouse, Ashby, Lever, jobs-api14) all confirmed active.
+- Schema migrations + `verify_auth` confirmed clean post-recreate.
+
+Operational observation, not a code gap: at start of the pass, `findajob-staging` was running a `:latest` image digest that predated [#729](https://github.com/brockamer/findajob/issues/729) — `settings_excluded_employers.py` was not present in the image, and the `/settings/excluded-employers/` route returned 404. After `docker compose pull && up -d` the new route returned 200. The pattern means `:latest` rebuilds on `main` don't propagate to staging without an explicit pull. This is not a Docker↔Fly parity issue; flagging here so the next session decides whether to file (e.g., a Watchtower-style auto-update for staging) or treat as deliberate manual cadence.
+
+Unverified surfaces remaining on the Docker leg this pass: every POST route, per-file `/config/files/{relpath}` loop, per-slug `/docs/{slug}` loop, subprocess launchers other than prep Phase A, JSearch adapter (no events surfaced), WorkdayCXS adapter, ntfy push (needs end-to-end), Gmail IMAP ingestion (not configured on staging), spend-ceiling cap-breach scenario. These are honest gaps in the verification pass; they need follow-up sessions or expanded probes to mark ✓.
+
+Fly leg: entirely unverified — requires either operator-private Fly URL access or completion of [#672](https://github.com/brockamer/findajob/issues/672)'s tester walkthrough.
