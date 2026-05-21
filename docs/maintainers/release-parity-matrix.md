@@ -228,7 +228,7 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 |---------|--------|-----|
 | `GET /notifications/` index | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `GET /notifications/badge` (HTMX nav poll) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /notifications/{id}/read` | (unverified — single-row variant not exercised; mark-all-read is verified) | (unverified) |
+| `POST /notifications/{id}/read` | ✓ 2026-05-20 `6f5e317` (staging: 303 redirect on POST `/notifications/37/read`; idempotent on already-read row) | (unverified) |
 | `POST /notifications/mark-all-read` | ✓ 2026-05-20 `6f5e317` (staging: 303 redirect, post-call unread=0) | (unverified) |
 
 ### Stats, docs, tools, health
