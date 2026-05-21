@@ -16,6 +16,16 @@ Before a gated tag (minor bump like `v0.28.0`, or any major like `v1.0.0`), run 
 
 A release tag is acceptable when every cell is `✓` against the release SHA, or `✗` with a follow-up that the operator has explicitly classified as release-acceptable (filed to a non-blocking milestone).
 
+### How individual issues reference this matrix
+
+Three patterns. When filing or working an issue, name the pattern in the issue body so the relation is explicit:
+
+1. **Verifies a row** — a bug-fix issue that flips a `✗ #N` cell to `✓ YYYY-MM-DD <sha>`. In the fix PR, update the matrix row in the same commit per the same-PR docs rule. Example: a fix for [#770](https://github.com/brockamer/findajob/issues/770) updates `/docs/{slug}` on the Fly column.
+2. **Surfaced by it** — an issue filed because a verification pass found a gap. The issue body links back to the verification log entry that surfaced it. Examples: [#768](https://github.com/brockamer/findajob/issues/768), [#770](https://github.com/brockamer/findajob/issues/770), [#771](https://github.com/brockamer/findajob/issues/771).
+3. **Gated by it** — release-tag or milestone-cut work that requires every cell `✓` on both columns. The release runbook in [`release-process.md`](release-process.md) names the matrix as the pre-tag gate for every minor and major bump.
+
+A single issue can match multiple patterns (e.g. #770 is both *surfaced-by* and *verifies-a-row*).
+
 **Docker reference stacks**: `findajob-staging` (populated soak; synthetic clicker drives forward-flow) is the primary verification target. Where the clicker leaves coverage gaps — un-* reversibility, change-reason, gmail-linkedin adapter, full reject/waitlist/withdraw flow — cells may be verified against `operator-primary-stack` (the operator's real-use stack with human-driven audit_log) as a secondary Docker reference. The matrix asserts Docker-substrate parity, not stack-specific parity, so evidence from any Docker stack is valid. Verification log records which stack the evidence came from.
 
 **Fly reference deploy**: operator's Fly app (URL operator-private). Tester Fly deploys may be substituted for Fly-leg verification once the unaffiliated-tester walkthrough ([#672](https://github.com/brockamer/findajob/issues/672)) ships.
