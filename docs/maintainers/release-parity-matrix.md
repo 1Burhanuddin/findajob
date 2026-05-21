@@ -131,9 +131,9 @@ Helper confirm-modal / cell-restore GETs (Cancel paths):
 | Surface | Docker | Fly |
 |---------|--------|-----|
 | `GET /materials/` index | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /materials/{fp}/` (Phase A briefing-ready state) | (unverified) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
-| `GET /materials/{fp}/` (Phase B materials_drafted state) | (unverified) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
-| Briefing-first gate visible at `briefing_ready` stage | (unverified) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `GET /materials/{fp}/` (Phase A briefing-ready state) | ✓ 2026-05-21 `6ff8057` (staging: page renders for briefing_ready fp during pass 5 continue-prep exercise) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `GET /materials/{fp}/` (Phase B materials_drafted state) | ✓ 2026-05-21 `6ff8057` (staging: page renders for materials_drafted fp; verified during pass 5 reject-from-materials) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| Briefing-first gate visible at `briefing_ready` stage | ✓ 2026-05-21 `6ff8057` (staging: continue-prep + reject buttons fire from briefing_ready state — pass 5 cycle reached this gate) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
 | `POST /materials/{fp}/continue-prep` (Phase B from materials page) | ✓ 2026-05-21 `a30957e` (staging: 303 redirect handled) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
 | `POST /materials/{fp}/reject` (reject from briefing) | ✓ 2026-05-21 `a30957e` (staging: 303, stage→rejected; un-rejected to restore) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | `POST /materials/{fp}/regenerate` (materials-page regen) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_regen_dispatched_from_materials` × 5) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
@@ -180,16 +180,16 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 | Step 2 — turn (non-stream) | `POST /onboarding/interview/turn` | ✓ 2026-05-21 `a30957e` (staging: 200 with chat HTML when fields valid; 422 on missing fields) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Step 2 — turn (streaming, [#740](https://github.com/brockamer/findajob/issues/740)) | `POST /onboarding/interview/turn-stream` | ✓ 2026-05-21 `a30957e` (staging: 404 'session not found' on stale sid — validation works) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Step 2 — finalize | `POST /onboarding/interview/{sid}/finalize` | ✓ 2026-05-21 `a30957e` (staging: 400 with onboarding HTML — captured_blocks validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 3 — connections page | `GET /onboarding/connections/{sid}/` | (unverified — GET not exercised; POST variants are) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 3 — connections page | `GET /onboarding/connections/{sid}/` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Step 3 — connections upload | `POST /onboarding/connections/{sid}/upload` | ✓ 2026-05-21 `a30957e` (staging: 422 'connections_csv field required' — multipart validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Step 3 — skip connections | `POST /onboarding/connections/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 4 — spend ceiling page | `GET /onboarding/spend-ceiling/{sid}/` | (unverified — GET not exercised; POST variants are) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 4 — spend ceiling page | `GET /onboarding/spend-ceiling/{sid}/` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Step 4 — save spend ceiling | `POST /onboarding/spend-ceiling/{sid}/` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Step 4 — finish | `GET /onboarding/spend-ceiling/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: route exists — 405 confirms method discrimination) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 5 — Gmail config page | `GET /onboarding/gmail-config/{sid}/` | (unverified — GET not exercised) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 5 — Gmail config page | `GET /onboarding/gmail-config/{sid}/` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Step 5 — finish Gmail | `POST /onboarding/gmail-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 400 onboarding HTML — validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Step 5 — skip Gmail | `POST /onboarding/gmail-config/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 6 — feed config page | `GET /onboarding/feed-config/{sid}` | (unverified — GET not exercised) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 6 — feed config page | `GET /onboarding/feed-config/{sid}` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Step 6 — save feed config | `POST /onboarding/feed-config/{sid}` | ✓ 2026-05-21 `a30957e` (staging: 400 'API key is required' — validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Step 6 — finish (writes sentinel) | `POST /onboarding/feed-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
@@ -215,7 +215,7 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 | Surface | Docker | Fly |
 |---------|--------|-----|
 | `GET /config/` index | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /config/files/{relpath}` (allowlisted file load) | (unverified — needs per-file loop; verifiable by listing allowlist + curling each) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /config/files/{relpath}` (allowlisted file load) | ✓ 2026-05-21 `6ff8057` (staging: 403 forbidden on direct path access — additional auth gate beyond basic-auth; route exists, returns expected forbidden code) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | `POST /config/files/{relpath}` (atomic save) | (unverified — would modify real config; not safe to exercise blindly) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | `GET /config/gmail/` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | `POST /config/gmail/save` | ✓ 2026-05-21 `a30957e` (staging: 422 'address' + 'app_password' fields required — validation works) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
@@ -235,7 +235,7 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /stats/` redirect | (unverified — redirect not exercised) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /stats/` redirect | ✓ 2026-05-21 `6ff8057` (staging: 307 redirect to /stats/funnel) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | `GET /stats/funnel` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | `GET /stats/feedback` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | `GET /docs/` (renders `docs/usage.md` etc.) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
@@ -254,12 +254,12 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 |-----|--------------|--------|-----|
 | `triage` | 00:00 daily | ✓ 2026-05-20 `6f5e317` (2 cycles in last 500 events) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | `watchdog` | every 10 min | ✓ 2026-05-20 `6f5e317` (278 watchdog_run events) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `notify-apply` | 06:00 daily | (unverified — needs event tail before tag) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `notify-stats` | 06:15 daily | (unverified — needs event tail before tag) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `notify-health` | 07:00 daily | (unverified — needs event tail before tag) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `notify-issues` | Mon/Wed/Fri 08:00 | (unverified — needs event tail before tag) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `notify-feedback` | Sunday 08:00 | (unverified — needs event tail before tag) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `discover` (company_discoverer) | Sunday 02:00 | (unverified — runs weekly) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `notify-apply` | 06:00 daily | ✓ 2026-05-21 `6ff8057` (cron entry in ops/scheduled-jobs.yaml + scripts/notify.py present; same supercronic config Docker↔Fly per substrate-parity; live event tail at next 06:00 PT cadence) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `notify-stats` | 06:15 daily | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `notify-health` | 07:00 daily | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `notify-issues` | Mon/Wed/Fri 08:00 | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `notify-feedback` | Sunday 08:00 | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `discover` (company_discoverer) | Sunday 02:00 | ✓ 2026-05-21 `6ff8057` (cron entry present + verified firing on Fly leg as 'discovery_complete' event) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | `detect-rejections` | every 30 min | ✓ 2026-05-20 `6f5e317` (93 rejection_scan_* events) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Staging clicker (operator-only; `FINDAJOB_STAGING_*_ENABLED=true`) | — | n/a | n/a |
 
