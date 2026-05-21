@@ -46,9 +46,9 @@ Add a row here when a new genuine difference is discovered.
 
 | Surface | Docker (`findajob-staging`) | Fly (operator's deploy) |
 |---------|------------------------------|--------------------------|
-| `GET /` landing | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| Top-nav present, all 9 groups linked | ✓ 2026-05-21 `a30957e` (staging: 8 direct hrefs + Settings dropdown nested with /settings/reject-reasons/ + /settings/spend-ceiling/ links — 9 groups total) | (unverified) |
-| Spend chip in nav reflects current month | ✓ 2026-05-21 `a30957e` (staging: 'spend' + 'spend-ceiling' tokens present in dashboard HTML) | (unverified) |
+| `GET /` landing | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Top-nav present, all 9 groups linked | ✓ 2026-05-21 `a30957e` (staging: 8 direct hrefs + Settings dropdown nested with /settings/reject-reasons/ + /settings/spend-ceiling/ links — 9 groups total) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Spend chip in nav reflects current month | ✓ 2026-05-21 `a30957e` (staging: 'spend' + 'spend-ceiling' tokens present in dashboard HTML) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 ### Board tabs (8 user-facing tabs)
 
@@ -56,24 +56,24 @@ Every tab: `GET /board/{tab}` renders the table; `GET /board/{tab}/rows` returns
 
 | Tab | URL | Docker | Fly |
 |-----|-----|--------|-----|
-| Dashboard | `/board/dashboard` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| Applied | `/board/applied` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| Review | `/board/review` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| Waitlist | `/board/waitlist` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| Rejected | `/board/rejected` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| Not Selected | `/board/not-selected` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| Archive | `/board/archive` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| Rejections Review | `/board/rejections-review/` | ✓ 2026-05-20 `6f5e317` | (unverified) |
+| Dashboard | `/board/dashboard` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Applied | `/board/applied` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Review | `/board/review` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Waitlist | `/board/waitlist` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Rejected | `/board/rejected` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Not Selected | `/board/not-selected` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Archive | `/board/archive` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Rejections Review | `/board/rejections-review/` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 Per-tab cross-cuts (verify once per substrate, not per tab):
 
 | Cross-cut | Docker | Fly |
 |-----------|--------|-----|
-| `view_prefs` cold-load redirect adds `?<persisted_qs>` | ✓ 2026-05-20 `6f5e317` (303 → `/board/dashboard?title=Engineer&cols=title%2Ccompany` after auto-save) | (unverified) |
-| `POST /board/{tab}/reset-view` clears persisted prefs | ✓ 2026-05-20 `6f5e317` (303 to bare tab URL; post-reset cold-load returns 200 no redirect) | (unverified) |
-| Columns dropdown writes `?cols=` and persists | ✓ 2026-05-20 `6f5e317` (cols= round-trips through view_prefs auto-save → cold-load redirect) | (unverified) |
-| Notes inline edit autosaves (800ms debounce) | ✓ 2026-05-21 `a30957e` (staging: POST /notes event_type=keyup updates user_notes, no notes_history write) | (unverified) |
-| Notes blur writes `notes_history` row | ✓ 2026-05-21 `a30957e` (staging: POST /notes event_type=blur appends notes_history row) | (unverified) |
+| `view_prefs` cold-load redirect adds `?<persisted_qs>` | ✓ 2026-05-20 `6f5e317` (303 → `/board/dashboard?title=Engineer&cols=title%2Ccompany` after auto-save) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /board/{tab}/reset-view` clears persisted prefs | ✓ 2026-05-20 `6f5e317` (303 to bare tab URL; post-reset cold-load returns 200 no redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Columns dropdown writes `?cols=` and persists | ✓ 2026-05-20 `6f5e317` (cols= round-trips through view_prefs auto-save → cold-load redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Notes inline edit autosaves (800ms debounce) | ✓ 2026-05-21 `a30957e` (staging: POST /notes event_type=keyup updates user_notes, no notes_history write) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Notes blur writes `notes_history` row | ✓ 2026-05-21 `a30957e` (staging: POST /notes event_type=blur appends notes_history row) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 ### Job action transitions (POST routes)
 
@@ -81,90 +81,90 @@ Per [CLAUDE.md § Board Routes & Stage Lifecycle](../../CLAUDE.md). Each transit
 
 | Action | Endpoint | Docker | Fly |
 |--------|----------|--------|-----|
-| Flag for Prep (Phase A) | `POST /board/jobs/{fp}/prep` | ✓ 2026-05-20 `6f5e317` (38 scored→prep_in_progress in audit_log) | (unverified) |
-| Continue prep (Phase B) — dashboard | `POST /board/jobs/{fp}/continue-prep` | ✓ 2026-05-21 `a30957e` (staging: 200, briefing_ready→prep_in_progress→materials_drafted) | (unverified) |
-| Regenerate (with confirm modal) | `POST /board/jobs/{fp}/regenerate` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_regen_dispatched_from_materials` × 5, `folder_removed_for_regen` × 5) | (unverified) |
-| Apply (with 30s undo toast) | `POST /board/jobs/{fp}/apply` | ✓ 2026-05-20 `6f5e317` (9 materials_drafted→applied by user) | (unverified) |
-| Un-apply (during undo window) | `POST /board/jobs/{fp}/un-apply` | ✓ 2026-05-21 `a30957e` (staging: 3 do-then-undo cycles applied→materials_drafted; 409 on stage≠applied) | (unverified) |
-| Interview | `POST /board/jobs/{fp}/interview` | ✓ 2026-05-20 `6f5e317` (3 applied→interview) | (unverified) |
-| Offer | `POST /board/jobs/{fp}/offer` | ✓ 2026-05-20 `6f5e317` (1 interview→offer) | (unverified) |
-| Withdraw | `POST /board/jobs/{fp}/withdraw` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_withdrawn` × 6) | (unverified) |
-| Waitlist | `POST /board/jobs/{fp}/waitlist` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_waitlisted` × 18, `folder_moved_to_waitlisted` × 6) | (unverified) |
-| Reactivate | `POST /board/jobs/{fp}/reactivate` | ✓ 2026-05-20 `6f5e317` (staging: 1 waitlisted→scored; operator-primary-stack: 16 waitlisted→materials_drafted + 10 waitlisted→scored) | (unverified) |
-| Reactivate and prep | `POST /board/jobs/{fp}/reactivate-and-prep` | ✓ 2026-05-21 `a30957e` (staging: 200, waitlisted→prep_in_progress, Phase A subprocess ran) | (unverified) |
-| Promote (Review → Scored) | `POST /board/jobs/{fp}/promote` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `review_promoted` × 78) | (unverified) |
-| Reject (with reason) | `POST /board/jobs/{fp}/reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_rejected` × 136, `folder_moved_to_rejected` × 11) | (unverified) |
-| Un-reject (with confirm) | `POST /board/jobs/{fp}/un-reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_un_rejected` × 5) | (unverified) |
-| Change reject reason | `POST /board/jobs/{fp}/change-reject-reason` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: 502 reject_reason field_changed by system; 773 total in audit_log) | (unverified) |
-| Not Selected (with reason) | `POST /board/jobs/{fp}/not-selected` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_not_selected` × 12, `board_not_selected` × 10, `marker_added_not_selected` × 12) | (unverified) |
-| Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | ✓ 2026-05-21 `a30957e` (staging: cycle 3, not_selected→applied) | (unverified) |
-| Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | ✓ 2026-05-21 `a30957e` (staging: 200 with HTML cell, stage stays not_selected) | (unverified) |
-| Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | ✓ 2026-05-21 `a30957e` (staging: cycle 2, withdrawn→applied) | (unverified) |
-| Reattribute (from archive) | `POST /board/jobs/{fp}/reattribute-from-archive` | ✓ 2026-05-21 `a30957e` (staging: source restored from not_selected, target moved to not_selected) | (unverified) |
-| Edit user_notes | `POST /board/jobs/{fp}/notes` | ✓ 2026-05-21 `a30957e` (staging: blur + keyup variants both update user_notes; blur appends notes_history) | (unverified) |
-| Trigger triage on demand | `POST /board/trigger-triage` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect → web_triage_dispatched + pipeline_started + jobs_fetched + scoring_started events) | (unverified) |
+| Flag for Prep (Phase A) | `POST /board/jobs/{fp}/prep` | ✓ 2026-05-20 `6f5e317` (38 scored→prep_in_progress in audit_log) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| Continue prep (Phase B) — dashboard | `POST /board/jobs/{fp}/continue-prep` | ✓ 2026-05-21 `a30957e` (staging: 200, briefing_ready→prep_in_progress→materials_drafted) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| Regenerate (with confirm modal) | `POST /board/jobs/{fp}/regenerate` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_regen_dispatched_from_materials` × 5, `folder_removed_for_regen` × 5) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| Apply (with 30s undo toast) | `POST /board/jobs/{fp}/apply` | ✓ 2026-05-20 `6f5e317` (9 materials_drafted→applied by user) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Un-apply (during undo window) | `POST /board/jobs/{fp}/un-apply` | ✓ 2026-05-21 `a30957e` (staging: 3 do-then-undo cycles applied→materials_drafted; 409 on stage≠applied) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Interview | `POST /board/jobs/{fp}/interview` | ✓ 2026-05-20 `6f5e317` (3 applied→interview) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| Offer | `POST /board/jobs/{fp}/offer` | ✓ 2026-05-20 `6f5e317` (1 interview→offer) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Withdraw | `POST /board/jobs/{fp}/withdraw` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_withdrawn` × 6) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Waitlist | `POST /board/jobs/{fp}/waitlist` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_waitlisted` × 18, `folder_moved_to_waitlisted` × 6) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Reactivate | `POST /board/jobs/{fp}/reactivate` | ✓ 2026-05-20 `6f5e317` (staging: 1 waitlisted→scored; operator-primary-stack: 16 waitlisted→materials_drafted + 10 waitlisted→scored) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Reactivate and prep | `POST /board/jobs/{fp}/reactivate-and-prep` | ✓ 2026-05-21 `a30957e` (staging: 200, waitlisted→prep_in_progress, Phase A subprocess ran) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| Promote (Review → Scored) | `POST /board/jobs/{fp}/promote` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `review_promoted` × 78) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Reject (with reason) | `POST /board/jobs/{fp}/reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_rejected` × 136, `folder_moved_to_rejected` × 11) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Un-reject (with confirm) | `POST /board/jobs/{fp}/un-reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_un_rejected` × 5) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Change reject reason | `POST /board/jobs/{fp}/change-reject-reason` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: 502 reject_reason field_changed by system; 773 total in audit_log) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Not Selected (with reason) | `POST /board/jobs/{fp}/not-selected` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_not_selected` × 12, `board_not_selected` × 10, `marker_added_not_selected` × 12) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | ✓ 2026-05-21 `a30957e` (staging: cycle 3, not_selected→applied) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | ✓ 2026-05-21 `a30957e` (staging: 200 with HTML cell, stage stays not_selected) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | ✓ 2026-05-21 `a30957e` (staging: cycle 2, withdrawn→applied) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Reattribute (from archive) | `POST /board/jobs/{fp}/reattribute-from-archive` | ✓ 2026-05-21 `a30957e` (staging: source restored from not_selected, target moved to not_selected) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Edit user_notes | `POST /board/jobs/{fp}/notes` | ✓ 2026-05-21 `a30957e` (staging: blur + keyup variants both update user_notes; blur appends notes_history) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Trigger triage on demand | `POST /board/trigger-triage` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect → web_triage_dispatched + pipeline_started + jobs_fetched + scoring_started events) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
 
 Helper confirm-modal / cell-restore GETs (Cancel paths):
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /board/jobs/{fp}/regenerate/confirm` (modal) | ✓ 2026-05-20 `6f5e317` (200 for materials_drafted; 409 stage-mismatch for briefing_ready) | (unverified) |
-| `GET /board/jobs/{fp}/regenerate/cell` (restore) | ✓ 2026-05-20 `6f5e317` (200 partial for both stages) | (unverified) |
-| `GET /board/jobs/{fp}/un-reject/confirm` | ✓ 2026-05-20 `6f5e317` (409 stage-mismatch on non-rejected; no rejected fp on staging to test 200 path) | (unverified) |
-| `GET /board/jobs/{fp}/un-reject/cell` | ✓ 2026-05-20 `6f5e317` (200 restore partial on non-rejected fp) | (unverified) |
-| `GET /board/jobs/{fp}/notes/history` | ✓ 2026-05-20 `6f5e317` (200 empty-state partial; no history rows on staging) | (unverified) |
-| `GET /board/jobs/{fp}/reattribute/modal` | ✓ 2026-05-20 `6f5e317` (409 stage-mismatch on applied; needs not_selected fp for 200 path) | (unverified) |
-| `GET /board/jobs/{fp}/archive-actions-cell` | ✓ 2026-05-20 `6f5e317` (200 partial on applied) | (unverified) |
+| `GET /board/jobs/{fp}/regenerate/confirm` (modal) | ✓ 2026-05-20 `6f5e317` (200 for materials_drafted; 409 stage-mismatch for briefing_ready) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /board/jobs/{fp}/regenerate/cell` (restore) | ✓ 2026-05-20 `6f5e317` (200 partial for both stages) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /board/jobs/{fp}/un-reject/confirm` | ✓ 2026-05-20 `6f5e317` (409 stage-mismatch on non-rejected; no rejected fp on staging to test 200 path) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /board/jobs/{fp}/un-reject/cell` | ✓ 2026-05-20 `6f5e317` (200 restore partial on non-rejected fp) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /board/jobs/{fp}/notes/history` | ✓ 2026-05-20 `6f5e317` (200 empty-state partial; no history rows on staging) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /board/jobs/{fp}/reattribute/modal` | ✓ 2026-05-20 `6f5e317` (409 stage-mismatch on applied; needs not_selected fp for 200 path) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /board/jobs/{fp}/archive-actions-cell` | ✓ 2026-05-20 `6f5e317` (200 partial on applied) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 ### Rejections review queue (Gmail-IMAP rejection detector landing)
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /board/rejections-review/` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `GET /board/rejections-review/widget` (badge HTMX poll) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST .../{id}/confirm` (apply not_selected) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack audit_log: `changed_by='gmail_rejection_detector'` × 4 with stage and reject_reason writes) | (unverified) |
-| `POST .../{id}/dismiss` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `rejection_suggestion_dismissed` × 7) | (unverified) |
-| `POST .../{id}/reattribute` (override matched_job_id) | (unverified — would need to fire on a real rejection_suggestions row; route handler exists per code) | (unverified) |
+| `GET /board/rejections-review/` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /board/rejections-review/widget` (badge HTMX poll) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST .../{id}/confirm` (apply not_selected) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack audit_log: `changed_by='gmail_rejection_detector'` × 4 with stage and reject_reason writes) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST .../{id}/dismiss` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `rejection_suggestion_dismissed` × 7) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST .../{id}/reattribute` (override matched_job_id) | (unverified — would need to fire on a real rejection_suggestions row; route handler exists per code) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 ### Materials & prep flow
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /materials/` index | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `GET /materials/{fp}/` (Phase A briefing-ready state) | (unverified) | (unverified) |
-| `GET /materials/{fp}/` (Phase B materials_drafted state) | (unverified) | (unverified) |
-| Briefing-first gate visible at `briefing_ready` stage | (unverified) | (unverified) |
-| `POST /materials/{fp}/continue-prep` (Phase B from materials page) | ✓ 2026-05-21 `a30957e` (staging: 303 redirect handled) | (unverified) |
-| `POST /materials/{fp}/reject` (reject from briefing) | ✓ 2026-05-21 `a30957e` (staging: 303, stage→rejected; un-rejected to restore) | (unverified) |
-| `POST /materials/{fp}/regenerate` (materials-page regen) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_regen_dispatched_from_materials` × 5) | (unverified) |
-| `GET /materials/{fp}/{filename}` (download artifact) | ✓ 2026-05-21 `a30957e` (staging: 200 with HTML page rendering markdown briefing) | (unverified) |
-| `POST /materials/{fp}/files/{filename}` (edit artifact) | (unverified — multipart edit POST not exercised; route handler exists per code) | (unverified) |
-| `GET /jobs/{fp}/jd` (JD modal) | ✓ 2026-05-21 `a30957e` (staging: 200 with JD modal HTML) | (unverified) |
+| `GET /materials/` index | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /materials/{fp}/` (Phase A briefing-ready state) | (unverified) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `GET /materials/{fp}/` (Phase B materials_drafted state) | (unverified) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| Briefing-first gate visible at `briefing_ready` stage | (unverified) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `POST /materials/{fp}/continue-prep` (Phase B from materials page) | ✓ 2026-05-21 `a30957e` (staging: 303 redirect handled) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `POST /materials/{fp}/reject` (reject from briefing) | ✓ 2026-05-21 `a30957e` (staging: 303, stage→rejected; un-rejected to restore) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /materials/{fp}/regenerate` (materials-page regen) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_regen_dispatched_from_materials` × 5) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `GET /materials/{fp}/{filename}` (download artifact) | ✓ 2026-05-21 `a30957e` (staging: 200 with HTML page rendering markdown briefing) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `POST /materials/{fp}/files/{filename}` (edit artifact) | (unverified — multipart edit POST not exercised; route handler exists per code) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `GET /jobs/{fp}/jd` (JD modal) | ✓ 2026-05-21 `a30957e` (staging: 200 with JD modal HTML) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 Subprocess launchers (spawn detached generator processes):
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `prep_application.py --phase=a` reaches `briefing_ready` | ✓ 2026-05-20 `6f5e317` (prep_phase_a_complete × 8; 11 audit_log transitions prep_in_progress→briefing_ready) | (unverified) |
-| `prep_application.py --phase=b` reaches `materials_drafted` | ✓ 2026-05-20 `6f5e317` (25 audit_log transitions prep_in_progress→materials_drafted) | (unverified) |
-| `prep_application.py --phase=all` (cron/manual default) | ✓ 2026-05-21 `a30957e` (staging: regenerate from materials-page invokes default --phase=all; verified via Phase A + Phase B completion both reaching materials_drafted on primary fp) | (unverified) |
-| `interview_prep.py` (re-runs on each click; sentinel guard) | ✓ 2026-05-20 `6f5e317` (staging + operator-primary-stack: `interview_prep_started` + `interview_prep_complete` events present) | (unverified) |
-| `run_speculative_research.py` (async, status-page polled) | ✓ 2026-05-20 `6f5e317` (staging: `speculative_research_started/complete` events present from weekly clicker fire) | (unverified) |
-| Per-step ntfy fires during prep ([#738](https://github.com/brockamer/findajob/issues/738)) | ✓ 2026-05-21 `a30957e` (staging: `.phase_b_step` sidecar in both prep folders shows '5/5 outreach' — _notify_phase_b_step reached final step on both Phase B runs, implying 5× quick_notify() calls per run) | (unverified) |
+| `prep_application.py --phase=a` reaches `briefing_ready` | ✓ 2026-05-20 `6f5e317` (prep_phase_a_complete × 8; 11 audit_log transitions prep_in_progress→briefing_ready) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `prep_application.py --phase=b` reaches `materials_drafted` | ✓ 2026-05-20 `6f5e317` (25 audit_log transitions prep_in_progress→materials_drafted) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `prep_application.py --phase=all` (cron/manual default) | ✓ 2026-05-21 `a30957e` (staging: regenerate from materials-page invokes default --phase=all; verified via Phase A + Phase B completion both reaching materials_drafted on primary fp) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `interview_prep.py` (re-runs on each click; sentinel guard) | ✓ 2026-05-20 `6f5e317` (staging + operator-primary-stack: `interview_prep_started` + `interview_prep_complete` events present) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `run_speculative_research.py` (async, status-page polled) | ✓ 2026-05-20 `6f5e317` (staging: `speculative_research_started/complete` events present from weekly clicker fire) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| Per-step ntfy fires during prep ([#738](https://github.com/brockamer/findajob/issues/738)) | ✓ 2026-05-21 `a30957e` (staging: `.phase_b_step` sidecar in both prep folders shows '5/5 outreach' — _notify_phase_b_step reached final step on both Phase B runs, implying 5× quick_notify() calls per run) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
 
 ### Ingest
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /ingest/` (manual + speculative form) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /ingest/manual` (URL paste) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `manual_job_ingested` × 6) | (unverified) |
-| `POST /ingest/speculative` (cold-outreach research kickoff) | ✓ 2026-05-20 `6f5e317` (staging: clicker fires weekly per `clicker.py:_run_speculative`; events `speculative_research_started/complete` present) | (unverified) |
-| `GET /speculative/status/{id}` (status page) | ✓ 2026-05-21 `a30957e` (staging: 200 against GitLab request id=2) | (unverified) |
-| `GET /speculative/status/{id}/poll` (5s HTMX poll) | ✓ 2026-05-21 `a30957e` (staging: 200, small HTMX partial) | (unverified) |
-| `GET /speculative/review/{id}` (approval UI) | ✓ 2026-05-21 `a30957e` (staging: 200 with review UI HTML) | (unverified) |
-| `POST /speculative/approve/{id}` | ✓ 2026-05-21 `a30957e` (staging: 303 on id=2; empty keep[] = approve nothing = trashed) | (unverified) |
-| `POST /speculative/regenerate/{id}` | ✓ 2026-05-21 `a30957e` (staging: 303 on id=2; status→researching, new subprocess kicked) | (unverified) |
-| `POST /speculative/trash/{id}` | ✓ 2026-05-21 `a30957e` (staging: 303 on id=1; status→trashed) | (unverified) |
+| `GET /ingest/` (manual + speculative form) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /ingest/manual` (URL paste) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `manual_job_ingested` × 6) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /ingest/speculative` (cold-outreach research kickoff) | ✓ 2026-05-20 `6f5e317` (staging: clicker fires weekly per `clicker.py:_run_speculative`; events `speculative_research_started/complete` present) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `GET /speculative/status/{id}` (status page) | ✓ 2026-05-21 `a30957e` (staging: 200 against GitLab request id=2) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `GET /speculative/status/{id}/poll` (5s HTMX poll) | ✓ 2026-05-21 `a30957e` (staging: 200, small HTMX partial) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `GET /speculative/review/{id}` (approval UI) | ✓ 2026-05-21 `a30957e` (staging: 200 with review UI HTML) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `POST /speculative/approve/{id}` | ✓ 2026-05-21 `a30957e` (staging: 303 on id=2; empty keep[] = approve nothing = trashed) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `POST /speculative/regenerate/{id}` | ✓ 2026-05-21 `a30957e` (staging: 303 on id=2; status→researching, new subprocess kicked) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
+| `POST /speculative/trash/{id}` | ✓ 2026-05-21 `a30957e` (staging: 303 on id=1; status→trashed) | ✗ [#771](https://github.com/brockamer/findajob/issues/771) (route fires but subprocess fails silently — BASE/scripts/ path divergence on Fly) |
 
 ### Onboarding flow (NUX gate)
 
@@ -172,77 +172,77 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 
 | Step | Surface | Docker | Fly |
 |------|---------|--------|-----|
-| Step 1 — API keys page | `GET /onboarding/` | ✓ 2026-05-20 `6f5e317` (staging — verified earlier as part of landing routes) | (unverified) |
-| Step 1 — save own keys | `POST /onboarding/keys` | ✓ 2026-05-21 `a30957e` (staging: 400 with onboarding HTML on empty body — validation works) | (unverified) |
-| Step 1 — use detected env vars | `POST /onboarding/keys/use-detected` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | (unverified) |
-| Step 2 — interview page | `GET /onboarding/interview/{sid}` | ✓ 2026-05-21 `a30957e` (staging: 200, page renders) | (unverified) |
-| Step 2 — start interview | `POST /onboarding/interview/start` | ✓ 2026-05-21 `a30957e` (staging: 303 first call, 503 subsequent — sentinel guard) | (unverified) |
-| Step 2 — turn (non-stream) | `POST /onboarding/interview/turn` | ✓ 2026-05-21 `a30957e` (staging: 200 with chat HTML when fields valid; 422 on missing fields) | (unverified) |
-| Step 2 — turn (streaming, [#740](https://github.com/brockamer/findajob/issues/740)) | `POST /onboarding/interview/turn-stream` | ✓ 2026-05-21 `a30957e` (staging: 404 'session not found' on stale sid — validation works) | (unverified) |
-| Step 2 — finalize | `POST /onboarding/interview/{sid}/finalize` | ✓ 2026-05-21 `a30957e` (staging: 400 with onboarding HTML — captured_blocks validation) | (unverified) |
-| Step 3 — connections page | `GET /onboarding/connections/{sid}/` | (unverified — GET not exercised; POST variants are) | (unverified) |
-| Step 3 — connections upload | `POST /onboarding/connections/{sid}/upload` | ✓ 2026-05-21 `a30957e` (staging: 422 'connections_csv field required' — multipart validation) | (unverified) |
-| Step 3 — skip connections | `POST /onboarding/connections/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | (unverified) |
-| Step 4 — spend ceiling page | `GET /onboarding/spend-ceiling/{sid}/` | (unverified — GET not exercised; POST variants are) | (unverified) |
-| Step 4 — save spend ceiling | `POST /onboarding/spend-ceiling/{sid}/` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | (unverified) |
-| Step 4 — finish | `GET /onboarding/spend-ceiling/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: route exists — 405 confirms method discrimination) | (unverified) |
-| Step 5 — Gmail config page | `GET /onboarding/gmail-config/{sid}/` | (unverified — GET not exercised) | (unverified) |
-| Step 5 — finish Gmail | `POST /onboarding/gmail-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 400 onboarding HTML — validation) | (unverified) |
-| Step 5 — skip Gmail | `POST /onboarding/gmail-config/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | (unverified) |
-| Step 6 — feed config page | `GET /onboarding/feed-config/{sid}` | (unverified — GET not exercised) | (unverified) |
-| Step 6 — save feed config | `POST /onboarding/feed-config/{sid}` | ✓ 2026-05-21 `a30957e` (staging: 400 'API key is required' — validation) | (unverified) |
-| Step 6 — finish (writes sentinel) | `POST /onboarding/feed-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | (unverified) |
+| Step 1 — API keys page | `GET /onboarding/` | ✓ 2026-05-20 `6f5e317` (staging — verified earlier as part of landing routes) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 1 — save own keys | `POST /onboarding/keys` | ✓ 2026-05-21 `a30957e` (staging: 400 with onboarding HTML on empty body — validation works) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 1 — use detected env vars | `POST /onboarding/keys/use-detected` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 2 — interview page | `GET /onboarding/interview/{sid}` | ✓ 2026-05-21 `a30957e` (staging: 200, page renders) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 2 — start interview | `POST /onboarding/interview/start` | ✓ 2026-05-21 `a30957e` (staging: 303 first call, 503 subsequent — sentinel guard) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 2 — turn (non-stream) | `POST /onboarding/interview/turn` | ✓ 2026-05-21 `a30957e` (staging: 200 with chat HTML when fields valid; 422 on missing fields) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 2 — turn (streaming, [#740](https://github.com/brockamer/findajob/issues/740)) | `POST /onboarding/interview/turn-stream` | ✓ 2026-05-21 `a30957e` (staging: 404 'session not found' on stale sid — validation works) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 2 — finalize | `POST /onboarding/interview/{sid}/finalize` | ✓ 2026-05-21 `a30957e` (staging: 400 with onboarding HTML — captured_blocks validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 3 — connections page | `GET /onboarding/connections/{sid}/` | (unverified — GET not exercised; POST variants are) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 3 — connections upload | `POST /onboarding/connections/{sid}/upload` | ✓ 2026-05-21 `a30957e` (staging: 422 'connections_csv field required' — multipart validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 3 — skip connections | `POST /onboarding/connections/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 4 — spend ceiling page | `GET /onboarding/spend-ceiling/{sid}/` | (unverified — GET not exercised; POST variants are) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 4 — save spend ceiling | `POST /onboarding/spend-ceiling/{sid}/` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 4 — finish | `GET /onboarding/spend-ceiling/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: route exists — 405 confirms method discrimination) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 5 — Gmail config page | `GET /onboarding/gmail-config/{sid}/` | (unverified — GET not exercised) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 5 — finish Gmail | `POST /onboarding/gmail-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 400 onboarding HTML — validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 5 — skip Gmail | `POST /onboarding/gmail-config/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 6 — feed config page | `GET /onboarding/feed-config/{sid}` | (unverified — GET not exercised) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 6 — save feed config | `POST /onboarding/feed-config/{sid}` | ✓ 2026-05-21 `a30957e` (staging: 400 'API key is required' — validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 6 — finish (writes sentinel) | `POST /onboarding/feed-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 ### Settings (domain-aware editors)
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /settings/reject-reasons/` ([#490](https://github.com/brockamer/findajob/issues/490)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /settings/reject-reasons/` | ✓ 2026-05-21 `a30957e` (staging: 200 with validation error 'reasons must be non-empty' — route + validation) | (unverified) |
-| `GET /settings/active-sources/` ([#603](https://github.com/brockamer/findajob/issues/603)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /settings/active-sources/` | ✓ 2026-05-21 `a30957e` (staging: 200 idempotent re-POST of current 4-adapter set; file unchanged) | (unverified) |
-| Per-adapter `is_configured()` badge correct on `/settings/active-sources/` | ✓ 2026-05-21 `a30957e` (staging: 3× 'Not configured' + 2× 'configured' badges in HTML for the 9 adapters listed) | (unverified) |
-| `GET /settings/connections/` ([#614](https://github.com/brockamer/findajob/issues/614)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /settings/connections/upload` (atomic replace) | (unverified — multipart upload POST not exercised; route handler exists) | (unverified) |
-| Connections remove confirm-zone modal | ✓ 2026-05-21 `a30957e` (staging: GET /confirm + /cancel both 200; POST /remove also 200) | (unverified) |
-| `GET /settings/spend-ceiling/` ([#671](https://github.com/brockamer/findajob/issues/671)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /settings/spend-ceiling/` | ✓ 2026-05-21 `a30957e` (staging: 200, ceiling saved with current values; restored to default during pass) | (unverified) |
-| `GET /settings/excluded-employers/` ([#729](https://github.com/brockamer/findajob/issues/729)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /settings/excluded-employers/` | ✓ 2026-05-21 `a30957e` (staging: 200 'Saved' with count=0 body — route + persistence) | (unverified) |
+| `GET /settings/reject-reasons/` ([#490](https://github.com/brockamer/findajob/issues/490)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /settings/reject-reasons/` | ✓ 2026-05-21 `a30957e` (staging: 200 with validation error 'reasons must be non-empty' — route + validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /settings/active-sources/` ([#603](https://github.com/brockamer/findajob/issues/603)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /settings/active-sources/` | ✓ 2026-05-21 `a30957e` (staging: 200 idempotent re-POST of current 4-adapter set; file unchanged) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Per-adapter `is_configured()` badge correct on `/settings/active-sources/` | ✓ 2026-05-21 `a30957e` (staging: 3× 'Not configured' + 2× 'configured' badges in HTML for the 9 adapters listed) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /settings/connections/` ([#614](https://github.com/brockamer/findajob/issues/614)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /settings/connections/upload` (atomic replace) | (unverified — multipart upload POST not exercised; route handler exists) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Connections remove confirm-zone modal | ✓ 2026-05-21 `a30957e` (staging: GET /confirm + /cancel both 200; POST /remove also 200) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /settings/spend-ceiling/` ([#671](https://github.com/brockamer/findajob/issues/671)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /settings/spend-ceiling/` | ✓ 2026-05-21 `a30957e` (staging: 200, ceiling saved with current values; restored to default during pass) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /settings/excluded-employers/` ([#729](https://github.com/brockamer/findajob/issues/729)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /settings/excluded-employers/` | ✓ 2026-05-21 `a30957e` (staging: 200 'Saved' with count=0 body — route + persistence) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 ### Config editor (raw text)
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /config/` index | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `GET /config/files/{relpath}` (allowlisted file load) | (unverified — needs per-file loop; verifiable by listing allowlist + curling each) | (unverified) |
-| `POST /config/files/{relpath}` (atomic save) | (unverified — would modify real config; not safe to exercise blindly) | (unverified) |
-| `GET /config/gmail/` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /config/gmail/save` | ✓ 2026-05-21 `a30957e` (staging: 422 'address' + 'app_password' fields required — validation works) | (unverified) |
-| `POST /config/gmail/test` (IMAP smoke; auto-runs on save per [#690](https://github.com/brockamer/findajob/issues/690)) | ✓ 2026-05-20 `6f5e317` (staging POST returns 200 with config card; unconfigured-stack message rendered correctly) | (unverified) |
-| `POST /config/gmail/disconnect` | ✓ 2026-05-21 `a30957e` (staging: 200 — route fires even on unconfigured) | (unverified) |
+| `GET /config/` index | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /config/files/{relpath}` (allowlisted file load) | (unverified — needs per-file loop; verifiable by listing allowlist + curling each) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /config/files/{relpath}` (atomic save) | (unverified — would modify real config; not safe to exercise blindly) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /config/gmail/` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /config/gmail/save` | ✓ 2026-05-21 `a30957e` (staging: 422 'address' + 'app_password' fields required — validation works) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /config/gmail/test` (IMAP smoke; auto-runs on save per [#690](https://github.com/brockamer/findajob/issues/690)) | ✓ 2026-05-20 `6f5e317` (staging POST returns 200 with config card; unconfigured-stack message rendered correctly) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /config/gmail/disconnect` | ✓ 2026-05-21 `a30957e` (staging: 200 — route fires even on unconfigured) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 ### Notifications surfaces
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /notifications/` index | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `GET /notifications/badge` (HTMX nav poll) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /notifications/{id}/read` | ✓ 2026-05-20 `6f5e317` (staging: 303 redirect on POST `/notifications/37/read`; idempotent on already-read row) | (unverified) |
-| `POST /notifications/mark-all-read` | ✓ 2026-05-20 `6f5e317` (staging: 303 redirect, post-call unread=0) | (unverified) |
+| `GET /notifications/` index | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /notifications/badge` (HTMX nav poll) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /notifications/{id}/read` | ✓ 2026-05-20 `6f5e317` (staging: 303 redirect on POST `/notifications/37/read`; idempotent on already-read row) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /notifications/mark-all-read` | ✓ 2026-05-20 `6f5e317` (staging: 303 redirect, post-call unread=0) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 ### Stats, docs, tools, health
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /stats/` redirect | (unverified — redirect not exercised) | (unverified) |
-| `GET /stats/funnel` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `GET /stats/feedback` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `GET /docs/` (renders `docs/usage.md` etc.) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `GET /docs/{slug}` (allowlisted: see `_PAGES` in `routes/docs.py`) | ✓ 2026-05-20 `6f5e317` (16/16 slugs return 200) | (unverified) |
-| `GET /tools/` (LLM-prompt tile gallery) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `GET /healthz` (container liveness probe) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /feedback/submit` (anonymous feedback form) | ✓ 2026-05-20 `6f5e317` (staging: 503 with graceful "not configured" message; pydantic 422 on missing `text` field — route + validation working) | (unverified) |
+| `GET /stats/` redirect | (unverified — redirect not exercised) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /stats/funnel` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /stats/feedback` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /docs/` (renders `docs/usage.md` etc.) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /docs/{slug}` (allowlisted: see `_PAGES` in `routes/docs.py`) | ✓ 2026-05-20 `6f5e317` (16/16 slugs return 200) | ✗ [#770](https://github.com/brockamer/findajob/issues/770) (route resolves docs via JSP_BASE volume root) |
+| `GET /tools/` (LLM-prompt tile gallery) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /healthz` (container liveness probe) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /feedback/submit` (anonymous feedback form) | ✓ 2026-05-20 `6f5e317` (staging: 503 with graceful "not configured" message; pydantic 422 on missing `text` field — route + validation working) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 ---
 
@@ -252,15 +252,15 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 
 | Job | Cadence (PT) | Docker | Fly |
 |-----|--------------|--------|-----|
-| `triage` | 00:00 daily | ✓ 2026-05-20 `6f5e317` (2 cycles in last 500 events) | (unverified) |
-| `watchdog` | every 10 min | ✓ 2026-05-20 `6f5e317` (278 watchdog_run events) | (unverified) |
-| `notify-apply` | 06:00 daily | (unverified — needs event tail before tag) | (unverified) |
-| `notify-stats` | 06:15 daily | (unverified — needs event tail before tag) | (unverified) |
-| `notify-health` | 07:00 daily | (unverified — needs event tail before tag) | (unverified) |
-| `notify-issues` | Mon/Wed/Fri 08:00 | (unverified — needs event tail before tag) | (unverified) |
-| `notify-feedback` | Sunday 08:00 | (unverified — needs event tail before tag) | (unverified) |
-| `discover` (company_discoverer) | Sunday 02:00 | (unverified — runs weekly) | (unverified) |
-| `detect-rejections` | every 30 min | ✓ 2026-05-20 `6f5e317` (93 rejection_scan_* events) | (unverified) |
+| `triage` | 00:00 daily | ✓ 2026-05-20 `6f5e317` (2 cycles in last 500 events) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `watchdog` | every 10 min | ✓ 2026-05-20 `6f5e317` (278 watchdog_run events) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `notify-apply` | 06:00 daily | (unverified — needs event tail before tag) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `notify-stats` | 06:15 daily | (unverified — needs event tail before tag) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `notify-health` | 07:00 daily | (unverified — needs event tail before tag) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `notify-issues` | Mon/Wed/Fri 08:00 | (unverified — needs event tail before tag) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `notify-feedback` | Sunday 08:00 | (unverified — needs event tail before tag) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `discover` (company_discoverer) | Sunday 02:00 | (unverified — runs weekly) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `detect-rejections` | every 30 min | ✓ 2026-05-20 `6f5e317` (93 rejection_scan_* events) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Staging clicker (operator-only; `FINDAJOB_STAGING_*_ENABLED=true`) | — | n/a | n/a |
 
 `notify-scoreboard` (Monday 08:30) is disabled in tracked `scheduled-jobs.yaml` per [#112](https://github.com/brockamer/findajob/issues/112); not part of parity.
@@ -271,35 +271,35 @@ Each adapter declared in `src/findajob/fetchers/adapters/__init__.py`. Selection
 
 | Adapter | Class | Docker | Fly |
 |---------|-------|--------|-----|
-| jobs-api14 (RapidAPI) | `JobsApi14Adapter` | ✓ 2026-05-20 `6f5e317` (jobsapi_date_posted × 2) | (unverified) |
-| jobs-api14-indeed (RapidAPI) | `JobsApi14IndeedAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jobsapi_indeed_fetched` × 266) | (unverified) |
-| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | ✓ 2026-05-21 `a30957e` (staging in-Python direct exercise: `is_configured=True`, `fetch(['Senior Software Engineer'])` returned 0 rows cleanly — adapter loads and runs without crash; `jobsapi_bing_fetched` event in pipeline.jsonl) | (unverified) |
-| jsearch (LinkedIn via RapidAPI) | `JSearchAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jsearch_fetched` × 265) | (unverified) |
-| greenhouse (ATS direct) | `GreenhouseAdapter` | ✓ 2026-05-20 `6f5e317` (greenhouse_fetch × 14) | (unverified) |
-| ashby (ATS direct) | `AshbyAdapter` | ✓ 2026-05-20 `6f5e317` (ashby_fetch × 10) | (unverified) |
-| lever (ATS direct) | `LeverAdapter` | ✓ 2026-05-20 `6f5e317` (lever_fetch_skip × 14 — adapter reached) | (unverified) |
-| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | ✓ 2026-05-21 `a30957e` (staging in-Python direct exercise: `is_configured=False` baseline → True after appending NVIDIA Workday URL → parsed tenant ('nvidia','wd5','NVIDIAExternalCareerSite') → restored to baseline; adapter logic + tenant-parse regex verified) | (unverified) |
-| gmail-linkedin (LinkedIn alerts via IMAP) | `GmailLinkedInAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23, `gmail.json` present + `gmail` in active_sources.txt) | (unverified) |
+| jobs-api14 (RapidAPI) | `JobsApi14Adapter` | ✓ 2026-05-20 `6f5e317` (jobsapi_date_posted × 2) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| jobs-api14-indeed (RapidAPI) | `JobsApi14IndeedAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jobsapi_indeed_fetched` × 266) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | ✓ 2026-05-21 `a30957e` (staging in-Python direct exercise: `is_configured=True`, `fetch(['Senior Software Engineer'])` returned 0 rows cleanly — adapter loads and runs without crash; `jobsapi_bing_fetched` event in pipeline.jsonl) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| jsearch (LinkedIn via RapidAPI) | `JSearchAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jsearch_fetched` × 265) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| greenhouse (ATS direct) | `GreenhouseAdapter` | ✓ 2026-05-20 `6f5e317` (greenhouse_fetch × 14) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| ashby (ATS direct) | `AshbyAdapter` | ✓ 2026-05-20 `6f5e317` (ashby_fetch × 10) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| lever (ATS direct) | `LeverAdapter` | ✓ 2026-05-20 `6f5e317` (lever_fetch_skip × 14 — adapter reached) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | ✓ 2026-05-21 `a30957e` (staging in-Python direct exercise: `is_configured=False` baseline → True after appending NVIDIA Workday URL → parsed tenant ('nvidia','wd5','NVIDIAExternalCareerSite') → restored to baseline; adapter logic + tenant-parse regex verified) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| gmail-linkedin (LinkedIn alerts via IMAP) | `GmailLinkedInAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23, `gmail.json` present + `gmail` in active_sources.txt) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 ### External integrations
 
 | Integration | Docker | Fly |
 |-------------|--------|-----|
-| ntfy push (`NTFY_TOPIC` env var) | ✓ 2026-05-20 `6f5e317` (`notifications.ntfy.send()` returned row id 37 with `delivery_status='sent'`, also notify-* cron events visible in db) | (unverified) |
-| Gmail IMAP ingestion (`gmail_linkedin` adapter) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23) | (unverified) |
-| Gmail IMAP rejection detection ([#362](https://github.com/brockamer/findajob/issues/362)) — every 30 min | ✓ 2026-05-20 `6f5e317` (rejection_scan_* × 93; staging skips empty) | (unverified) |
-| OpenRouter LLM (`findajob.llm.openrouter.complete()`) | ✓ 2026-05-20 `6f5e317` (scoring_complete + fit_analysis events) | (unverified) |
-| `cost_log` writes from OpenRouter `response.usage.cost` | ✓ 2026-05-20 `6f5e317` (prep_cost_projection × 7 implies cost_log writes) | (unverified) |
-| Per-call spend-ceiling gate ([#671](https://github.com/brockamer/findajob/issues/671)) | ✓ 2026-05-21 `a30957e` (staging: set ceiling_override=0.01, POST /prep returned 402 'Monthly LLM spend ceiling reached: $13.50 / $0.01'; stage didn't transition; ceiling restored) | (unverified) |
+| ntfy push (`NTFY_TOPIC` env var) | ✓ 2026-05-20 `6f5e317` (`notifications.ntfy.send()` returned row id 37 with `delivery_status='sent'`, also notify-* cron events visible in db) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Gmail IMAP ingestion (`gmail_linkedin` adapter) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Gmail IMAP rejection detection ([#362](https://github.com/brockamer/findajob/issues/362)) — every 30 min | ✓ 2026-05-20 `6f5e317` (rejection_scan_* × 93; staging skips empty) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| OpenRouter LLM (`findajob.llm.openrouter.complete()`) | ✓ 2026-05-20 `6f5e317` (scoring_complete + fit_analysis events) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `cost_log` writes from OpenRouter `response.usage.cost` | ✓ 2026-05-20 `6f5e317` (prep_cost_projection × 7 implies cost_log writes) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Per-call spend-ceiling gate ([#671](https://github.com/brockamer/findajob/issues/671)) | ✓ 2026-05-21 `a30957e` (staging: set ceiling_override=0.01, POST /prep returned 402 'Monthly LLM spend ceiling reached: $13.50 / $0.01'; stage didn't transition; ceiling restored) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 
 ### Persistence & operational
 
 | Concern | Docker | Fly |
 |---------|--------|-----|
-| Schema migrations apply at container start (`apply_pending`) | ✓ 2026-05-20 `6f5e317` (staging recreate clean, no migration errors) | (unverified) |
-| SQLite WAL sidecars writable by `lad`/app user | ✓ 2026-05-20 `6f5e317` (in-container writes succeed post-recreate) | (unverified) |
-| Companies folder writes (`prep_folder_path`) atomic with DB updates ([#709](https://github.com/brockamer/findajob/issues/709)) | ✓ 2026-05-21 `a30957e` (staging: do-then-undo cycles fired folder_moved_to_applied × 5, folder_moved_from_applied × 4, folder_moved_to_rejected × 1 etc — folders and DB stages stayed in lockstep across the cycle) | (unverified) |
-| `verify_auth` post-deploy exits 0 | ✓ 2026-05-20 `6f5e317` (exit 0 confirmed after recreate) | (unverified) |
+| Schema migrations apply at container start (`apply_pending`) | ✓ 2026-05-20 `6f5e317` (staging recreate clean, no migration errors) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| SQLite WAL sidecars writable by `lad`/app user | ✓ 2026-05-20 `6f5e317` (in-container writes succeed post-recreate) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Companies folder writes (`prep_folder_path`) atomic with DB updates ([#709](https://github.com/brockamer/findajob/issues/709)) | ✓ 2026-05-21 `a30957e` (staging: do-then-undo cycles fired folder_moved_to_applied × 5, folder_moved_from_applied × 4, folder_moved_to_rejected × 1 etc — folders and DB stages stayed in lockstep across the cycle) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `verify_auth` post-deploy exits 0 | ✓ 2026-05-20 `6f5e317` (exit 0 confirmed after recreate) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
 | Auth-gap killswitch hooked (Docker only — `/opt/scripts/findajob-auth-killswitch.sh`) | n/a (operator-only) | n/a |
 
 ---
@@ -421,4 +421,27 @@ Final stage matches starting stage; feedback_log cleanup verified zero residual 
 
 Pass-5 raises the Docker-leg ✓ count to ~140 of ~225 substantive cells. Remaining (unverified) cells are now narrow-scope: per-file `/config/files/` loop, multipart upload variants, a few onboarding GET pages, the rejections-review reattribute path, and the materials-page artifact edit (`POST /materials/{fp}/files/{filename}`). The reattribute case for rejections-review can't be cleanly exercised without a pending rejection_suggestions row; route handler exists per code inspection.
 
-Remaining gaps on the Docker leg: roughly 25 POST routes the clicker doesn't exercise; subprocess launchers for `interview_prep.py` and `run_speculative_research.py`; per-step ntfy fires during prep; spend-ceiling cap-breach scenario; and per-tester verification (adapters not active on staging). The "un-*" reversibility paths and the rejected-job affordances need either a manual exercise pass, a clicker extension, or a Playwright-driven DOM pass.
+### 2026-05-21 — Fly leg verification pass (operator-authorized backup-then-redeploy)
+
+Operator authorized backup + redeploy of the primary Fly app for matrix verification. Sequence:
+
+1. Backed up Fly's `/app/state` to a local tarball at `/home/brockamer/Code/findajob-backups/fly-state-2026-05-21-pre-deploy.tgz` (5.7MB) via `flyctl ssh sftp get`.
+2. Redeployed Fly to current `:latest` (post-pass-5 SHA, includes #729 settings/excluded-employers route) via `flyctl deploy --image ghcr.io/brockamer/findajob:latest --strategy immediate --yes`.
+3. Ran `python -m findajob.web.verify_auth` post-deploy: exit 0 (auth gate healthy).
+4. Ran the same GET smoke (25 routes) on Fly via `flyctl ssh console` with in-container curl loopback. 24/25 returned 200 with correct page identity; the 25th (`/docs/{slug}`) returned 404 — see [#770](https://github.com/brockamer/findajob/issues/770).
+5. Ran identical view_prefs round-trip + idempotent settings POSTs + ntfy push + /notes blur/keyup gate + spend-ceiling cap-breach (402 with correct message) — all verified ✓.
+6. Drove a scored fingerprint through the full transition matrix: waitlist↔reactivate, reject↔un-reject↔change-reason, apply↔un-apply, withdraw↔un-withdraw, not-selected↔un-not-selected↔change-reason, interview→offer. Every reachable transition returned 200; every unreachable transition returned 409 with correct stage-validation error.
+7. Hit /prep, /regenerate, /trigger-triage, /ingest/speculative, /materials/regenerate, /materials/continue-prep. All routes returned 200 or 303 — but no subprocess produced events. After 15 min: zero cost_log entries, no prep_started event, job stuck at prep_in_progress. See [#771](https://github.com/brockamer/findajob/issues/771).
+
+**Two Fly-specific parity bugs surfaced** (same root cause: `BASE` derived from `JSP_BASE=/app/state` on Fly resolves image-bound paths through the volume root):
+
+- **[#770](https://github.com/brockamer/findajob/issues/770)** — `/docs/{slug}` 404 because `routes/docs.py` uses `app.state.base_root` (= JSP_BASE) instead of the image-bound path. All 9 allowlisted slugs return 404 on Fly. Index page (`/docs/`) works because it doesn't read filesystem.
+- **[#771](https://github.com/brockamer/findajob/issues/771)** — Every web-spawned subprocess fails silently because launches use `BASE/scripts/<script>.py` which resolves to `/app/state/scripts/` on Fly (doesn't exist; scripts live at `/app/scripts/`). Affects /prep, /regenerate, /continue-prep, /interview, /reactivate-and-prep, /trigger-triage, /ingest/speculative, /speculative/regenerate. Cron-driven triage works (uses hardcoded `/app/scripts/triage.py` in `ops/scheduled-jobs.yaml`).
+
+Both bugs share root cause; both share acceptance criteria's three candidate fix shapes (separate IMAGE_ROOT constant, redefine BASE as image-root, or entrypoint symlinks). Fix should address both.
+
+Backup retained for restore if the redeploy surprised anything. Fly's `pipeline.db` survived the deploy intact (state volume persists across image updates); the backup is belt-and-suspenders.
+
+**Pass 6 raises the matrix to ~95% complete**: ~150 ✓ cells, 27 ✗ cells (all linked to #770 or #771), ~22 cells still `(unverified)` (narrow-scope Docker-only — GET pages where POST variants are verified, scheduled-job event tails to confirm, `/config/files/` loop). Fly leg now has ~140 substantiated cells out of ~225 substantive cells, with the remaining ~50 Fly cells being mostly the same scheduled-job/GET-page narrow-scope set as Docker.
+
+**Final state delta on Fly:** the primary fp (a scored "Director of Manufacturing" listing) ended back at `scored`, matching its pre-pass state. 32 audit_log rows added (real choreography trail, kept as the audit history of this verification work). Two `manual-revert` audit rows from resetting the stuck prep_in_progress states caused by #771. spend_ceiling.txt = 32.48 (default). Notification id=7 (verification_test push) retained.
