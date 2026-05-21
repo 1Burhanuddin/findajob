@@ -148,8 +148,8 @@ Subprocess launchers (spawn detached generator processes):
 | `prep_application.py --phase=a` reaches `briefing_ready` | ✓ 2026-05-20 `6f5e317` (prep_phase_a_complete × 8; 11 audit_log transitions prep_in_progress→briefing_ready) | (unverified) |
 | `prep_application.py --phase=b` reaches `materials_drafted` | ✓ 2026-05-20 `6f5e317` (25 audit_log transitions prep_in_progress→materials_drafted) | (unverified) |
 | `prep_application.py --phase=all` (cron/manual default) | (unverified — staging clicker uses split phases) | (unverified) |
-| `interview_prep.py` (re-runs on each click; sentinel guard) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `interview_prep_started` × 12, `interview_prep_complete` × 10) | (unverified) |
-| `run_speculative_research.py` (async, status-page polled) | (unverified — needs ingest-speculative exercise) | (unverified) |
+| `interview_prep.py` (re-runs on each click; sentinel guard) | ✓ 2026-05-20 `6f5e317` (staging + operator-primary-stack: `interview_prep_started` + `interview_prep_complete` events present) | (unverified) |
+| `run_speculative_research.py` (async, status-page polled) | ✓ 2026-05-20 `6f5e317` (staging: `speculative_research_started/complete` events present from weekly clicker fire) | (unverified) |
 | Per-step ntfy fires during prep ([#738](https://github.com/brockamer/findajob/issues/738)) | (unverified — needs ntfy topic capture during prep run) | (unverified) |
 
 ### Ingest
@@ -158,13 +158,13 @@ Subprocess launchers (spawn detached generator processes):
 |---------|--------|-----|
 | `GET /ingest/` (manual + speculative form) | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `POST /ingest/manual` (URL paste) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `manual_job_ingested` × 6) | (unverified) |
-| `POST /ingest/speculative` (cold-outreach research kickoff) | (unverified) | (unverified) |
-| `GET /speculative/status/{id}` (status page) | (unverified) | (unverified) |
-| `GET /speculative/status/{id}/poll` (5s HTMX poll) | (unverified) | (unverified) |
-| `GET /speculative/review/{id}` (approval UI) | (unverified) | (unverified) |
-| `POST /speculative/approve/{id}` | (unverified) | (unverified) |
-| `POST /speculative/regenerate/{id}` | (unverified) | (unverified) |
-| `POST /speculative/trash/{id}` | (unverified) | (unverified) |
+| `POST /ingest/speculative` (cold-outreach research kickoff) | ✓ 2026-05-20 `6f5e317` (staging: clicker fires weekly per `clicker.py:_run_speculative`; events `speculative_research_started/complete` present) | (unverified) |
+| `GET /speculative/status/{id}` (status page) | (unverified — needs an active request_id) | (unverified) |
+| `GET /speculative/status/{id}/poll` (5s HTMX poll) | (unverified — needs an active request_id) | (unverified) |
+| `GET /speculative/review/{id}` (approval UI) | (unverified — needs a ready_for_review row) | (unverified) |
+| `POST /speculative/approve/{id}` | (unverified — needs operator action; not in clicker scope) | (unverified) |
+| `POST /speculative/regenerate/{id}` | (unverified — needs operator action; not in clicker scope) | (unverified) |
+| `POST /speculative/trash/{id}` | (unverified — needs operator action; not in clicker scope) | (unverified) |
 
 ### Onboarding flow (NUX gate)
 
@@ -219,7 +219,7 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 | `POST /config/files/{relpath}` (atomic save) | (unverified — POST not exercised) | (unverified) |
 | `GET /config/gmail/` | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `POST /config/gmail/save` | (unverified — POST not exercised) | (unverified) |
-| `POST /config/gmail/test` (IMAP smoke; auto-runs on save per [#690](https://github.com/brockamer/findajob/issues/690)) | (unverified — POST not exercised) | (unverified) |
+| `POST /config/gmail/test` (IMAP smoke; auto-runs on save per [#690](https://github.com/brockamer/findajob/issues/690)) | ✓ 2026-05-20 `6f5e317` (staging POST returns 200 with config card; unconfigured-stack message rendered correctly) | (unverified) |
 | `POST /config/gmail/disconnect` | (unverified — POST not exercised) | (unverified) |
 
 ### Notifications surfaces
@@ -228,8 +228,8 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 |---------|--------|-----|
 | `GET /notifications/` index | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `GET /notifications/badge` (HTMX nav poll) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /notifications/{id}/read` | (unverified — POST not exercised) | (unverified) |
-| `POST /notifications/mark-all-read` | (unverified — POST not exercised) | (unverified) |
+| `POST /notifications/{id}/read` | (unverified — single-row variant not exercised; mark-all-read is verified) | (unverified) |
+| `POST /notifications/mark-all-read` | ✓ 2026-05-20 `6f5e317` (staging: 303 redirect, post-call unread=0) | (unverified) |
 
 ### Stats, docs, tools, health
 
@@ -242,7 +242,7 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 | `GET /docs/{slug}` (allowlisted: see `_PAGES` in `routes/docs.py`) | ✓ 2026-05-20 `6f5e317` (16/16 slugs return 200) | (unverified) |
 | `GET /tools/` (LLM-prompt tile gallery) | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `GET /healthz` (container liveness probe) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /feedback/submit` (anonymous feedback form) | (unverified — POST not exercised) | (unverified) |
+| `POST /feedback/submit` (anonymous feedback form) | ✓ 2026-05-20 `6f5e317` (staging: 503 with graceful "not configured" message; pydantic 422 on missing `text` field — route + validation working) | (unverified) |
 
 ---
 
@@ -273,12 +273,12 @@ Each adapter declared in `src/findajob/fetchers/adapters/__init__.py`. Selection
 |---------|-------|--------|-----|
 | jobs-api14 (RapidAPI) | `JobsApi14Adapter` | ✓ 2026-05-20 `6f5e317` (jobsapi_date_posted × 2) | (unverified) |
 | jobs-api14-indeed (RapidAPI) | `JobsApi14IndeedAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jobsapi_indeed_fetched` × 266) | (unverified) |
-| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | (not active on findajob-staging or operator-primary-stack — opt-in adapter; verify on a stack where it is selected) | (unverified) |
+| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | (not active on any operator-managed stack — alice/papa/judy/dave/tango/clean/staging/operator-primary; verify by selecting in a fresh stack's `active_sources.txt`) | (unverified) |
 | jsearch (LinkedIn via RapidAPI) | `JSearchAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jsearch_fetched` × 265) | (unverified) |
 | greenhouse (ATS direct) | `GreenhouseAdapter` | ✓ 2026-05-20 `6f5e317` (greenhouse_fetch × 14) | (unverified) |
 | ashby (ATS direct) | `AshbyAdapter` | ✓ 2026-05-20 `6f5e317` (ashby_fetch × 10) | (unverified) |
 | lever (ATS direct) | `LeverAdapter` | ✓ 2026-05-20 `6f5e317` (lever_fetch_skip × 14 — adapter reached) | (unverified) |
-| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | (not active on findajob-staging or operator-primary-stack — verify on a stack where adapter is selected) | (unverified) |
+| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | (not active on any operator-managed stack — alice/papa/judy/dave/tango/clean/staging/operator-primary; verify by selecting in a fresh stack's `active_sources.txt`) | (unverified) |
 | gmail-linkedin (LinkedIn alerts via IMAP) | `GmailLinkedInAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23, `gmail.json` present + `gmail` in active_sources.txt) | (unverified) |
 
 ### External integrations
@@ -363,6 +363,19 @@ Read-only mining of the operator's primary Docker stack added cells:
 - **Adapters:** jobs-api14-indeed ✓ (266 fetches), jsearch ✓ (265 fetches), gmail-linkedin ✓ (23 messages found, `gmail.json` + `gmail_state.json` configured, `gmail` in active_sources.txt). jobs-api14-bing and workday-cxs remain not-active-anywhere — verify on a stack that selects them.
 - **Gmail IMAP ingestion** integration ✓ (23 messages found on the operator's primary Docker stack).
 
-Still unverified by audit_log mining: `/un-apply`, `/un-withdraw`, `/un-not-selected`, `/reactivate-and-prep`, `/reattribute-from-archive`, `/change-not-selected-reason` (not separable from change-reject-reason), `/notes` (no audit_log writes seen), `/continue-prep` dashboard route, `/trigger-triage`, `/speculative/{approve,trash,regenerate}/{id}`, ntfy per-step during prep (#738), `/feedback/submit`, `/config/gmail/{save,test,disconnect}`, `/onboarding/*` POSTs, run_speculative_research.py. These need either DOM-driven exercise or extended audit-event mining.
+Still unverified by audit_log mining: `/un-apply`, `/un-withdraw`, `/un-not-selected`, `/reactivate-and-prep`, `/reattribute-from-archive`, `/change-not-selected-reason` (not separable from change-reject-reason), `/notes` (no audit_log writes seen), `/continue-prep` dashboard route, `/trigger-triage`, `/speculative/{approve,trash,regenerate}/{id}`, ntfy per-step during prep (#738), `/onboarding/*` POSTs. These need either DOM-driven exercise or extended audit-event mining.
+
+### 2026-05-20 — Docker-side pass 4 (clicker source + safe POST smokes + tester stack audit)
+
+Three threads this pass:
+
+- **Tester-stack adapter audit** (read-only): confirmed `jobs-api14-bing` and `workday-cxs` are not in `active_sources.txt` on any of staging / operator-primary / alice / papa / judy / dave / tango / clean. These two cells are honestly classified as "not active on any operator-managed stack"; verifying requires either spinning up a stack with them selected or accepting them as latent in code.
+- **Staging clicker source inspection** (`src/findajob/staging/clicker.py`): the clicker fires exactly four routes — `/prep`, `/interview`, `/apply` (via `_run_advance`), and `/ingest/speculative`. This confirmed the speculative chain (POST → `speculative_research_started` → `speculative_research_complete`) on staging, flipping `/ingest/speculative` and `run_speculative_research.py` cells to ✓ in addition to the operator-primary-stack evidence already gathered. interview_prep events also present on staging (not just operator-primary), strengthening that cell.
+- **Safe POST smokes** on staging:
+  - `POST /config/gmail/test` → 200, returns Gmail config card HTML with unconfigured-stack status. Route + validation working.
+  - `POST /notifications/mark-all-read` → 303 redirect; post-call DB query shows 0 unread (was at least 1 from pass-1 test ntfy). Idempotent, expected behavior.
+  - `POST /feedback/submit` with empty body → pydantic 422; with `text=...` → 503 graceful "not configured" error. Both validation and unconfigured-stack handling verified.
+
+Pass-4 raises Docker-leg ✓ count to ~80. Remaining gaps are the un-*/reverse-flow POSTs that need either DOM exercise, route-fire with careful rollback, or operator-managed exercise (speculative approve/regenerate/trash, all `/onboarding/*` POSTs, `/trigger-triage`).
 
 Remaining gaps on the Docker leg: roughly 25 POST routes the clicker doesn't exercise; subprocess launchers for `interview_prep.py` and `run_speculative_research.py`; per-step ntfy fires during prep; spend-ceiling cap-breach scenario; and per-tester verification (adapters not active on staging). The "un-*" reversibility paths and the rejected-job affordances need either a manual exercise pass, a clicker extension, or a Playwright-driven DOM pass.
