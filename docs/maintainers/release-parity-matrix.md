@@ -81,40 +81,40 @@ Per [CLAUDE.md § Board Routes & Stage Lifecycle](../../CLAUDE.md). Each transit
 
 | Action | Endpoint | Docker | Fly |
 |--------|----------|--------|-----|
-| Flag for Prep (Phase A) | `POST /board/jobs/{fp}/prep` | (unverified) | (unverified) |
-| Continue prep (Phase B) — dashboard | `POST /board/jobs/{fp}/continue-prep` | (unverified) | (unverified) |
-| Regenerate (with confirm modal) | `POST /board/jobs/{fp}/regenerate` | (unverified) | (unverified) |
-| Apply (with 30s undo toast) | `POST /board/jobs/{fp}/apply` | (unverified) | (unverified) |
-| Un-apply (during undo window) | `POST /board/jobs/{fp}/un-apply` | (unverified) | (unverified) |
-| Interview | `POST /board/jobs/{fp}/interview` | (unverified) | (unverified) |
-| Offer | `POST /board/jobs/{fp}/offer` | (unverified) | (unverified) |
-| Withdraw | `POST /board/jobs/{fp}/withdraw` | (unverified) | (unverified) |
-| Waitlist | `POST /board/jobs/{fp}/waitlist` | (unverified) | (unverified) |
-| Reactivate | `POST /board/jobs/{fp}/reactivate` | (unverified) | (unverified) |
-| Reactivate and prep | `POST /board/jobs/{fp}/reactivate-and-prep` | (unverified) | (unverified) |
-| Promote (Review → Scored) | `POST /board/jobs/{fp}/promote` | (unverified) | (unverified) |
-| Reject (with reason) | `POST /board/jobs/{fp}/reject` | (unverified) | (unverified) |
-| Un-reject (with confirm) | `POST /board/jobs/{fp}/un-reject` | (unverified) | (unverified) |
-| Change reject reason | `POST /board/jobs/{fp}/change-reject-reason` | (unverified) | (unverified) |
-| Not Selected (with reason) | `POST /board/jobs/{fp}/not-selected` | (unverified) | (unverified) |
-| Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | (unverified) | (unverified) |
-| Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | (unverified) | (unverified) |
-| Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | (unverified) | (unverified) |
-| Reattribute (from archive) | `POST /board/jobs/{fp}/reattribute-from-archive` | (unverified) | (unverified) |
-| Edit user_notes | `POST /board/jobs/{fp}/notes` | (unverified) | (unverified) |
-| Trigger triage on demand | `POST /board/trigger-triage` | (unverified) | (unverified) |
+| Flag for Prep (Phase A) | `POST /board/jobs/{fp}/prep` | ✓ 2026-05-20 `6f5e317` (38 scored→prep_in_progress in audit_log) | (unverified) |
+| Continue prep (Phase B) — dashboard | `POST /board/jobs/{fp}/continue-prep` | (unverified — staging clicker exercises materials-page route, not dashboard route) | (unverified) |
+| Regenerate (with confirm modal) | `POST /board/jobs/{fp}/regenerate` | (unverified — no audit_log marker; reachability confirmed via /confirm modal GET) | (unverified) |
+| Apply (with 30s undo toast) | `POST /board/jobs/{fp}/apply` | ✓ 2026-05-20 `6f5e317` (9 materials_drafted→applied by user) | (unverified) |
+| Un-apply (during undo window) | `POST /board/jobs/{fp}/un-apply` | (unverified — synthetic clicker doesn't exercise undo path) | (unverified) |
+| Interview | `POST /board/jobs/{fp}/interview` | ✓ 2026-05-20 `6f5e317` (3 applied→interview) | (unverified) |
+| Offer | `POST /board/jobs/{fp}/offer` | ✓ 2026-05-20 `6f5e317` (1 interview→offer) | (unverified) |
+| Withdraw | `POST /board/jobs/{fp}/withdraw` | (unverified — clicker drives forward only) | (unverified) |
+| Waitlist | `POST /board/jobs/{fp}/waitlist` | (unverified — clicker drives forward only) | (unverified) |
+| Reactivate | `POST /board/jobs/{fp}/reactivate` | ✓ 2026-05-20 `6f5e317` (1 waitlisted→scored) | (unverified) |
+| Reactivate and prep | `POST /board/jobs/{fp}/reactivate-and-prep` | (unverified — no waitlisted rows to exercise on staging) | (unverified) |
+| Promote (Review → Scored) | `POST /board/jobs/{fp}/promote` | (unverified — manual_review→scored seen once but as system, not user promote) | (unverified) |
+| Reject (with reason) | `POST /board/jobs/{fp}/reject` | (unverified — clicker drives forward only) | (unverified) |
+| Un-reject (with confirm) | `POST /board/jobs/{fp}/un-reject` | (unverified — no rejected rows on staging) | (unverified) |
+| Change reject reason | `POST /board/jobs/{fp}/change-reject-reason` | (unverified — no rejected rows on staging) | (unverified) |
+| Not Selected (with reason) | `POST /board/jobs/{fp}/not-selected` | (unverified — clicker doesn't model company rejection) | (unverified) |
+| Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | (unverified — no not_selected rows) | (unverified) |
+| Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | (unverified — no not_selected rows) | (unverified) |
+| Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | (unverified — no withdrawn rows) | (unverified) |
+| Reattribute (from archive) | `POST /board/jobs/{fp}/reattribute-from-archive` | (unverified — no archive rows) | (unverified) |
+| Edit user_notes | `POST /board/jobs/{fp}/notes` | (unverified — clicker doesn't write notes) | (unverified) |
+| Trigger triage on demand | `POST /board/trigger-triage` | (unverified — cron-driven triage covers this code path; manual trigger not exercised on staging) | (unverified) |
 
 Helper confirm-modal / cell-restore GETs (Cancel paths):
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /board/jobs/{fp}/regenerate/confirm` (modal) | (unverified) | (unverified) |
-| `GET /board/jobs/{fp}/regenerate/cell` (restore) | (unverified) | (unverified) |
-| `GET /board/jobs/{fp}/un-reject/confirm` | (unverified) | (unverified) |
-| `GET /board/jobs/{fp}/un-reject/cell` | (unverified) | (unverified) |
-| `GET /board/jobs/{fp}/notes/history` | (unverified) | (unverified) |
-| `GET /board/jobs/{fp}/reattribute/modal` | (unverified) | (unverified) |
-| `GET /board/jobs/{fp}/archive-actions-cell` | (unverified) | (unverified) |
+| `GET /board/jobs/{fp}/regenerate/confirm` (modal) | ✓ 2026-05-20 `6f5e317` (200 for materials_drafted; 409 stage-mismatch for briefing_ready) | (unverified) |
+| `GET /board/jobs/{fp}/regenerate/cell` (restore) | ✓ 2026-05-20 `6f5e317` (200 partial for both stages) | (unverified) |
+| `GET /board/jobs/{fp}/un-reject/confirm` | ✓ 2026-05-20 `6f5e317` (409 stage-mismatch on non-rejected; no rejected fp on staging to test 200 path) | (unverified) |
+| `GET /board/jobs/{fp}/un-reject/cell` | ✓ 2026-05-20 `6f5e317` (200 restore partial on non-rejected fp) | (unverified) |
+| `GET /board/jobs/{fp}/notes/history` | ✓ 2026-05-20 `6f5e317` (200 empty-state partial; no history rows on staging) | (unverified) |
+| `GET /board/jobs/{fp}/reattribute/modal` | ✓ 2026-05-20 `6f5e317` (409 stage-mismatch on applied; needs not_selected fp for 200 path) | (unverified) |
+| `GET /board/jobs/{fp}/archive-actions-cell` | ✓ 2026-05-20 `6f5e317` (200 partial on applied) | (unverified) |
 
 ### Rejections review queue (Gmail-IMAP rejection detector landing)
 
@@ -145,8 +145,8 @@ Subprocess launchers (spawn detached generator processes):
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `prep_application.py --phase=a` reaches `briefing_ready` | ✓ 2026-05-20 `6f5e317` (prep_phase_a_complete × 8) | (unverified) |
-| `prep_application.py --phase=b` reaches `materials_drafted` | (unverified — staging clicker advances Phase B but no event marker tail) | (unverified) |
+| `prep_application.py --phase=a` reaches `briefing_ready` | ✓ 2026-05-20 `6f5e317` (prep_phase_a_complete × 8; 11 audit_log transitions prep_in_progress→briefing_ready) | (unverified) |
+| `prep_application.py --phase=b` reaches `materials_drafted` | ✓ 2026-05-20 `6f5e317` (25 audit_log transitions prep_in_progress→materials_drafted) | (unverified) |
 | `prep_application.py --phase=all` (cron/manual default) | (unverified — staging clicker uses split phases) | (unverified) |
 | `interview_prep.py` (re-runs on each click; sentinel guard) | (unverified — needs Applied row exercise) | (unverified) |
 | `run_speculative_research.py` (async, status-page polled) | (unverified — needs ingest-speculative exercise) | (unverified) |
@@ -239,7 +239,7 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 | `GET /stats/funnel` | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `GET /stats/feedback` | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `GET /docs/` (renders `docs/usage.md` etc.) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `GET /docs/{slug}` (allowlisted: see `_PAGES` in `routes/docs.py`) | (unverified — per-slug loop) | (unverified) |
+| `GET /docs/{slug}` (allowlisted: see `_PAGES` in `routes/docs.py`) | ✓ 2026-05-20 `6f5e317` (16/16 slugs return 200) | (unverified) |
 | `GET /tools/` (LLM-prompt tile gallery) | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `GET /healthz` (container liveness probe) | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `POST /feedback/submit` (anonymous feedback form) | (unverified — POST not exercised) | (unverified) |
@@ -272,20 +272,20 @@ Each adapter declared in `src/findajob/fetchers/adapters/__init__.py`. Selection
 | Adapter | Class | Docker | Fly |
 |---------|-------|--------|-----|
 | jobs-api14 (RapidAPI) | `JobsApi14Adapter` | ✓ 2026-05-20 `6f5e317` (jobsapi_date_posted × 2) | (unverified) |
-| jobs-api14-indeed (RapidAPI) | `JobsApi14IndeedAdapter` | (unverified — staging may not have it active) | (unverified) |
-| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | (unverified — opt-in, may not be active on staging) | (unverified) |
-| jsearch (LinkedIn via RapidAPI) | `JSearchAdapter` | (unverified — no events in last 500) | (unverified) |
+| jobs-api14-indeed (RapidAPI) | `JobsApi14IndeedAdapter` | (not active on findajob-staging — verify on a stack where adapter is selected) | (unverified) |
+| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | (not active on findajob-staging — verify on a stack where adapter is selected) | (unverified) |
+| jsearch (LinkedIn via RapidAPI) | `JSearchAdapter` | (not active on findajob-staging — verify on a stack where adapter is selected) | (unverified) |
 | greenhouse (ATS direct) | `GreenhouseAdapter` | ✓ 2026-05-20 `6f5e317` (greenhouse_fetch × 14) | (unverified) |
 | ashby (ATS direct) | `AshbyAdapter` | ✓ 2026-05-20 `6f5e317` (ashby_fetch × 10) | (unverified) |
 | lever (ATS direct) | `LeverAdapter` | ✓ 2026-05-20 `6f5e317` (lever_fetch_skip × 14 — adapter reached) | (unverified) |
-| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | (unverified — no events; verify selection on staging) | (unverified) |
-| gmail-linkedin (LinkedIn alerts via IMAP) | `GmailLinkedInAdapter` | (unverified — staging Gmail not configured) | (unverified) |
+| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | (not active on findajob-staging — verify on a stack where adapter is selected) | (unverified) |
+| gmail-linkedin (LinkedIn alerts via IMAP) | `GmailLinkedInAdapter` | (not active on findajob-staging — Gmail not configured; verify on a stack with Gmail config) | (unverified) |
 
 ### External integrations
 
 | Integration | Docker | Fly |
 |-------------|--------|-----|
-| ntfy push (`NTFY_TOPIC` env var) | (unverified — staging topic is private; needs end-to-end notify-* fire) | (unverified) |
+| ntfy push (`NTFY_TOPIC` env var) | ✓ 2026-05-20 `6f5e317` (`notifications.ntfy.send()` returned row id 37 with `delivery_status='sent'`, also notify-* cron events visible in db) | (unverified) |
 | Gmail IMAP ingestion (`gmail_linkedin` adapter) | (unverified — staging Gmail not configured) | (unverified) |
 | Gmail IMAP rejection detection ([#362](https://github.com/brockamer/findajob/issues/362)) — every 30 min | ✓ 2026-05-20 `6f5e317` (rejection_scan_* × 93; staging skips empty) | (unverified) |
 | OpenRouter LLM (`findajob.llm.openrouter.complete()`) | ✓ 2026-05-20 `6f5e317` (scoring_complete + fit_analysis events) | (unverified) |
@@ -336,3 +336,17 @@ Operational observation, not a code gap: at start of the pass, `findajob-staging
 Unverified surfaces remaining on the Docker leg this pass: every POST route, per-file `/config/files/{relpath}` loop, per-slug `/docs/{slug}` loop, subprocess launchers other than prep Phase A, JSearch adapter (no events surfaced), WorkdayCXS adapter, ntfy push (needs end-to-end), Gmail IMAP ingestion (not configured on staging), spend-ceiling cap-breach scenario. These are honest gaps in the verification pass; they need follow-up sessions or expanded probes to mark ✓.
 
 Fly leg: entirely unverified — requires either operator-private Fly URL access or completion of [#672](https://github.com/brockamer/findajob/issues/672)'s tester walkthrough.
+
+### 2026-05-20 — Docker-side pass 2 (SHA `6f5e317`)
+
+Expanded Docker leg coverage on the same SHA. Added cells filled:
+
+- 16/16 `/docs/{slug}` allowlist slugs return 200 with correct page title.
+- 10 helper modal GET endpoints exercised against real fingerprints from staging — 200 with HTML when stage matches the route's prerequisite, 409 with clear JSON `{"detail":"..."}` when stage does not. The 409 responses are correct stage validation, not bugs. `un-reject/confirm` and `reattribute/modal` need rejected and not_selected fingerprints respectively to verify their 200 path; staging has none.
+- `notifications.ntfy.send()` end-to-end: returned DB row id 37 with `delivery_status='sent'`, confirming ntfy.sh POST succeeded and `notifications` table audit row landed.
+- POST routes by audit_log evidence: prep (38), apply (9), interview (3), offer (1), reactivate (1), plus prep Phase A (11) and Phase B (25) subprocess completions. Forward-flow POSTs are exercised by the staging clicker; the un-* / reject / not_selected / waitlist / withdraw / promote / change-reason / notes / reattribute / un-withdraw / un-apply / trigger-triage / continue-prep-dashboard / regenerate / reactivate-and-prep paths are *not* exercised and remain `(unverified)`.
+- Adapter classification corrected: `jobs-api14-indeed`, `jobs-api14-bing`, `jsearch`, `workday-cxs`, `gmail-linkedin` are not in `findajob-staging`'s `active_sources.txt` (which has just `jobs-api14`, `greenhouse`, `ashby`, `lever`). These cells reframed from "no events" to "not active on this stack" — an honest classification, not a code gap.
+
+Pass-2 observation, not a code gap: `findajob.notifications.ntfy.send()` accepts `tags=` as `str | None` per its signature, but when called with a Python `list` the silent `_persist_notification` failure path (`sqlite3.Error → return None`) swallows the persistence failure without surfacing the type mismatch. Not in scope for #747 (the function works correctly when called per its signature); flagging as a possible defensive-validation follow-up if this surfaces again.
+
+Remaining gaps on the Docker leg: roughly 25 POST routes the clicker doesn't exercise; subprocess launchers for `interview_prep.py` and `run_speculative_research.py`; per-step ntfy fires during prep; spend-ceiling cap-breach scenario; and per-tester verification (adapters not active on staging). The "un-*" reversibility paths and the rejected-job affordances need either a manual exercise pass, a clicker extension, or a Playwright-driven DOM pass.
