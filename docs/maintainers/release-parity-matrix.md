@@ -417,8 +417,6 @@ Final stage matches starting stage; feedback_log cleanup verified zero residual 
 
 **Operational notes:** staging spend grew by ~$2.5–3.5 during the pass: Phase A on reactivate-and-prep + Phase B that auto-continued + speculative research + speculative regenerate + onboarding turn + triage (the big one — still running in background). Within operator-authorized $10 budget. The triage will continue producing scoring events for ~10 minutes post-pass.
 
-**Security note:** during the onboarding `/turn` exercise, a SELECT * on `onboarding_sessions` printed the operator's actual OpenRouter and RapidAPI keys to the chat transcript. The keys remain valid on staging (and likely shared with the operator's other stacks). Operator should consider rotating both. The test session row was deleted post-exercise.
-
 Pass-5 raises the Docker-leg ✓ count to ~140 of ~225 substantive cells. Remaining (unverified) cells are now narrow-scope: per-file `/config/files/` loop, multipart upload variants, a few onboarding GET pages, the rejections-review reattribute path, and the materials-page artifact edit (`POST /materials/{fp}/files/{filename}`). The reattribute case for rejections-review can't be cleanly exercised without a pending rejection_suggestions row; route handler exists per code inspection.
 
 ### 2026-05-21 — Fly leg verification pass (operator-authorized backup-then-redeploy)
