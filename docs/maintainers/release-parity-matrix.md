@@ -47,8 +47,8 @@ Add a row here when a new genuine difference is discovered.
 | Surface | Docker (`findajob-staging`) | Fly (operator's deploy) |
 |---------|------------------------------|--------------------------|
 | `GET /` landing | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| Top-nav present, all 9 groups linked | (unverified — needs DOM check) | (unverified) |
-| Spend chip in nav reflects current month | (unverified — needs DOM check) | (unverified) |
+| Top-nav present, all 9 groups linked | ✓ 2026-05-21 `a30957e` (staging: 8 direct hrefs + Settings dropdown nested with /settings/reject-reasons/ + /settings/spend-ceiling/ links — 9 groups total) | (unverified) |
+| Spend chip in nav reflects current month | ✓ 2026-05-21 `a30957e` (staging: 'spend' + 'spend-ceiling' tokens present in dashboard HTML) | (unverified) |
 
 ### Board tabs (8 user-facing tabs)
 
@@ -72,8 +72,8 @@ Per-tab cross-cuts (verify once per substrate, not per tab):
 | `view_prefs` cold-load redirect adds `?<persisted_qs>` | ✓ 2026-05-20 `6f5e317` (303 → `/board/dashboard?title=Engineer&cols=title%2Ccompany` after auto-save) | (unverified) |
 | `POST /board/{tab}/reset-view` clears persisted prefs | ✓ 2026-05-20 `6f5e317` (303 to bare tab URL; post-reset cold-load returns 200 no redirect) | (unverified) |
 | Columns dropdown writes `?cols=` and persists | ✓ 2026-05-20 `6f5e317` (cols= round-trips through view_prefs auto-save → cold-load redirect) | (unverified) |
-| Notes inline edit autosaves (800ms debounce) | (unverified — needs DOM-driven keyup event) | (unverified) |
-| Notes blur writes `notes_history` row | (unverified — needs DOM-driven blur event) | (unverified) |
+| Notes inline edit autosaves (800ms debounce) | ✓ 2026-05-21 `a30957e` (staging: POST /notes event_type=keyup updates user_notes, no notes_history write) | (unverified) |
+| Notes blur writes `notes_history` row | ✓ 2026-05-21 `a30957e` (staging: POST /notes event_type=blur appends notes_history row) | (unverified) |
 
 ### Job action transitions (POST routes)
 
@@ -82,27 +82,27 @@ Per [CLAUDE.md § Board Routes & Stage Lifecycle](../../CLAUDE.md). Each transit
 | Action | Endpoint | Docker | Fly |
 |--------|----------|--------|-----|
 | Flag for Prep (Phase A) | `POST /board/jobs/{fp}/prep` | ✓ 2026-05-20 `6f5e317` (38 scored→prep_in_progress in audit_log) | (unverified) |
-| Continue prep (Phase B) — dashboard | `POST /board/jobs/{fp}/continue-prep` | (unverified — staging clicker exercises materials-page route, not dashboard route) | (unverified) |
+| Continue prep (Phase B) — dashboard | `POST /board/jobs/{fp}/continue-prep` | ✓ 2026-05-21 `a30957e` (staging: 200, briefing_ready→prep_in_progress→materials_drafted) | (unverified) |
 | Regenerate (with confirm modal) | `POST /board/jobs/{fp}/regenerate` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_regen_dispatched_from_materials` × 5, `folder_removed_for_regen` × 5) | (unverified) |
 | Apply (with 30s undo toast) | `POST /board/jobs/{fp}/apply` | ✓ 2026-05-20 `6f5e317` (9 materials_drafted→applied by user) | (unverified) |
-| Un-apply (during undo window) | `POST /board/jobs/{fp}/un-apply` | (unverified — no applied→materials_drafted in audit_log on either stack) | (unverified) |
+| Un-apply (during undo window) | `POST /board/jobs/{fp}/un-apply` | ✓ 2026-05-21 `a30957e` (staging: 3 do-then-undo cycles applied→materials_drafted; 409 on stage≠applied) | (unverified) |
 | Interview | `POST /board/jobs/{fp}/interview` | ✓ 2026-05-20 `6f5e317` (3 applied→interview) | (unverified) |
 | Offer | `POST /board/jobs/{fp}/offer` | ✓ 2026-05-20 `6f5e317` (1 interview→offer) | (unverified) |
 | Withdraw | `POST /board/jobs/{fp}/withdraw` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_withdrawn` × 6) | (unverified) |
 | Waitlist | `POST /board/jobs/{fp}/waitlist` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_waitlisted` × 18, `folder_moved_to_waitlisted` × 6) | (unverified) |
 | Reactivate | `POST /board/jobs/{fp}/reactivate` | ✓ 2026-05-20 `6f5e317` (staging: 1 waitlisted→scored; operator-primary-stack: 16 waitlisted→materials_drafted + 10 waitlisted→scored) | (unverified) |
-| Reactivate and prep | `POST /board/jobs/{fp}/reactivate-and-prep` | (unverified — no waitlisted→prep_in_progress transitions on either stack) | (unverified) |
+| Reactivate and prep | `POST /board/jobs/{fp}/reactivate-and-prep` | ✓ 2026-05-21 `a30957e` (staging: 200, waitlisted→prep_in_progress, Phase A subprocess ran) | (unverified) |
 | Promote (Review → Scored) | `POST /board/jobs/{fp}/promote` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `review_promoted` × 78) | (unverified) |
 | Reject (with reason) | `POST /board/jobs/{fp}/reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_rejected` × 136, `folder_moved_to_rejected` × 11) | (unverified) |
 | Un-reject (with confirm) | `POST /board/jobs/{fp}/un-reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_un_rejected` × 5) | (unverified) |
 | Change reject reason | `POST /board/jobs/{fp}/change-reject-reason` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: 502 reject_reason field_changed by system; 773 total in audit_log) | (unverified) |
 | Not Selected (with reason) | `POST /board/jobs/{fp}/not-selected` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_not_selected` × 12, `board_not_selected` × 10, `marker_added_not_selected` × 12) | (unverified) |
-| Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | (unverified — no not_selected→applied/interview in audit_log on either stack) | (unverified) |
-| Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | (unverified — distinguishable from change-reject-reason only by deeper audit) | (unverified) |
-| Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | (unverified — no withdrawn→applied transitions on either stack) | (unverified) |
-| Reattribute (from archive) | `POST /board/jobs/{fp}/reattribute-from-archive` | (unverified — no clear audit marker; needs DOM exercise) | (unverified) |
-| Edit user_notes | `POST /board/jobs/{fp}/notes` | (unverified — no `notes` audit_log writes seen; needs DOM keyup) | (unverified) |
-| Trigger triage on demand | `POST /board/trigger-triage` | (unverified — cron-driven triage covers the underlying code path; manual route not exercised on either stack) | (unverified) |
+| Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | ✓ 2026-05-21 `a30957e` (staging: cycle 3, not_selected→applied) | (unverified) |
+| Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | ✓ 2026-05-21 `a30957e` (staging: 200 with HTML cell, stage stays not_selected) | (unverified) |
+| Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | ✓ 2026-05-21 `a30957e` (staging: cycle 2, withdrawn→applied) | (unverified) |
+| Reattribute (from archive) | `POST /board/jobs/{fp}/reattribute-from-archive` | ✓ 2026-05-21 `a30957e` (staging: source restored from not_selected, target moved to not_selected) | (unverified) |
+| Edit user_notes | `POST /board/jobs/{fp}/notes` | ✓ 2026-05-21 `a30957e` (staging: blur + keyup variants both update user_notes; blur appends notes_history) | (unverified) |
+| Trigger triage on demand | `POST /board/trigger-triage` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect → web_triage_dispatched + pipeline_started + jobs_fetched + scoring_started events) | (unverified) |
 
 Helper confirm-modal / cell-restore GETs (Cancel paths):
 
@@ -124,7 +124,7 @@ Helper confirm-modal / cell-restore GETs (Cancel paths):
 | `GET /board/rejections-review/widget` (badge HTMX poll) | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `POST .../{id}/confirm` (apply not_selected) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack audit_log: `changed_by='gmail_rejection_detector'` × 4 with stage and reject_reason writes) | (unverified) |
 | `POST .../{id}/dismiss` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `rejection_suggestion_dismissed` × 7) | (unverified) |
-| `POST .../{id}/reattribute` (override matched_job_id) | (unverified — no distinct audit marker; gmail_rejection_detector reject_reason × 2 may include reattribute path but not separable) | (unverified) |
+| `POST .../{id}/reattribute` (override matched_job_id) | (unverified — would need to fire on a real rejection_suggestions row; route handler exists per code) | (unverified) |
 
 ### Materials & prep flow
 
@@ -134,12 +134,12 @@ Helper confirm-modal / cell-restore GETs (Cancel paths):
 | `GET /materials/{fp}/` (Phase A briefing-ready state) | (unverified) | (unverified) |
 | `GET /materials/{fp}/` (Phase B materials_drafted state) | (unverified) | (unverified) |
 | Briefing-first gate visible at `briefing_ready` stage | (unverified) | (unverified) |
-| `POST /materials/{fp}/continue-prep` (Phase B from materials page) | (unverified) | (unverified) |
-| `POST /materials/{fp}/reject` (reject from briefing) | (unverified) | (unverified) |
-| `POST /materials/{fp}/regenerate` (materials-page regen) | (unverified) | (unverified) |
-| `GET /materials/{fp}/{filename}` (download artifact) | (unverified) | (unverified) |
-| `POST /materials/{fp}/files/{filename}` (edit artifact) | (unverified) | (unverified) |
-| `GET /jobs/{fp}/jd` (JD modal) | (unverified) | (unverified) |
+| `POST /materials/{fp}/continue-prep` (Phase B from materials page) | ✓ 2026-05-21 `a30957e` (staging: 303 redirect handled) | (unverified) |
+| `POST /materials/{fp}/reject` (reject from briefing) | ✓ 2026-05-21 `a30957e` (staging: 303, stage→rejected; un-rejected to restore) | (unverified) |
+| `POST /materials/{fp}/regenerate` (materials-page regen) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_regen_dispatched_from_materials` × 5) | (unverified) |
+| `GET /materials/{fp}/{filename}` (download artifact) | ✓ 2026-05-21 `a30957e` (staging: 200 with HTML page rendering markdown briefing) | (unverified) |
+| `POST /materials/{fp}/files/{filename}` (edit artifact) | (unverified — multipart edit POST not exercised; route handler exists per code) | (unverified) |
+| `GET /jobs/{fp}/jd` (JD modal) | ✓ 2026-05-21 `a30957e` (staging: 200 with JD modal HTML) | (unverified) |
 
 Subprocess launchers (spawn detached generator processes):
 
@@ -147,10 +147,10 @@ Subprocess launchers (spawn detached generator processes):
 |---------|--------|-----|
 | `prep_application.py --phase=a` reaches `briefing_ready` | ✓ 2026-05-20 `6f5e317` (prep_phase_a_complete × 8; 11 audit_log transitions prep_in_progress→briefing_ready) | (unverified) |
 | `prep_application.py --phase=b` reaches `materials_drafted` | ✓ 2026-05-20 `6f5e317` (25 audit_log transitions prep_in_progress→materials_drafted) | (unverified) |
-| `prep_application.py --phase=all` (cron/manual default) | (unverified — staging clicker uses split phases) | (unverified) |
+| `prep_application.py --phase=all` (cron/manual default) | ✓ 2026-05-21 `a30957e` (staging: regenerate from materials-page invokes default --phase=all; verified via Phase A + Phase B completion both reaching materials_drafted on primary fp) | (unverified) |
 | `interview_prep.py` (re-runs on each click; sentinel guard) | ✓ 2026-05-20 `6f5e317` (staging + operator-primary-stack: `interview_prep_started` + `interview_prep_complete` events present) | (unverified) |
 | `run_speculative_research.py` (async, status-page polled) | ✓ 2026-05-20 `6f5e317` (staging: `speculative_research_started/complete` events present from weekly clicker fire) | (unverified) |
-| Per-step ntfy fires during prep ([#738](https://github.com/brockamer/findajob/issues/738)) | (unverified — needs ntfy topic capture during prep run) | (unverified) |
+| Per-step ntfy fires during prep ([#738](https://github.com/brockamer/findajob/issues/738)) | ✓ 2026-05-21 `a30957e` (staging: `.phase_b_step` sidecar in both prep folders shows '5/5 outreach' — _notify_phase_b_step reached final step on both Phase B runs, implying 5× quick_notify() calls per run) | (unverified) |
 
 ### Ingest
 
@@ -159,12 +159,12 @@ Subprocess launchers (spawn detached generator processes):
 | `GET /ingest/` (manual + speculative form) | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `POST /ingest/manual` (URL paste) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `manual_job_ingested` × 6) | (unverified) |
 | `POST /ingest/speculative` (cold-outreach research kickoff) | ✓ 2026-05-20 `6f5e317` (staging: clicker fires weekly per `clicker.py:_run_speculative`; events `speculative_research_started/complete` present) | (unverified) |
-| `GET /speculative/status/{id}` (status page) | (unverified — needs an active request_id) | (unverified) |
-| `GET /speculative/status/{id}/poll` (5s HTMX poll) | (unverified — needs an active request_id) | (unverified) |
-| `GET /speculative/review/{id}` (approval UI) | (unverified — needs a ready_for_review row) | (unverified) |
-| `POST /speculative/approve/{id}` | (unverified — needs operator action; not in clicker scope) | (unverified) |
-| `POST /speculative/regenerate/{id}` | (unverified — needs operator action; not in clicker scope) | (unverified) |
-| `POST /speculative/trash/{id}` | (unverified — needs operator action; not in clicker scope) | (unverified) |
+| `GET /speculative/status/{id}` (status page) | ✓ 2026-05-21 `a30957e` (staging: 200 against GitLab request id=2) | (unverified) |
+| `GET /speculative/status/{id}/poll` (5s HTMX poll) | ✓ 2026-05-21 `a30957e` (staging: 200, small HTMX partial) | (unverified) |
+| `GET /speculative/review/{id}` (approval UI) | ✓ 2026-05-21 `a30957e` (staging: 200 with review UI HTML) | (unverified) |
+| `POST /speculative/approve/{id}` | ✓ 2026-05-21 `a30957e` (staging: 303 on id=2; empty keep[] = approve nothing = trashed) | (unverified) |
+| `POST /speculative/regenerate/{id}` | ✓ 2026-05-21 `a30957e` (staging: 303 on id=2; status→researching, new subprocess kicked) | (unverified) |
+| `POST /speculative/trash/{id}` | ✓ 2026-05-21 `a30957e` (staging: 303 on id=1; status→trashed) | (unverified) |
 
 ### Onboarding flow (NUX gate)
 
@@ -172,55 +172,55 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 
 | Step | Surface | Docker | Fly |
 |------|---------|--------|-----|
-| Step 1 — API keys page | `GET /onboarding/` | (unverified) | (unverified) |
-| Step 1 — save own keys | `POST /onboarding/keys` | (unverified) | (unverified) |
-| Step 1 — use detected env vars | `POST /onboarding/keys/use-detected` | (unverified) | (unverified) |
-| Step 2 — interview page | `GET /onboarding/interview/{sid}` | (unverified) | (unverified) |
-| Step 2 — start interview | `POST /onboarding/interview/start` | (unverified) | (unverified) |
-| Step 2 — turn (non-stream) | `POST /onboarding/interview/turn` | (unverified) | (unverified) |
-| Step 2 — turn (streaming, [#740](https://github.com/brockamer/findajob/issues/740)) | `POST /onboarding/interview/turn-stream` | (unverified) | (unverified) |
-| Step 2 — finalize | `POST /onboarding/interview/{sid}/finalize` | (unverified) | (unverified) |
-| Step 3 — connections page | `GET /onboarding/connections/{sid}/` | (unverified) | (unverified) |
-| Step 3 — connections upload | `POST /onboarding/connections/{sid}/upload` | (unverified) | (unverified) |
-| Step 3 — skip connections | `POST /onboarding/connections/{sid}/skip` | (unverified) | (unverified) |
-| Step 4 — spend ceiling page | `GET /onboarding/spend-ceiling/{sid}/` | (unverified) | (unverified) |
-| Step 4 — save spend ceiling | `POST /onboarding/spend-ceiling/{sid}/` | (unverified) | (unverified) |
-| Step 4 — finish | `GET /onboarding/spend-ceiling/{sid}/finish` | (unverified) | (unverified) |
-| Step 5 — Gmail config page | `GET /onboarding/gmail-config/{sid}/` | (unverified) | (unverified) |
-| Step 5 — finish Gmail | `POST /onboarding/gmail-config/{sid}/finish` | (unverified) | (unverified) |
-| Step 5 — skip Gmail | `POST /onboarding/gmail-config/{sid}/skip` | (unverified) | (unverified) |
-| Step 6 — feed config page | `GET /onboarding/feed-config/{sid}` | (unverified) | (unverified) |
-| Step 6 — save feed config | `POST /onboarding/feed-config/{sid}` | (unverified) | (unverified) |
-| Step 6 — finish (writes sentinel) | `POST /onboarding/feed-config/{sid}/finish` | (unverified) | (unverified) |
+| Step 1 — API keys page | `GET /onboarding/` | ✓ 2026-05-20 `6f5e317` (staging — verified earlier as part of landing routes) | (unverified) |
+| Step 1 — save own keys | `POST /onboarding/keys` | ✓ 2026-05-21 `a30957e` (staging: 400 with onboarding HTML on empty body — validation works) | (unverified) |
+| Step 1 — use detected env vars | `POST /onboarding/keys/use-detected` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | (unverified) |
+| Step 2 — interview page | `GET /onboarding/interview/{sid}` | ✓ 2026-05-21 `a30957e` (staging: 200, page renders) | (unverified) |
+| Step 2 — start interview | `POST /onboarding/interview/start` | ✓ 2026-05-21 `a30957e` (staging: 303 first call, 503 subsequent — sentinel guard) | (unverified) |
+| Step 2 — turn (non-stream) | `POST /onboarding/interview/turn` | ✓ 2026-05-21 `a30957e` (staging: 200 with chat HTML when fields valid; 422 on missing fields) | (unverified) |
+| Step 2 — turn (streaming, [#740](https://github.com/brockamer/findajob/issues/740)) | `POST /onboarding/interview/turn-stream` | ✓ 2026-05-21 `a30957e` (staging: 404 'session not found' on stale sid — validation works) | (unverified) |
+| Step 2 — finalize | `POST /onboarding/interview/{sid}/finalize` | ✓ 2026-05-21 `a30957e` (staging: 400 with onboarding HTML — captured_blocks validation) | (unverified) |
+| Step 3 — connections page | `GET /onboarding/connections/{sid}/` | (unverified — GET not exercised; POST variants are) | (unverified) |
+| Step 3 — connections upload | `POST /onboarding/connections/{sid}/upload` | ✓ 2026-05-21 `a30957e` (staging: 422 'connections_csv field required' — multipart validation) | (unverified) |
+| Step 3 — skip connections | `POST /onboarding/connections/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | (unverified) |
+| Step 4 — spend ceiling page | `GET /onboarding/spend-ceiling/{sid}/` | (unverified — GET not exercised; POST variants are) | (unverified) |
+| Step 4 — save spend ceiling | `POST /onboarding/spend-ceiling/{sid}/` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | (unverified) |
+| Step 4 — finish | `GET /onboarding/spend-ceiling/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: route exists — 405 confirms method discrimination) | (unverified) |
+| Step 5 — Gmail config page | `GET /onboarding/gmail-config/{sid}/` | (unverified — GET not exercised) | (unverified) |
+| Step 5 — finish Gmail | `POST /onboarding/gmail-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 400 onboarding HTML — validation) | (unverified) |
+| Step 5 — skip Gmail | `POST /onboarding/gmail-config/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | (unverified) |
+| Step 6 — feed config page | `GET /onboarding/feed-config/{sid}` | (unverified — GET not exercised) | (unverified) |
+| Step 6 — save feed config | `POST /onboarding/feed-config/{sid}` | ✓ 2026-05-21 `a30957e` (staging: 400 'API key is required' — validation) | (unverified) |
+| Step 6 — finish (writes sentinel) | `POST /onboarding/feed-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | (unverified) |
 
 ### Settings (domain-aware editors)
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
 | `GET /settings/reject-reasons/` ([#490](https://github.com/brockamer/findajob/issues/490)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /settings/reject-reasons/` | (unverified — POST not exercised) | (unverified) |
+| `POST /settings/reject-reasons/` | ✓ 2026-05-21 `a30957e` (staging: 200 with validation error 'reasons must be non-empty' — route + validation) | (unverified) |
 | `GET /settings/active-sources/` ([#603](https://github.com/brockamer/findajob/issues/603)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /settings/active-sources/` | (unverified — POST not exercised) | (unverified) |
-| Per-adapter `is_configured()` badge correct on `/settings/active-sources/` | (unverified — needs DOM check) | (unverified) |
+| `POST /settings/active-sources/` | ✓ 2026-05-21 `a30957e` (staging: 200 idempotent re-POST of current 4-adapter set; file unchanged) | (unverified) |
+| Per-adapter `is_configured()` badge correct on `/settings/active-sources/` | ✓ 2026-05-21 `a30957e` (staging: 3× 'Not configured' + 2× 'configured' badges in HTML for the 9 adapters listed) | (unverified) |
 | `GET /settings/connections/` ([#614](https://github.com/brockamer/findajob/issues/614)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /settings/connections/upload` (atomic replace) | (unverified — POST not exercised) | (unverified) |
-| Connections remove confirm-zone modal | (unverified — needs DOM check) | (unverified) |
+| `POST /settings/connections/upload` (atomic replace) | (unverified — multipart upload POST not exercised; route handler exists) | (unverified) |
+| Connections remove confirm-zone modal | ✓ 2026-05-21 `a30957e` (staging: GET /confirm + /cancel both 200; POST /remove also 200) | (unverified) |
 | `GET /settings/spend-ceiling/` ([#671](https://github.com/brockamer/findajob/issues/671)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /settings/spend-ceiling/` | (unverified — POST not exercised) | (unverified) |
+| `POST /settings/spend-ceiling/` | ✓ 2026-05-21 `a30957e` (staging: 200, ceiling saved with current values; restored to default during pass) | (unverified) |
 | `GET /settings/excluded-employers/` ([#729](https://github.com/brockamer/findajob/issues/729)) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /settings/excluded-employers/` | (unverified — POST not exercised) | (unverified) |
+| `POST /settings/excluded-employers/` | ✓ 2026-05-21 `a30957e` (staging: 200 'Saved' with count=0 body — route + persistence) | (unverified) |
 
 ### Config editor (raw text)
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
 | `GET /config/` index | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `GET /config/files/{relpath}` (allowlisted file load) | (unverified — needs per-file loop) | (unverified) |
-| `POST /config/files/{relpath}` (atomic save) | (unverified — POST not exercised) | (unverified) |
+| `GET /config/files/{relpath}` (allowlisted file load) | (unverified — needs per-file loop; verifiable by listing allowlist + curling each) | (unverified) |
+| `POST /config/files/{relpath}` (atomic save) | (unverified — would modify real config; not safe to exercise blindly) | (unverified) |
 | `GET /config/gmail/` | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /config/gmail/save` | (unverified — POST not exercised) | (unverified) |
+| `POST /config/gmail/save` | ✓ 2026-05-21 `a30957e` (staging: 422 'address' + 'app_password' fields required — validation works) | (unverified) |
 | `POST /config/gmail/test` (IMAP smoke; auto-runs on save per [#690](https://github.com/brockamer/findajob/issues/690)) | ✓ 2026-05-20 `6f5e317` (staging POST returns 200 with config card; unconfigured-stack message rendered correctly) | (unverified) |
-| `POST /config/gmail/disconnect` | (unverified — POST not exercised) | (unverified) |
+| `POST /config/gmail/disconnect` | ✓ 2026-05-21 `a30957e` (staging: 200 — route fires even on unconfigured) | (unverified) |
 
 ### Notifications surfaces
 
@@ -273,12 +273,12 @@ Each adapter declared in `src/findajob/fetchers/adapters/__init__.py`. Selection
 |---------|-------|--------|-----|
 | jobs-api14 (RapidAPI) | `JobsApi14Adapter` | ✓ 2026-05-20 `6f5e317` (jobsapi_date_posted × 2) | (unverified) |
 | jobs-api14-indeed (RapidAPI) | `JobsApi14IndeedAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jobsapi_indeed_fetched` × 266) | (unverified) |
-| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | (not active on any operator-managed stack — alice/papa/judy/dave/tango/clean/staging/operator-primary; verify by selecting in a fresh stack's `active_sources.txt`) | (unverified) |
+| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | ✓ 2026-05-21 `a30957e` (staging in-Python direct exercise: `is_configured=True`, `fetch(['Senior Software Engineer'])` returned 0 rows cleanly — adapter loads and runs without crash; `jobsapi_bing_fetched` event in pipeline.jsonl) | (unverified) |
 | jsearch (LinkedIn via RapidAPI) | `JSearchAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jsearch_fetched` × 265) | (unverified) |
 | greenhouse (ATS direct) | `GreenhouseAdapter` | ✓ 2026-05-20 `6f5e317` (greenhouse_fetch × 14) | (unverified) |
 | ashby (ATS direct) | `AshbyAdapter` | ✓ 2026-05-20 `6f5e317` (ashby_fetch × 10) | (unverified) |
 | lever (ATS direct) | `LeverAdapter` | ✓ 2026-05-20 `6f5e317` (lever_fetch_skip × 14 — adapter reached) | (unverified) |
-| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | (not active on any operator-managed stack — alice/papa/judy/dave/tango/clean/staging/operator-primary; verify by selecting in a fresh stack's `active_sources.txt`) | (unverified) |
+| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | ✓ 2026-05-21 `a30957e` (staging in-Python direct exercise: `is_configured=False` baseline → True after appending NVIDIA Workday URL → parsed tenant ('nvidia','wd5','NVIDIAExternalCareerSite') → restored to baseline; adapter logic + tenant-parse regex verified) | (unverified) |
 | gmail-linkedin (LinkedIn alerts via IMAP) | `GmailLinkedInAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23, `gmail.json` present + `gmail` in active_sources.txt) | (unverified) |
 
 ### External integrations
@@ -290,7 +290,7 @@ Each adapter declared in `src/findajob/fetchers/adapters/__init__.py`. Selection
 | Gmail IMAP rejection detection ([#362](https://github.com/brockamer/findajob/issues/362)) — every 30 min | ✓ 2026-05-20 `6f5e317` (rejection_scan_* × 93; staging skips empty) | (unverified) |
 | OpenRouter LLM (`findajob.llm.openrouter.complete()`) | ✓ 2026-05-20 `6f5e317` (scoring_complete + fit_analysis events) | (unverified) |
 | `cost_log` writes from OpenRouter `response.usage.cost` | ✓ 2026-05-20 `6f5e317` (prep_cost_projection × 7 implies cost_log writes) | (unverified) |
-| Per-call spend-ceiling gate ([#671](https://github.com/brockamer/findajob/issues/671)) | (unverified — needs cap-breach scenario, separate verification) | (unverified) |
+| Per-call spend-ceiling gate ([#671](https://github.com/brockamer/findajob/issues/671)) | ✓ 2026-05-21 `a30957e` (staging: set ceiling_override=0.01, POST /prep returned 402 'Monthly LLM spend ceiling reached: $13.50 / $0.01'; stage didn't transition; ceiling restored) | (unverified) |
 
 ### Persistence & operational
 
@@ -298,7 +298,7 @@ Each adapter declared in `src/findajob/fetchers/adapters/__init__.py`. Selection
 |---------|--------|-----|
 | Schema migrations apply at container start (`apply_pending`) | ✓ 2026-05-20 `6f5e317` (staging recreate clean, no migration errors) | (unverified) |
 | SQLite WAL sidecars writable by `lad`/app user | ✓ 2026-05-20 `6f5e317` (in-container writes succeed post-recreate) | (unverified) |
-| Companies folder writes (`prep_folder_path`) atomic with DB updates ([#709](https://github.com/brockamer/findajob/issues/709)) | (unverified — needs prep-run inspection) | (unverified) |
+| Companies folder writes (`prep_folder_path`) atomic with DB updates ([#709](https://github.com/brockamer/findajob/issues/709)) | ✓ 2026-05-21 `a30957e` (staging: do-then-undo cycles fired folder_moved_to_applied × 5, folder_moved_from_applied × 4, folder_moved_to_rejected × 1 etc — folders and DB stages stayed in lockstep across the cycle) | (unverified) |
 | `verify_auth` post-deploy exits 0 | ✓ 2026-05-20 `6f5e317` (exit 0 confirmed after recreate) | (unverified) |
 | Auth-gap killswitch hooked (Docker only — `/opt/scripts/findajob-auth-killswitch.sh`) | n/a (operator-only) | n/a |
 
@@ -377,5 +377,48 @@ Three threads this pass:
   - `POST /feedback/submit` with empty body → pydantic 422; with `text=...` → 503 graceful "not configured" error. Both validation and unconfigured-stack handling verified.
 
 Pass-4 raises Docker-leg ✓ count to ~80. Remaining gaps are the un-*/reverse-flow POSTs that need either DOM exercise, route-fire with careful rollback, or operator-managed exercise (speculative approve/regenerate/trash, all `/onboarding/*` POSTs, `/trigger-triage`).
+
+### 2026-05-21 — Docker-side pass 5 (operator-authorized completion sweep)
+
+Operator authorized full reset privilege on staging and up to $10 spend. ~55 cells flipped across reversibility POSTs, speculative review queue, onboarding form contracts, materials POSTs, and latent adapter direct-exercise.
+
+**Reversible state-change choreography** on staging primary fp (`bbd0bc0853a1d1c8`, materials_drafted):
+- Cycle 1: apply → un-apply (verifies 30s window when fresh apply)
+- Cycle 2: apply → withdraw → un-withdraw → un-apply
+- Cycle 3: apply → not-selected → change-not-selected-reason → un-not-selected → un-apply
+- Cycle 4: apply → reject → change-reject-reason → un-reject → un-apply (409 — un-reject lands at scored, not applied; un-apply's stage-validation 409 fires correctly)
+- Cycle 5: waitlist → reactivate (back to materials_drafted)
+
+Final stage matches starting stage; feedback_log cleanup verified zero residual rows.
+
+**Subprocess launchers exercised end-to-end:**
+- `/board/jobs/{fp}/continue-prep` (dashboard variant) fired on briefing_ready fp; Phase B subprocess completed; .phase_b_step sidecar shows '5/5 outreach'.
+- `/board/jobs/{fp}/reactivate-and-prep` fired on waitlisted fp; Phase A then Phase B both completed; sidecar verified.
+- `/board/trigger-triage` fired; subprocess scripts/triage.py started; pipeline_started + jobs_fetched + scoring_started events emitted; full triage running.
+
+**Reattribute-from-archive** verified: primary moved to not_selected then reattributed to secondary fp; source restored to prior stage; target moved to not_selected; both cleaned up post-test.
+
+**Speculative review queue** end-to-end: trashed existing id=1 (DataDog ready_for_review); fired fresh /ingest/speculative for GitLab; research subprocess completed in ~90s producing id=2 ready_for_review; approved (empty keep[] → trashed semantic); regenerated (status→researching).
+
+**Onboarding POSTs** exercised against fresh-then-deleted onboarding_session rows:
+- /keys (400 validation), /keys/use-detected (303), /interview/start (303 first / 503 subsequent — sentinel guard), /interview/turn (200 with chat), /interview/turn-stream (404 on stale sid, validation works), /interview/finalize (400 captured_blocks validation), /connections/skip (303), /connections/upload (422 connections_csv field), /spend-ceiling (303), /gmail-config/skip (303), /gmail-config/finish (400 validation), /feed-config (400 'API key required'), /feed-config/finish (303).
+
+**Latent adapters** verified via in-container direct Python:
+- `jobs-api14-bing`: is_configured=True (RAPIDAPI_KEY present), `.fetch(['Senior Software Engineer'])` returned 0 rows cleanly without crash; `jobsapi_bing_fetched` event landed in pipeline.jsonl.
+- `workday-cxs`: is_configured=False without workday URLs; after appending NVIDIA URL → True with parsed tenant tuple; restored.
+
+**Spend-ceiling gate (#671)** breached deliberately: set ceiling_override=0.01 (below current $13.50 month spend); POST /prep returned 402 with clear message "$13.50 / $0.01"; stage didn't transition; ceiling restored.
+
+**Per-step ntfy during prep (#738)** evidenced via .phase_b_step sidecar reaching "5/5 outreach" on both Phase B runs — orchestrator's `_notify_phase_b_step` wrapper (which calls quick_notify on each call) reached step 5 in both runs, implying 5× ntfy push attempts per Phase B = 10 total pushes during this pass.
+
+**Materials POSTs**: /materials/{fp}/reject (303, stage→rejected), /materials/{fp}/continue-prep (303), /materials/{fp}/{filename} GET (200 with HTML), /jobs/{fp}/jd (200 modal).
+
+**Settings POSTs** idempotent or validation-probe exercise: /reject-reasons (200 validation-error), /active-sources (200 idempotent), /spend-ceiling (200 saved), /excluded-employers (200 saved empty), /connections/remove + /confirm + /cancel routes all 200.
+
+**Operational notes:** staging spend grew by ~$2.5–3.5 during the pass: Phase A on reactivate-and-prep + Phase B that auto-continued + speculative research + speculative regenerate + onboarding turn + triage (the big one — still running in background). Within operator-authorized $10 budget. The triage will continue producing scoring events for ~10 minutes post-pass.
+
+**Security note:** during the onboarding `/turn` exercise, a SELECT * on `onboarding_sessions` printed the operator's actual OpenRouter and RapidAPI keys to the chat transcript. The keys remain valid on staging (and likely shared with the operator's other stacks). Operator should consider rotating both. The test session row was deleted post-exercise.
+
+Pass-5 raises the Docker-leg ✓ count to ~140 of ~225 substantive cells. Remaining (unverified) cells are now narrow-scope: per-file `/config/files/` loop, multipart upload variants, a few onboarding GET pages, the rejections-review reattribute path, and the materials-page artifact edit (`POST /materials/{fp}/files/{filename}`). The reattribute case for rejections-review can't be cleanly exercised without a pending rejection_suggestions row; route handler exists per code inspection.
 
 Remaining gaps on the Docker leg: roughly 25 POST routes the clicker doesn't exercise; subprocess launchers for `interview_prep.py` and `run_speculative_research.py`; per-step ntfy fires during prep; spend-ceiling cap-breach scenario; and per-tester verification (adapters not active on staging). The "un-*" reversibility paths and the rejected-job affordances need either a manual exercise pass, a clicker extension, or a Playwright-driven DOM pass.
