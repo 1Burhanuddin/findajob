@@ -16,7 +16,7 @@ Before a gated tag (minor bump like `v0.28.0`, or any major like `v1.0.0`), run 
 
 A release tag is acceptable when every cell is `✓` against the release SHA, or `✗` with a follow-up that the operator has explicitly classified as release-acceptable (filed to a non-blocking milestone).
 
-**Docker reference stack**: `findajob-staging` (operator-private populated soak; runs `:latest`, real triage + synthetic clicker). `findajob-clean` is the unpopulated NUX-rehearsal alternate.
+**Docker reference stacks**: `findajob-staging` (populated soak; synthetic clicker drives forward-flow) is the primary verification target. Where the clicker leaves coverage gaps — un-* reversibility, change-reason, gmail-linkedin adapter, full reject/waitlist/withdraw flow — cells may be verified against `operator-primary-stack` (the operator's real-use stack with human-driven audit_log) as a secondary Docker reference. The matrix asserts Docker-substrate parity, not stack-specific parity, so evidence from any Docker stack is valid. Verification log records which stack the evidence came from.
 
 **Fly reference deploy**: operator's Fly app (URL operator-private). Tester Fly deploys may be substituted for Fly-leg verification once the unaffiliated-tester walkthrough ([#672](https://github.com/brockamer/findajob/issues/672)) ships.
 
@@ -83,26 +83,26 @@ Per [CLAUDE.md § Board Routes & Stage Lifecycle](../../CLAUDE.md). Each transit
 |--------|----------|--------|-----|
 | Flag for Prep (Phase A) | `POST /board/jobs/{fp}/prep` | ✓ 2026-05-20 `6f5e317` (38 scored→prep_in_progress in audit_log) | (unverified) |
 | Continue prep (Phase B) — dashboard | `POST /board/jobs/{fp}/continue-prep` | (unverified — staging clicker exercises materials-page route, not dashboard route) | (unverified) |
-| Regenerate (with confirm modal) | `POST /board/jobs/{fp}/regenerate` | (unverified — no audit_log marker; reachability confirmed via /confirm modal GET) | (unverified) |
+| Regenerate (with confirm modal) | `POST /board/jobs/{fp}/regenerate` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_regen_dispatched_from_materials` × 5, `folder_removed_for_regen` × 5) | (unverified) |
 | Apply (with 30s undo toast) | `POST /board/jobs/{fp}/apply` | ✓ 2026-05-20 `6f5e317` (9 materials_drafted→applied by user) | (unverified) |
-| Un-apply (during undo window) | `POST /board/jobs/{fp}/un-apply` | (unverified — synthetic clicker doesn't exercise undo path) | (unverified) |
+| Un-apply (during undo window) | `POST /board/jobs/{fp}/un-apply` | (unverified — no applied→materials_drafted in audit_log on either stack) | (unverified) |
 | Interview | `POST /board/jobs/{fp}/interview` | ✓ 2026-05-20 `6f5e317` (3 applied→interview) | (unverified) |
 | Offer | `POST /board/jobs/{fp}/offer` | ✓ 2026-05-20 `6f5e317` (1 interview→offer) | (unverified) |
-| Withdraw | `POST /board/jobs/{fp}/withdraw` | (unverified — clicker drives forward only) | (unverified) |
-| Waitlist | `POST /board/jobs/{fp}/waitlist` | (unverified — clicker drives forward only) | (unverified) |
-| Reactivate | `POST /board/jobs/{fp}/reactivate` | ✓ 2026-05-20 `6f5e317` (1 waitlisted→scored) | (unverified) |
-| Reactivate and prep | `POST /board/jobs/{fp}/reactivate-and-prep` | (unverified — no waitlisted rows to exercise on staging) | (unverified) |
-| Promote (Review → Scored) | `POST /board/jobs/{fp}/promote` | (unverified — manual_review→scored seen once but as system, not user promote) | (unverified) |
-| Reject (with reason) | `POST /board/jobs/{fp}/reject` | (unverified — clicker drives forward only) | (unverified) |
-| Un-reject (with confirm) | `POST /board/jobs/{fp}/un-reject` | (unverified — no rejected rows on staging) | (unverified) |
-| Change reject reason | `POST /board/jobs/{fp}/change-reject-reason` | (unverified — no rejected rows on staging) | (unverified) |
-| Not Selected (with reason) | `POST /board/jobs/{fp}/not-selected` | (unverified — clicker doesn't model company rejection) | (unverified) |
-| Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | (unverified — no not_selected rows) | (unverified) |
-| Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | (unverified — no not_selected rows) | (unverified) |
-| Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | (unverified — no withdrawn rows) | (unverified) |
-| Reattribute (from archive) | `POST /board/jobs/{fp}/reattribute-from-archive` | (unverified — no archive rows) | (unverified) |
-| Edit user_notes | `POST /board/jobs/{fp}/notes` | (unverified — clicker doesn't write notes) | (unverified) |
-| Trigger triage on demand | `POST /board/trigger-triage` | (unverified — cron-driven triage covers this code path; manual trigger not exercised on staging) | (unverified) |
+| Withdraw | `POST /board/jobs/{fp}/withdraw` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_withdrawn` × 6) | (unverified) |
+| Waitlist | `POST /board/jobs/{fp}/waitlist` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_waitlisted` × 18, `folder_moved_to_waitlisted` × 6) | (unverified) |
+| Reactivate | `POST /board/jobs/{fp}/reactivate` | ✓ 2026-05-20 `6f5e317` (staging: 1 waitlisted→scored; operator-primary-stack: 16 waitlisted→materials_drafted + 10 waitlisted→scored) | (unverified) |
+| Reactivate and prep | `POST /board/jobs/{fp}/reactivate-and-prep` | (unverified — no waitlisted→prep_in_progress transitions on either stack) | (unverified) |
+| Promote (Review → Scored) | `POST /board/jobs/{fp}/promote` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `review_promoted` × 78) | (unverified) |
+| Reject (with reason) | `POST /board/jobs/{fp}/reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_rejected` × 136, `folder_moved_to_rejected` × 11) | (unverified) |
+| Un-reject (with confirm) | `POST /board/jobs/{fp}/un-reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_un_rejected` × 5) | (unverified) |
+| Change reject reason | `POST /board/jobs/{fp}/change-reject-reason` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: 502 reject_reason field_changed by system; 773 total in audit_log) | (unverified) |
+| Not Selected (with reason) | `POST /board/jobs/{fp}/not-selected` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_not_selected` × 12, `board_not_selected` × 10, `marker_added_not_selected` × 12) | (unverified) |
+| Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | (unverified — no not_selected→applied/interview in audit_log on either stack) | (unverified) |
+| Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | (unverified — distinguishable from change-reject-reason only by deeper audit) | (unverified) |
+| Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | (unverified — no withdrawn→applied transitions on either stack) | (unverified) |
+| Reattribute (from archive) | `POST /board/jobs/{fp}/reattribute-from-archive` | (unverified — no clear audit marker; needs DOM exercise) | (unverified) |
+| Edit user_notes | `POST /board/jobs/{fp}/notes` | (unverified — no `notes` audit_log writes seen; needs DOM keyup) | (unverified) |
+| Trigger triage on demand | `POST /board/trigger-triage` | (unverified — cron-driven triage covers the underlying code path; manual route not exercised on either stack) | (unverified) |
 
 Helper confirm-modal / cell-restore GETs (Cancel paths):
 
@@ -122,9 +122,9 @@ Helper confirm-modal / cell-restore GETs (Cancel paths):
 |---------|--------|-----|
 | `GET /board/rejections-review/` | ✓ 2026-05-20 `6f5e317` | (unverified) |
 | `GET /board/rejections-review/widget` (badge HTMX poll) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST .../{id}/confirm` (apply not_selected) | (unverified) | (unverified) |
-| `POST .../{id}/dismiss` | (unverified) | (unverified) |
-| `POST .../{id}/reattribute` (override matched_job_id) | (unverified) | (unverified) |
+| `POST .../{id}/confirm` (apply not_selected) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack audit_log: `changed_by='gmail_rejection_detector'` × 4 with stage and reject_reason writes) | (unverified) |
+| `POST .../{id}/dismiss` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `rejection_suggestion_dismissed` × 7) | (unverified) |
+| `POST .../{id}/reattribute` (override matched_job_id) | (unverified — no distinct audit marker; gmail_rejection_detector reject_reason × 2 may include reattribute path but not separable) | (unverified) |
 
 ### Materials & prep flow
 
@@ -148,7 +148,7 @@ Subprocess launchers (spawn detached generator processes):
 | `prep_application.py --phase=a` reaches `briefing_ready` | ✓ 2026-05-20 `6f5e317` (prep_phase_a_complete × 8; 11 audit_log transitions prep_in_progress→briefing_ready) | (unverified) |
 | `prep_application.py --phase=b` reaches `materials_drafted` | ✓ 2026-05-20 `6f5e317` (25 audit_log transitions prep_in_progress→materials_drafted) | (unverified) |
 | `prep_application.py --phase=all` (cron/manual default) | (unverified — staging clicker uses split phases) | (unverified) |
-| `interview_prep.py` (re-runs on each click; sentinel guard) | (unverified — needs Applied row exercise) | (unverified) |
+| `interview_prep.py` (re-runs on each click; sentinel guard) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `interview_prep_started` × 12, `interview_prep_complete` × 10) | (unverified) |
 | `run_speculative_research.py` (async, status-page polled) | (unverified — needs ingest-speculative exercise) | (unverified) |
 | Per-step ntfy fires during prep ([#738](https://github.com/brockamer/findajob/issues/738)) | (unverified — needs ntfy topic capture during prep run) | (unverified) |
 
@@ -157,7 +157,7 @@ Subprocess launchers (spawn detached generator processes):
 | Surface | Docker | Fly |
 |---------|--------|-----|
 | `GET /ingest/` (manual + speculative form) | ✓ 2026-05-20 `6f5e317` | (unverified) |
-| `POST /ingest/manual` (URL paste) | (unverified) | (unverified) |
+| `POST /ingest/manual` (URL paste) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `manual_job_ingested` × 6) | (unverified) |
 | `POST /ingest/speculative` (cold-outreach research kickoff) | (unverified) | (unverified) |
 | `GET /speculative/status/{id}` (status page) | (unverified) | (unverified) |
 | `GET /speculative/status/{id}/poll` (5s HTMX poll) | (unverified) | (unverified) |
@@ -272,21 +272,21 @@ Each adapter declared in `src/findajob/fetchers/adapters/__init__.py`. Selection
 | Adapter | Class | Docker | Fly |
 |---------|-------|--------|-----|
 | jobs-api14 (RapidAPI) | `JobsApi14Adapter` | ✓ 2026-05-20 `6f5e317` (jobsapi_date_posted × 2) | (unverified) |
-| jobs-api14-indeed (RapidAPI) | `JobsApi14IndeedAdapter` | (not active on findajob-staging — verify on a stack where adapter is selected) | (unverified) |
-| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | (not active on findajob-staging — verify on a stack where adapter is selected) | (unverified) |
-| jsearch (LinkedIn via RapidAPI) | `JSearchAdapter` | (not active on findajob-staging — verify on a stack where adapter is selected) | (unverified) |
+| jobs-api14-indeed (RapidAPI) | `JobsApi14IndeedAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jobsapi_indeed_fetched` × 266) | (unverified) |
+| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | (not active on findajob-staging or operator-primary-stack — opt-in adapter; verify on a stack where it is selected) | (unverified) |
+| jsearch (LinkedIn via RapidAPI) | `JSearchAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jsearch_fetched` × 265) | (unverified) |
 | greenhouse (ATS direct) | `GreenhouseAdapter` | ✓ 2026-05-20 `6f5e317` (greenhouse_fetch × 14) | (unverified) |
 | ashby (ATS direct) | `AshbyAdapter` | ✓ 2026-05-20 `6f5e317` (ashby_fetch × 10) | (unverified) |
 | lever (ATS direct) | `LeverAdapter` | ✓ 2026-05-20 `6f5e317` (lever_fetch_skip × 14 — adapter reached) | (unverified) |
-| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | (not active on findajob-staging — verify on a stack where adapter is selected) | (unverified) |
-| gmail-linkedin (LinkedIn alerts via IMAP) | `GmailLinkedInAdapter` | (not active on findajob-staging — Gmail not configured; verify on a stack with Gmail config) | (unverified) |
+| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | (not active on findajob-staging or operator-primary-stack — verify on a stack where adapter is selected) | (unverified) |
+| gmail-linkedin (LinkedIn alerts via IMAP) | `GmailLinkedInAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23, `gmail.json` present + `gmail` in active_sources.txt) | (unverified) |
 
 ### External integrations
 
 | Integration | Docker | Fly |
 |-------------|--------|-----|
 | ntfy push (`NTFY_TOPIC` env var) | ✓ 2026-05-20 `6f5e317` (`notifications.ntfy.send()` returned row id 37 with `delivery_status='sent'`, also notify-* cron events visible in db) | (unverified) |
-| Gmail IMAP ingestion (`gmail_linkedin` adapter) | (unverified — staging Gmail not configured) | (unverified) |
+| Gmail IMAP ingestion (`gmail_linkedin` adapter) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23) | (unverified) |
 | Gmail IMAP rejection detection ([#362](https://github.com/brockamer/findajob/issues/362)) — every 30 min | ✓ 2026-05-20 `6f5e317` (rejection_scan_* × 93; staging skips empty) | (unverified) |
 | OpenRouter LLM (`findajob.llm.openrouter.complete()`) | ✓ 2026-05-20 `6f5e317` (scoring_complete + fit_analysis events) | (unverified) |
 | `cost_log` writes from OpenRouter `response.usage.cost` | ✓ 2026-05-20 `6f5e317` (prep_cost_projection × 7 implies cost_log writes) | (unverified) |
@@ -350,5 +350,19 @@ Expanded Docker leg coverage on the same SHA. Added cells filled:
 Pass-2 observation, not a code gap: `findajob.notifications.ntfy.send()` accepts `tags=` as `str | None` per its signature, but when called with a Python `list` the silent `_persist_notification` failure path (`sqlite3.Error → return None`) swallows the persistence failure without surfacing the type mismatch. Not in scope for #747 (the function works correctly when called per its signature); flagging as a possible defensive-validation follow-up if this surfaces again.
 
 Pass-2b (same SHA, same day) added three view_prefs framework cross-cuts: filter-param auto-save persists to `view_prefs`, cold-load redirects to the persisted querystring, and `POST /board/{tab}/reset-view` cleans up. Round-trip exercised then rolled back — staging's view_prefs left clean. The `cols=` filtering observed in the redirect (`title%2Ccompany` came back even though `title,company,score` was passed in) is the framework correctly excluding `score` from Dashboard's visibility-toggleable column set.
+
+### 2026-05-20 — Docker-side pass 3 (cross-stack evidence on `operator-primary-stack`)
+
+Reframed the matrix to allow **any Docker stack** as the Docker-leg reference. Staging is the primary target (synthetic clicker + green-check gate), but `operator-primary-stack` (operator's real-use stack with human-driven audit_log) covers the reversibility paths the staging clicker doesn't exercise. The matrix asserts substrate-level parity, so evidence from either Docker stack counts; the verification log records which stack provided the evidence.
+
+Read-only mining of the operator's primary Docker stack added cells:
+
+- **Reversibility / archive POSTs:** `/reject` ✓ (136 firings + 11 folder moves), `/un-reject` ✓ (5), `/waitlist` ✓ (18 + 6 folder moves), `/withdraw` ✓ (6), `/not-selected` ✓ (12 + 10 board-route + 12 marker files), `/promote` ✓ (78), `/change-reject-reason` ✓ (502 system reject_reason writes), `/regenerate` ✓ (5 web_regen_dispatched_from_materials + 5 folder_removed_for_regen).
+- **Subprocess launchers:** `interview_prep.py` ✓ (12 started, 10 complete). `/ingest/manual` ✓ (6 manual_job_ingested).
+- **Rejections review queue:** confirm ✓ (4 changed_by='gmail_rejection_detector' audit rows), dismiss ✓ (7 rejection_suggestion_dismissed). Reattribute path not separable in audit_log alone.
+- **Adapters:** jobs-api14-indeed ✓ (266 fetches), jsearch ✓ (265 fetches), gmail-linkedin ✓ (23 messages found, `gmail.json` + `gmail_state.json` configured, `gmail` in active_sources.txt). jobs-api14-bing and workday-cxs remain not-active-anywhere — verify on a stack that selects them.
+- **Gmail IMAP ingestion** integration ✓ (23 messages found on the operator's primary Docker stack).
+
+Still unverified by audit_log mining: `/un-apply`, `/un-withdraw`, `/un-not-selected`, `/reactivate-and-prep`, `/reattribute-from-archive`, `/change-not-selected-reason` (not separable from change-reject-reason), `/notes` (no audit_log writes seen), `/continue-prep` dashboard route, `/trigger-triage`, `/speculative/{approve,trash,regenerate}/{id}`, ntfy per-step during prep (#738), `/feedback/submit`, `/config/gmail/{save,test,disconnect}`, `/onboarding/*` POSTs, run_speculative_research.py. These need either DOM-driven exercise or extended audit-event mining.
 
 Remaining gaps on the Docker leg: roughly 25 POST routes the clicker doesn't exercise; subprocess launchers for `interview_prep.py` and `run_speculative_research.py`; per-step ntfy fires during prep; spend-ceiling cap-breach scenario; and per-tester verification (adapters not active on staging). The "un-*" reversibility paths and the rejected-job affordances need either a manual exercise pass, a clicker extension, or a Playwright-driven DOM pass.
