@@ -69,11 +69,11 @@ Per-tab cross-cuts (verify once per substrate, not per tab):
 
 | Cross-cut | Docker | Fly |
 |-----------|--------|-----|
-| `view_prefs` cold-load redirect adds `?<persisted_qs>` | (unverified) | (unverified) |
-| `POST /board/{tab}/reset-view` clears persisted prefs | (unverified) | (unverified) |
-| Columns dropdown writes `?cols=` and persists | (unverified) | (unverified) |
-| Notes inline edit autosaves (800ms debounce) | (unverified) | (unverified) |
-| Notes blur writes `notes_history` row | (unverified) | (unverified) |
+| `view_prefs` cold-load redirect adds `?<persisted_qs>` | ✓ 2026-05-20 `6f5e317` (303 → `/board/dashboard?title=Engineer&cols=title%2Ccompany` after auto-save) | (unverified) |
+| `POST /board/{tab}/reset-view` clears persisted prefs | ✓ 2026-05-20 `6f5e317` (303 to bare tab URL; post-reset cold-load returns 200 no redirect) | (unverified) |
+| Columns dropdown writes `?cols=` and persists | ✓ 2026-05-20 `6f5e317` (cols= round-trips through view_prefs auto-save → cold-load redirect) | (unverified) |
+| Notes inline edit autosaves (800ms debounce) | (unverified — needs DOM-driven keyup event) | (unverified) |
+| Notes blur writes `notes_history` row | (unverified — needs DOM-driven blur event) | (unverified) |
 
 ### Job action transitions (POST routes)
 
@@ -348,5 +348,7 @@ Expanded Docker leg coverage on the same SHA. Added cells filled:
 - Adapter classification corrected: `jobs-api14-indeed`, `jobs-api14-bing`, `jsearch`, `workday-cxs`, `gmail-linkedin` are not in `findajob-staging`'s `active_sources.txt` (which has just `jobs-api14`, `greenhouse`, `ashby`, `lever`). These cells reframed from "no events" to "not active on this stack" — an honest classification, not a code gap.
 
 Pass-2 observation, not a code gap: `findajob.notifications.ntfy.send()` accepts `tags=` as `str | None` per its signature, but when called with a Python `list` the silent `_persist_notification` failure path (`sqlite3.Error → return None`) swallows the persistence failure without surfacing the type mismatch. Not in scope for #747 (the function works correctly when called per its signature); flagging as a possible defensive-validation follow-up if this surfaces again.
+
+Pass-2b (same SHA, same day) added three view_prefs framework cross-cuts: filter-param auto-save persists to `view_prefs`, cold-load redirects to the persisted querystring, and `POST /board/{tab}/reset-view` cleans up. Round-trip exercised then rolled back — staging's view_prefs left clean. The `cols=` filtering observed in the redirect (`title%2Ccompany` came back even though `title,company,score` was passed in) is the framework correctly excluding `score` from Dashboard's visibility-toggleable column set.
 
 Remaining gaps on the Docker leg: roughly 25 POST routes the clicker doesn't exercise; subprocess launchers for `interview_prep.py` and `run_speculative_research.py`; per-step ntfy fires during prep; spend-ceiling cap-breach scenario; and per-tester verification (adapters not active on staging). The "un-*" reversibility paths and the rejected-job affordances need either a manual exercise pass, a clicker extension, or a Playwright-driven DOM pass.
