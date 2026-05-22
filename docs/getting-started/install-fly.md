@@ -31,7 +31,7 @@ Collected before you run the deploy script (it'll prompt for each):
 
 A handful of these (OpenRouter + RapidAPI + ntfy + auth) are collected at deploy time so the first browser visit lands on the auth gate, not a half-configured screen.
 
-**A safety net is built in.** You can cap monthly LLM spend at any dollar amount via `/settings/spend-ceiling/` after deploy — the pipeline halts new LLM calls when the running monthly total crosses your cap. Set whatever number won't make you nervous; you can change it later.
+**An opt-in safety net.** You can cap monthly LLM spend at any dollar amount via `/settings/spend-ceiling/` after deploy — the pipeline halts new LLM calls when the running monthly total crosses your cap. The onboarding flow walks you through setting one. **If you skip that step, new LLM calls run uncapped** until you configure a ceiling; a dashboard banner reminds you until you set one or dismiss it. Set whatever number won't make you nervous; you can change it later.
 
 ---
 
