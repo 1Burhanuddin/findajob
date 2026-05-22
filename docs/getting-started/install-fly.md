@@ -153,7 +153,7 @@ See [`gmail.md`](gmail.md) for the 2FA + app-password procedure. Gmail integrati
 
 ## 7. Verify and wait for first triage
 
-After onboarding lands you on the dashboard, the feed is empty — no jobs have been triaged yet. By default, triage runs at midnight in your stack's timezone.
+After onboarding lands you on the dashboard, the feed is empty — no jobs have been triaged yet. By default, triage runs at **midnight America/New_York** (the timezone set by `ops/fly.toml`'s `[env].TZ` value, which the deploy script does not prompt for). If you're on a different coast and want triage to land overnight in your local time, change `TZ` either before deploy (edit `ops/fly.toml`'s `[env]` block) or after (`fly secrets set TZ=America/Los_Angeles --app findajob-<your-handle>` — the secret overrides the `[env]` value and triggers a redeploy). Use any [IANA tz name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
 
 **The dashboard tells you what to do.** A blue banner above the (empty) job table shows when the next scheduled triage will fire and includes a **Trigger triage now** button. Click it to start the pipeline immediately rather than wait for the cron cycle.
 

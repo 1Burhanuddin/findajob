@@ -59,7 +59,7 @@ fly ssh console --app findajob-<your-handle> --command "python3 /app/scripts/not
 docker compose exec scheduler /app/scripts/notify.py health-check
 ```
 
-**Expected:** no output (silent = healthy), or a list of `WARN` / `ERROR` lines pointing at what's not wired yet. Each alert is documented in [`../troubleshooting.md`](../troubleshooting.md). A freshly-started container with no triage run yet will fire `WARN: pipeline_complete not seen in last 25h` — that's normal; it clears after the first scheduled triage at 00:00 local time.
+**Expected:** no output (silent = healthy), or a list of `WARN` / `ERROR` lines pointing at what's not wired yet. Each alert is documented in [`../troubleshooting.md`](../troubleshooting.md). A freshly-started container with no triage run yet will fire `WARN: pipeline_complete not seen in last 25h` — that's normal; it clears after the first scheduled triage at 00:00 in the stack's configured `TZ` (default `America/New_York` on Fly per [`install-fly.md` §7](install-fly.md#7-verify-and-wait-for-first-triage); editable via the `TZ` env var on Docker).
 
 ## 5. Gmail job-alert ingestion (optional) → [`gmail.md`](gmail.md)
 
