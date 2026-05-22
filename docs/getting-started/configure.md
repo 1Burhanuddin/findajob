@@ -136,6 +136,8 @@ RAPIDAPI_KEY=...        # canonical key for all RapidAPI feeds (optional; set by
 # JOBS_API14_KEY=...   # legacy per-adapter fallback — still works; RAPIDAPI_KEY preferred (#414)
 # JSEARCH_API_KEY=...  # legacy per-adapter fallback — still works; RAPIDAPI_KEY preferred (#414)
 NTFY_TOPIC=your-topic-name
+# OPENROUTER_CREDIT_AMBER_USD=5   # nav credit chip turns amber below this (default $5)  #665
+# OPENROUTER_CREDIT_RED_USD=1     # nav credit chip turns red below this (default $1)    #665
 ```
 
 Protect this file: `chmod 600 data/.env`
