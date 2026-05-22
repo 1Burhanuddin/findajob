@@ -123,6 +123,7 @@ prompt_secret() {
     else
         printf "    %s%s: " "$label" "$prompt_suffix" >&2
         read -r val
+        [ -t 0 ] || printf "\n" >&2
     fi
     if [ -z "$val" ] && [ -n "$default" ]; then
         val="$default"
