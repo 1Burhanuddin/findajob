@@ -104,8 +104,8 @@ Full DAG + per-stage I/O contracts + failure handling: [`docs/architecture.md`](
 
 - **Triage cuts the noise so you can focus.** 12K → 60 isn't unusual once the scorer learns your profile. Most job tools track what you applied to; this one finds the few worth applying to.
 - **Your rejections train tomorrow's scoring.** Every *Skills Mismatch* / *Too Senior* / *Comp Too Low* tag is a labeled example. No other AI job tool closes that loop.
-- **Tailored materials, locally generated.** Per-job folder with resume + cover letter + briefing + outreach drafts, sitting on your Docker host as plain `.docx` and `.md`. SQLite for state. The only outbound calls are to the LLM providers you've configured. No SaaS lock-in for your most personal data.
-- **Field-agnostic.** Built by a data-center-ops candidate; works just as well for a social worker, teacher, accountant, or trades professional. Same pipeline, same setup — only `profile.md` changes. See [`docs/maintainers/generalization.md`](docs/maintainers/generalization.md).
+- **Tailored materials, locally generated.** Per-job folder with resume + cover letter + briefing + outreach drafts, stored in your stack's volume as plain `.docx` and `.md`. SQLite for state. The only outbound calls are to the LLM providers you've configured. No SaaS lock-in for your most personal data.
+- **Field-agnostic.** Built by a data-center-ops candidate; works just as well for a social worker, teacher, accountant, software engineer, or trades professional. Same pipeline, same setup — only `profile.md` changes. See [`docs/maintainers/generalization.md`](docs/maintainers/generalization.md).
 
 ---
 
@@ -174,7 +174,7 @@ fly auth login
 cp ops/fly.toml.example ops/fly.toml
 open -e ops/fly.toml                             # macOS — opens in TextEdit
 nano ops/fly.toml                                # Linux — terminal editor
-# Change the line: app = "findajob-<your-handle>"
+# Change the line: app = "findajob-<your-handle>"  (must be globally unique on Fly)
 
 # 6. Deploy (creates the app + 8GB volume, prompts for API keys, runs `fly deploy`)
 bash ops/fly-deploy.sh

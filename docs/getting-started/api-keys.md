@@ -47,13 +47,15 @@ bill instead of holding direct accounts with five vendors.
 
 ### What findajob does with it
 
-findajob calls 10 different OpenRouter models for different roles:
+findajob routes 21 role prompts to 6 OpenRouter models (and 2 Anthropic-direct models for the loose-ends onboarding helpers — those don't draw from your OpenRouter balance):
 
-- Scoring → DeepSeek v3.2
-- Cover letters, briefings, recruiter critique → Claude Opus 4.7
-- Resume change review, network analysis → Gemini 3 Flash
-- Company research, fit analysis → Perplexity Sonar Reasoning Pro
-- In-app interview chat → Claude Sonnet 4.6
+- **Scoring** (`job_scorer`) → DeepSeek v3.2
+- **Briefings, cover letters, recruiter critique, resume tailoring, outreach, interview prep, voice processing** → Claude Opus 4.7
+- **Onboarding interview, speculative role synthesis** → Claude Sonnet 4.6
+- **Network analysis, resume change review** → Gemini 3 Flash
+- **Company research, company discovery, fit analysis** → Perplexity Sonar Reasoning Pro
+- **Candidate-led speculative briefing** → Perplexity Sonar Deep Research
+- **Loose-ends helpers** (onboarding nav) → Claude Haiku 4.5 / Sonnet 4.6 via Anthropic direct
 
 ### Cost expectations
 
@@ -238,9 +240,12 @@ restart needed for keys read at request time.
 If you're running your own stack (e.g. self-hosting via docker-compose
 or deploying to Fly), you ARE the operator — both options above work
 for you. If a separate person manages your stack on your behalf, they
-can edit `data/.env` directly via SSH — documented in
-`docs/getting-started/install-docker.md` under "Operating an existing
-stack."
+can edit `data/.env` directly on the host:
+- **Docker self-host:** SSH into the host and edit `data/.env` — see
+  `docs/getting-started/install-docker.md` under "Operating an existing
+  stack."
+- **Fly.io:** `fly secrets set OPENROUTER_API_KEY=sk-or-v1-... --app findajob-<your-handle>`
+  (Fly redeploys the machine automatically when secrets change).
 
 ---
 

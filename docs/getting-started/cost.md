@@ -128,7 +128,7 @@ Three things move LLM spend most:
 
 Cost-reducing levers:
 
-- **Tune your prefilter.** Jobs that match `prefilter_rules.yaml` deny patterns are rejected before scoring — no LLM call. A well-tuned prefilter can cut triage cost in half.
+- **Tune your prefilter.** Jobs that match `prefilter_rules.yaml` deny patterns are rejected before scoring — no LLM call. A well-tuned prefilter can cut triage cost in half. Edit it in the web UI at `/config/files/prefilter_rules.yaml`.
 - **Adjust scoring model.** Default is a small/cheap model. You won't drop below $0.0015/score without losing quality, but you can verify your model choice on the `/stats/` page.
 - **Skip preps you won't apply to.** The flagged-for-prep queue isn't a bookmark list. Each prep is ~$1.
 
