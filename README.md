@@ -10,7 +10,7 @@ Built and operated daily; pre-1.0 means active development.
 
 ## What it does
 
-Despite the role labels you'll see in the architecture diagram below, you only need accounts at two services: **OpenRouter** (handles every AI call findajob makes) and **RapidAPI** (optional — for LinkedIn / Indeed search ingestion). Typical all-in cost is **~$20–50/mo** plus a one-time ~$2–6 onboarding interview. Full breakdown: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
+Despite the role labels you'll see in the architecture diagram below, you only need accounts at two services: **OpenRouter** (handles every AI call findajob makes) and **RapidAPI** (optional — for LinkedIn / Indeed search ingestion). Typical API spend is **~$20–50/mo** (LLM + optional RapidAPI), plus ~$5/mo for Fly.io hosting if you don't self-host. Plus a one-time ~$2–6 onboarding interview. Full breakdown: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
 
 The pipeline narrows the funnel at every step where a human would otherwise waste attention — LLM triage on the way in, human triage on the way to prep, prep only for jobs worth applying to. Thirty days on the operator's instance:
 
@@ -139,7 +139,7 @@ Both paths run the same image, complete the same onboarding interview, and reach
 
 One required API key (both paths):
 
-- **OpenRouter** — funds every LLM call (triage scoring, materials writing, in-app onboarding interview). Pay-as-you-go from $0; the one-time onboarding interview runs ~$2–6 in spend, then ~$0.50/day for triage-only and ~$1 per fully-prepped job (full breakdown: [`docs/getting-started/cost.md`](docs/getting-started/cost.md)). **Add at least $10 of credit to your OpenRouter wallet before you start the interview** (pay-as-you-go funding — you add a balance, the system draws from it).
+- **OpenRouter** — funds every LLM call (triage scoring, materials writing, in-app onboarding interview). Pay-as-you-go from $0; the one-time onboarding interview runs ~$2–6 in spend, then ~$0.50/day for triage-only and ~$1 per fully-prepped job (full breakdown: [`docs/getting-started/cost.md`](docs/getting-started/cost.md)). **Add at least $10 of credit to your OpenRouter wallet before you start the interview** — that covers the interview itself; **$20–$30 covers a typical first month of usage.** Pay-as-you-go funding: you add a balance, the system draws from it.
 
 One optional API key (both paths):
 
@@ -249,7 +249,7 @@ Real-world per-call rates on the operator's instance (sourced from `cost_log`, l
 | Per fully-prepped job (Phase A + B + sidecar) | ~$1.10 avg |
 | Per interview-prep run | ~$0.30 avg |
 
-**Typical user: ~$20–50/mo all-in.** The operator's instance runs at the higher end — high listing volume (4 sources, 20+ target companies) and 15–30 preps/month. Full breakdown across cadences: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
+**Typical user: ~$20–50/mo in API spend.** Add ~$5/mo if hosted on Fly.io. The operator's instance runs at the higher end — high listing volume (4 sources, 20+ target companies) and 15–30 preps/month. Full breakdown across cadences: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
 
 ---
 

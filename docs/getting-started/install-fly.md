@@ -199,7 +199,7 @@ Verify current Fly pricing at <https://fly.io/docs/about/pricing/>.
 
 **LLM spend** — depends on your cadence:
 - Daily triage only (scoring a typical day's job intake): order-of-magnitude $0.30–$1/day
-- Per fully-prepped job (briefing + tailored resume + cover + recruiter critique + outreach): ~$1–2 per prep
+- Per fully-prepped job (briefing + tailored resume + cover + recruiter critique + outreach): ~$0.80–$1.20 per prep (see [`cost.md`](cost.md) for the breakdown)
 - Onboarding interview (one-time): ~$3–6
 
 See [`cost.md`](cost.md) for the full breakdown with `cost_log`-grounded ranges, and [`../operations/fly-deploy.md#cost-guide`](../operations/fly-deploy.md#cost-guide) for the operator-tier reference table.

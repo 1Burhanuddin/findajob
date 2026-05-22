@@ -34,9 +34,10 @@ bill instead of holding direct accounts with five vendors.
 2. Sign up using Google, GitHub, or MetaMask (the sign-in / sign-up
    controls are top right).
 3. Add credit to your account at <https://openrouter.ai/credits>.
-   $20–$30 is a comfortable starter for an active user; see
-   [`cost.md`](cost.md) for monthly expectations broken down by usage
-   profile.
+   **$10 minimum** to cover the onboarding interview ($3–6);
+   **$20–$30** is a comfortable starter for a typical first month
+   after that. See [`cost.md`](cost.md) for monthly expectations
+   broken down by usage profile.
 4. Create an API key at <https://openrouter.ai/settings/keys>. Give it
    a name like "findajob" so you can find it later. Copy the key — it
    starts with `sk-or-v1-` and is shown to you only once. (If you lose
