@@ -10,7 +10,7 @@ Built and operated daily; pre-1.0 means active development.
 
 ## What it does
 
-Despite the role labels you'll see in the architecture diagram below, you only need accounts at two services: **OpenRouter** (handles every AI call findajob makes) and **RapidAPI** (optional — for LinkedIn / Indeed search ingestion). Typical all-in cost is **~$20–50/mo** plus a one-time ~$2–6 onboarding interview. Full breakdown: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
+Despite the role labels you'll see in the architecture diagram below, you only need accounts at two services: **OpenRouter** (handles every AI call findajob makes) and **RapidAPI** (optional — for LinkedIn / Indeed search ingestion). Typical API spend is **~$20–50/mo** (LLM + optional RapidAPI), plus ~$5/mo for Fly.io hosting if you don't self-host. Plus a one-time ~$2–6 onboarding interview. Full breakdown: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
 
 The pipeline narrows the funnel at every step where a human would otherwise waste attention — LLM triage on the way in, human triage on the way to prep, prep only for jobs worth applying to. Thirty days on the operator's instance:
 
@@ -104,8 +104,8 @@ Full DAG + per-stage I/O contracts + failure handling: [`docs/architecture.md`](
 
 - **Triage cuts the noise so you can focus.** 12K → 60 isn't unusual once the scorer learns your profile. Most job tools track what you applied to; this one finds the few worth applying to.
 - **Your rejections train tomorrow's scoring.** Every *Skills Mismatch* / *Too Senior* / *Comp Too Low* tag is a labeled example. No other AI job tool closes that loop.
-- **Tailored materials, locally generated.** Per-job folder with resume + cover letter + briefing + outreach drafts, sitting on your Docker host as plain `.docx` and `.md`. SQLite for state. The only outbound calls are to the LLM providers you've configured. No SaaS lock-in for your most personal data.
-- **Field-agnostic.** Built by a data-center-ops candidate; works just as well for a social worker, teacher, accountant, or trades professional. Same pipeline, same setup — only `profile.md` changes. See [`docs/maintainers/generalization.md`](docs/maintainers/generalization.md).
+- **Tailored materials, locally generated.** Per-job folder with resume + cover letter + briefing + outreach drafts, stored in your stack's volume as plain `.docx` and `.md`. SQLite for state. The only outbound calls are to the LLM providers you've configured. No SaaS lock-in for your most personal data.
+- **Field-agnostic.** Built by a data-center-ops candidate; works just as well for a social worker, teacher, accountant, software engineer, or trades professional. Same pipeline, same setup — only `profile.md` changes. See [`docs/maintainers/generalization.md`](docs/maintainers/generalization.md).
 
 ---
 
@@ -139,7 +139,7 @@ Both paths run the same image, complete the same onboarding interview, and reach
 
 One required API key (both paths):
 
-- **OpenRouter** — funds every LLM call (triage scoring, materials writing, in-app onboarding interview). Pay-as-you-go from $0; the one-time onboarding interview runs ~$2–6 in spend, then ~$0.50/day for triage-only and ~$1 per fully-prepped job (full breakdown: [`docs/getting-started/cost.md`](docs/getting-started/cost.md)). **Add at least $10 of credit to your OpenRouter wallet before you start the interview** (pay-as-you-go funding — you add a balance, the system draws from it).
+- **OpenRouter** — funds every LLM call (triage scoring, materials writing, in-app onboarding interview). Pay-as-you-go from $0; the one-time onboarding interview runs ~$2–6 in spend, then ~$0.50/day for triage-only and ~$1 per fully-prepped job (full breakdown: [`docs/getting-started/cost.md`](docs/getting-started/cost.md)). **Add at least $10 of credit to your OpenRouter wallet before you start the interview** — that covers the interview itself; **$20–$30 covers a typical first month of usage.** Pay-as-you-go funding: you add a balance, the system draws from it.
 
 One optional API key (both paths):
 
@@ -174,7 +174,7 @@ fly auth login
 cp ops/fly.toml.example ops/fly.toml
 open -e ops/fly.toml                             # macOS — opens in TextEdit
 nano ops/fly.toml                                # Linux — terminal editor
-# Change the line: app = "findajob-<your-handle>"
+# Change the line: app = "findajob-<your-handle>"  (must be globally unique on Fly)
 
 # 6. Deploy (creates the app + 8GB volume, prompts for API keys, runs `fly deploy`)
 bash ops/fly-deploy.sh
@@ -220,7 +220,7 @@ Open your stack URL. A fresh deploy redirects to `/onboarding/`:
 
 1. **Step 1 — API keys.** OpenRouter (required) + RapidAPI (optional). The OpenRouter key is smoke-checked against the live API before being saved. On Fly, the keys you set via `fly secrets` during deploy are pre-detected and you can click *Use detected keys* to skip re-typing.
 2. **Step 2 — Onboarding interview.** A chat surface inside findajob walks you through a 60–90 minute conversation about your background, target role, exclusions, and writing voice. Five phases, with file-block "📄 captured" chips streaming live as each section locks in. The session is server-side persistent — close the tab anytime and a *Resume* button surfaces on return. Cost: **~$1.50–$3 per interview** with prompt caching enabled.
-3. **Spend-ceiling gate.** *A safety net is built in.* Cap monthly LLM spend at any dollar amount; the pipeline halts new LLM calls when the running monthly total crosses your cap. Set whatever number won't make you nervous — skippable here, configurable any time at `/settings/spend-ceiling/`.
+3. **Spend-ceiling gate.** *A safety net is built in — opt in here.* Cap monthly LLM spend at any dollar amount; the pipeline halts new LLM calls when the running monthly total crosses your cap. Set whatever number won't make you nervous. **If you skip, new LLM calls run uncapped** — a dashboard banner reminds you to configure one at `/settings/spend-ceiling/` until you set a ceiling or dismiss the banner.
 4. **Gmail config gate** *(optional)*. Wire up IMAP + an app password for LinkedIn job-alert ingestion and ATS rejection-email detection. Skippable; configure later at `/config/gmail/`.
 5. **LinkedIn Connections.csv** *(optional)*. Drop in your LinkedIn data export so outreach drafts can name real contacts at target companies. Skippable; upload later at `/onboarding/connections/`.
 
@@ -249,7 +249,7 @@ Real-world per-call rates on the operator's instance (sourced from `cost_log`, l
 | Per fully-prepped job (Phase A + B + sidecar) | ~$1.10 avg |
 | Per interview-prep run | ~$0.30 avg |
 
-**Typical user: ~$20–50/mo all-in.** The operator's instance runs at the higher end — high listing volume (4 sources, 20+ target companies) and 15–30 preps/month. Full breakdown across cadences: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
+**Typical user: ~$20–50/mo in API spend.** Add ~$5/mo if hosted on Fly.io. The operator's instance runs at the higher end — high listing volume (4 sources, 20+ target companies) and 15–30 preps/month. Full breakdown across cadences: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
 
 ---
 

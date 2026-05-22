@@ -96,7 +96,7 @@ findajob has a built-in **monthly spend ceiling** you can configure in the web U
 
 When the running monthly OpenRouter total crosses your configured cap:
 
-- **Triage and scoring continue.** Jobs keep coming in and getting scored. No data loss.
+- **Triage continues to ingest; scoring halts.** New jobs keep landing in your database from every configured source — ingest itself makes no LLM calls. But every score call fails until the cap is raised or the UTC-month resets. Unscored jobs sit at `enriched` stage and re-enter the scoring queue automatically on the next triage after LLM calls resume. No data loss, but no scored shortlist either until then.
 - **New prep, interview-prep, and speculative-ingest requests are refused** with an HTTP 402 PaymentRequired response. The "Flag for Prep" button shows a friendly error pointing you at `/settings/spend-ceiling/` to adjust the cap or wait until the next calendar month (UTC).
 - **An in-flight prep that crosses the cap mid-run is aborted.** A full prep is a sequence of 6+ LLM calls; if the cap is crossed between calls, the next call raises and the prep stops. The job's stage resets to `scored` so you can re-flag it once you raise the cap or the next month rolls over. Partial artifacts (whatever was generated before the cap was hit) remain on disk in the prep folder under `companies/` and are cleaned up automatically the next time you flag the same job for prep.
 - The top-nav cost chip turns amber at ≥90% of cap, rose at ≥100%.
@@ -128,7 +128,7 @@ Three things move LLM spend most:
 
 Cost-reducing levers:
 
-- **Tune your prefilter.** Jobs that match `prefilter_rules.yaml` deny patterns are rejected before scoring — no LLM call. A well-tuned prefilter can cut triage cost in half.
+- **Tune your prefilter.** Jobs that match `prefilter_rules.yaml` deny patterns are rejected before scoring — no LLM call. A well-tuned prefilter can cut triage cost in half. Edit it in the web UI at `/config/files/prefilter_rules.yaml`.
 - **Adjust scoring model.** Default is a small/cheap model. You won't drop below $0.0015/score without losing quality, but you can verify your model choice on the `/stats/` page.
 - **Skip preps you won't apply to.** The flagged-for-prep queue isn't a bookmark list. Each prep is ~$1.
 

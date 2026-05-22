@@ -41,7 +41,7 @@ findajob runs as one app per person on Fly.io. You need an account with billing 
 OpenRouter is the service that handles every AI call findajob makes (job scoring, resume writing, the onboarding interview itself). One signup covers all of them.
 
 1. Go to <https://openrouter.ai/> and sign up.
-2. Go to <https://openrouter.ai/credits> and add **at least $10** to your balance. The onboarding interview alone runs $3–6.
+2. Go to <https://openrouter.ai/credits> and add **at least $10** to your balance — that covers the onboarding interview ($3–6); **$20–$30 covers a typical first month of usage** after that.
 3. Go to <https://openrouter.ai/keys> and **create a new API key**. Copy it somewhere you can paste it from later (the deploy script will ask).
 
 **What you should see:** a balance ≥ $10 on the Credits page, and an API key starting with `sk-or-v1-...` saved somewhere you can find it.

@@ -98,8 +98,8 @@
 
   <div class="rounded-lg border border-slate-200 bg-white p-4">
     <p class="text-sm text-slate-600 mb-3">
-      You can skip this step and set a ceiling later at <code>/settings/spend-ceiling/</code>.
-      The dashboard will remind you.
+      Skipping leaves new LLM calls <strong>uncapped</strong> — set a ceiling later at <code>/settings/spend-ceiling/</code>.
+      A dashboard banner reminds you until you do (or dismiss it).
     </p>
     <form method="post" action="/onboarding/spend-ceiling/{{ session_id }}/">
       <input type="hidden" name="action" value="skip" />

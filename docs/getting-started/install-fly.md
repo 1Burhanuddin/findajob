@@ -31,7 +31,7 @@ Collected before you run the deploy script (it'll prompt for each):
 
 A handful of these (OpenRouter + RapidAPI + ntfy + auth) are collected at deploy time so the first browser visit lands on the auth gate, not a half-configured screen.
 
-**A safety net is built in.** You can cap monthly LLM spend at any dollar amount via `/settings/spend-ceiling/` after deploy — the pipeline halts new LLM calls when the running monthly total crosses your cap. Set whatever number won't make you nervous; you can change it later.
+**An opt-in safety net.** You can cap monthly LLM spend at any dollar amount via `/settings/spend-ceiling/` after deploy — the pipeline halts new LLM calls when the running monthly total crosses your cap. The onboarding flow walks you through setting one. **If you skip that step, new LLM calls run uncapped** until you configure a ceiling; a dashboard banner reminds you until you set one or dismiss it. Set whatever number won't make you nervous; you can change it later.
 
 ---
 
@@ -153,7 +153,7 @@ See [`gmail.md`](gmail.md) for the 2FA + app-password procedure. Gmail integrati
 
 ## 7. Verify and wait for first triage
 
-After onboarding lands you on the dashboard, the feed is empty — no jobs have been triaged yet. By default, triage runs at midnight in your stack's timezone.
+After onboarding lands you on the dashboard, the feed is empty — no jobs have been triaged yet. By default, triage runs at **midnight America/New_York** (the timezone set by `ops/fly.toml`'s `[env].TZ` value, which the deploy script does not prompt for). If you're on a different coast and want triage to land overnight in your local time, change `TZ` either before deploy (edit `ops/fly.toml`'s `[env]` block) or after (`fly secrets set TZ=America/Los_Angeles --app findajob-<your-handle>` — the secret overrides the `[env]` value and triggers a redeploy). Use any [IANA tz name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
 
 **The dashboard tells you what to do.** A blue banner above the (empty) job table shows when the next scheduled triage will fire and includes a **Trigger triage now** button. Click it to start the pipeline immediately rather than wait for the cron cycle.
 
@@ -199,7 +199,7 @@ Verify current Fly pricing at <https://fly.io/docs/about/pricing/>.
 
 **LLM spend** — depends on your cadence:
 - Daily triage only (scoring a typical day's job intake): order-of-magnitude $0.30–$1/day
-- Per fully-prepped job (briefing + tailored resume + cover + recruiter critique + outreach): ~$1–2 per prep
+- Per fully-prepped job (briefing + tailored resume + cover + recruiter critique + outreach): ~$0.80–$1.20 per prep (see [`cost.md`](cost.md) for the breakdown)
 - Onboarding interview (one-time): ~$3–6
 
 See [`cost.md`](cost.md) for the full breakdown with `cost_log`-grounded ranges, and [`../operations/fly-deploy.md#cost-guide`](../operations/fly-deploy.md#cost-guide) for the operator-tier reference table.
