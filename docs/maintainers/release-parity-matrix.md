@@ -56,9 +56,9 @@ Add a row here when a new genuine difference is discovered.
 
 | Surface | Docker (`findajob-staging`) | Fly (operator's deploy) |
 |---------|------------------------------|--------------------------|
-| `GET /` landing | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Top-nav present, all 9 groups linked | ✓ 2026-05-21 `a30957e` (staging: 8 direct hrefs + Settings dropdown nested with /settings/reject-reasons/ + /settings/spend-ceiling/ links — 9 groups total) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Spend chip in nav reflects current month | ✓ 2026-05-21 `a30957e` (staging: 'spend' + 'spend-ceiling' tokens present in dashboard HTML) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /` landing | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Top-nav present, all 9 groups linked | ✓ 2026-05-21 `a30957e` (staging: 8 direct hrefs + Settings dropdown nested with /settings/reject-reasons/ + /settings/spend-ceiling/ links — 9 groups total) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Spend chip in nav reflects current month | ✓ 2026-05-21 `a30957e` (staging: 'spend' + 'spend-ceiling' tokens present in dashboard HTML) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 ### Board tabs (8 user-facing tabs)
 
@@ -66,24 +66,24 @@ Every tab: `GET /board/{tab}` renders the table; `GET /board/{tab}/rows` returns
 
 | Tab | URL | Docker | Fly |
 |-----|-----|--------|-----|
-| Dashboard | `/board/dashboard` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Applied | `/board/applied` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Review | `/board/review` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Waitlist | `/board/waitlist` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Rejected | `/board/rejected` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Not Selected | `/board/not-selected` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Archive | `/board/archive` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Rejections Review | `/board/rejections-review/` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Dashboard | `/board/dashboard` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Applied | `/board/applied` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Review | `/board/review` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Waitlist | `/board/waitlist` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Rejected | `/board/rejected` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Not Selected | `/board/not-selected` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Archive | `/board/archive` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Rejections Review | `/board/rejections-review/` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 Per-tab cross-cuts (verify once per substrate, not per tab):
 
 | Cross-cut | Docker | Fly |
 |-----------|--------|-----|
-| `view_prefs` cold-load redirect adds `?<persisted_qs>` | ✓ 2026-05-20 `6f5e317` (303 → `/board/dashboard?title=Engineer&cols=title%2Ccompany` after auto-save) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /board/{tab}/reset-view` clears persisted prefs | ✓ 2026-05-20 `6f5e317` (303 to bare tab URL; post-reset cold-load returns 200 no redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Columns dropdown writes `?cols=` and persists | ✓ 2026-05-20 `6f5e317` (cols= round-trips through view_prefs auto-save → cold-load redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Notes inline edit autosaves (800ms debounce) | ✓ 2026-05-21 `a30957e` (staging: POST /notes event_type=keyup updates user_notes, no notes_history write) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Notes blur writes `notes_history` row | ✓ 2026-05-21 `a30957e` (staging: POST /notes event_type=blur appends notes_history row) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `view_prefs` cold-load redirect adds `?<persisted_qs>` | ✓ 2026-05-20 `6f5e317` (303 → `/board/dashboard?title=Engineer&cols=title%2Ccompany` after auto-save) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /board/{tab}/reset-view` clears persisted prefs | ✓ 2026-05-20 `6f5e317` (303 to bare tab URL; post-reset cold-load returns 200 no redirect) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Columns dropdown writes `?cols=` and persists | ✓ 2026-05-20 `6f5e317` (cols= round-trips through view_prefs auto-save → cold-load redirect) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Notes inline edit autosaves (800ms debounce) | ✓ 2026-05-21 `a30957e` (staging: POST /notes event_type=keyup updates user_notes, no notes_history write) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Notes blur writes `notes_history` row | ✓ 2026-05-21 `a30957e` (staging: POST /notes event_type=blur appends notes_history row) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 ### Job action transitions (POST routes)
 
@@ -94,62 +94,62 @@ Per [CLAUDE.md § Board Routes & Stage Lifecycle](../../CLAUDE.md). Each transit
 | Flag for Prep (Phase A) | `POST /board/jobs/{fp}/prep` | ✓ 2026-05-20 `6f5e317` (38 scored→prep_in_progress in audit_log) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
 | Continue prep (Phase B) — dashboard | `POST /board/jobs/{fp}/continue-prep` | ✓ 2026-05-21 `a30957e` (staging: 200, briefing_ready→prep_in_progress→materials_drafted) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
 | Regenerate (with confirm modal) | `POST /board/jobs/{fp}/regenerate` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_regen_dispatched_from_materials` × 5, `folder_removed_for_regen` × 5) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
-| Apply (with 30s undo toast) | `POST /board/jobs/{fp}/apply` | ✓ 2026-05-20 `6f5e317` (9 materials_drafted→applied by user) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Un-apply (during undo window) | `POST /board/jobs/{fp}/un-apply` | ✓ 2026-05-21 `a30957e` (staging: 3 do-then-undo cycles applied→materials_drafted; 409 on stage≠applied) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Apply (with 30s undo toast) | `POST /board/jobs/{fp}/apply` | ✓ 2026-05-20 `6f5e317` (9 materials_drafted→applied by user) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Un-apply (during undo window) | `POST /board/jobs/{fp}/un-apply` | ✓ 2026-05-21 `a30957e` (staging: 3 do-then-undo cycles applied→materials_drafted; 409 on stage≠applied) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 | Interview | `POST /board/jobs/{fp}/interview` | ✓ 2026-05-20 `6f5e317` (3 applied→interview) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
-| Offer | `POST /board/jobs/{fp}/offer` | ✓ 2026-05-20 `6f5e317` (1 interview→offer) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Withdraw | `POST /board/jobs/{fp}/withdraw` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_withdrawn` × 6) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Waitlist | `POST /board/jobs/{fp}/waitlist` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_waitlisted` × 18, `folder_moved_to_waitlisted` × 6) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Reactivate | `POST /board/jobs/{fp}/reactivate` | ✓ 2026-05-20 `6f5e317` (staging: 1 waitlisted→scored; operator-primary-stack: 16 waitlisted→materials_drafted + 10 waitlisted→scored) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Offer | `POST /board/jobs/{fp}/offer` | ✓ 2026-05-20 `6f5e317` (1 interview→offer) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Withdraw | `POST /board/jobs/{fp}/withdraw` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_withdrawn` × 6) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Waitlist | `POST /board/jobs/{fp}/waitlist` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_waitlisted` × 18, `folder_moved_to_waitlisted` × 6) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Reactivate | `POST /board/jobs/{fp}/reactivate` | ✓ 2026-05-20 `6f5e317` (staging: 1 waitlisted→scored; operator-primary-stack: 16 waitlisted→materials_drafted + 10 waitlisted→scored) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 | Reactivate and prep | `POST /board/jobs/{fp}/reactivate-and-prep` | ✓ 2026-05-21 `a30957e` (staging: 200, waitlisted→prep_in_progress, Phase A subprocess ran) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
-| Promote (Review → Scored) | `POST /board/jobs/{fp}/promote` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `review_promoted` × 78) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Reject (with reason) | `POST /board/jobs/{fp}/reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_rejected` × 136, `folder_moved_to_rejected` × 11) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Un-reject (with confirm) | `POST /board/jobs/{fp}/un-reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_un_rejected` × 5) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Change reject reason | `POST /board/jobs/{fp}/change-reject-reason` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: 502 reject_reason field_changed by system; 773 total in audit_log) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Not Selected (with reason) | `POST /board/jobs/{fp}/not-selected` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_not_selected` × 12, `board_not_selected` × 10, `marker_added_not_selected` × 12) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | ✓ 2026-05-21 `a30957e` (staging: cycle 3, not_selected→applied) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | ✓ 2026-05-21 `a30957e` (staging: 200 with HTML cell, stage stays not_selected) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | ✓ 2026-05-21 `a30957e` (staging: cycle 2, withdrawn→applied) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Reattribute (from archive) | `POST /board/jobs/{fp}/reattribute-from-archive` | ✓ 2026-05-21 `a30957e` (staging: source restored from not_selected, target moved to not_selected) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Edit user_notes | `POST /board/jobs/{fp}/notes` | ✓ 2026-05-21 `a30957e` (staging: blur + keyup variants both update user_notes; blur appends notes_history) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Promote (Review → Scored) | `POST /board/jobs/{fp}/promote` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `review_promoted` × 78) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Reject (with reason) | `POST /board/jobs/{fp}/reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_rejected` × 136, `folder_moved_to_rejected` × 11) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Un-reject (with confirm) | `POST /board/jobs/{fp}/un-reject` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_un_rejected` × 5) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Change reject reason | `POST /board/jobs/{fp}/change-reject-reason` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: 502 reject_reason field_changed by system; 773 total in audit_log) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Not Selected (with reason) | `POST /board/jobs/{fp}/not-selected` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `job_not_selected` × 12, `board_not_selected` × 10, `marker_added_not_selected` × 12) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | ✓ 2026-05-21 `a30957e` (staging: cycle 3, not_selected→applied) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | ✓ 2026-05-21 `a30957e` (staging: 200 with HTML cell, stage stays not_selected) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | ✓ 2026-05-21 `a30957e` (staging: cycle 2, withdrawn→applied) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Reattribute (from archive) | `POST /board/jobs/{fp}/reattribute-from-archive` | ✓ 2026-05-21 `a30957e` (staging: source restored from not_selected, target moved to not_selected) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Edit user_notes | `POST /board/jobs/{fp}/notes` | ✓ 2026-05-21 `a30957e` (staging: blur + keyup variants both update user_notes; blur appends notes_history) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 | Trigger triage on demand | `POST /board/trigger-triage` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect → web_triage_dispatched + pipeline_started + jobs_fetched + scoring_started events) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
 
 Helper confirm-modal / cell-restore GETs (Cancel paths):
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /board/jobs/{fp}/regenerate/confirm` (modal) | ✓ 2026-05-20 `6f5e317` (200 for materials_drafted; 409 stage-mismatch for briefing_ready) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /board/jobs/{fp}/regenerate/cell` (restore) | ✓ 2026-05-20 `6f5e317` (200 partial for both stages) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /board/jobs/{fp}/un-reject/confirm` | ✓ 2026-05-20 `6f5e317` (409 stage-mismatch on non-rejected; no rejected fp on staging to test 200 path) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /board/jobs/{fp}/un-reject/cell` | ✓ 2026-05-20 `6f5e317` (200 restore partial on non-rejected fp) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /board/jobs/{fp}/notes/history` | ✓ 2026-05-20 `6f5e317` (200 empty-state partial; no history rows on staging) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /board/jobs/{fp}/reattribute/modal` | ✓ 2026-05-20 `6f5e317` (409 stage-mismatch on applied; needs not_selected fp for 200 path) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /board/jobs/{fp}/archive-actions-cell` | ✓ 2026-05-20 `6f5e317` (200 partial on applied) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /board/jobs/{fp}/regenerate/confirm` (modal) | ✓ 2026-05-20 `6f5e317` (200 for materials_drafted; 409 stage-mismatch for briefing_ready) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /board/jobs/{fp}/regenerate/cell` (restore) | ✓ 2026-05-20 `6f5e317` (200 partial for both stages) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /board/jobs/{fp}/un-reject/confirm` | ✓ 2026-05-20 `6f5e317` (409 stage-mismatch on non-rejected; no rejected fp on staging to test 200 path) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /board/jobs/{fp}/un-reject/cell` | ✓ 2026-05-20 `6f5e317` (200 restore partial on non-rejected fp) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /board/jobs/{fp}/notes/history` | ✓ 2026-05-20 `6f5e317` (200 empty-state partial; no history rows on staging) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /board/jobs/{fp}/reattribute/modal` | ✓ 2026-05-20 `6f5e317` (409 stage-mismatch on applied; needs not_selected fp for 200 path) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /board/jobs/{fp}/archive-actions-cell` | ✓ 2026-05-20 `6f5e317` (200 partial on applied) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 ### Rejections review queue (Gmail-IMAP rejection detector landing)
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /board/rejections-review/` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /board/rejections-review/widget` (badge HTMX poll) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST .../{id}/confirm` (apply not_selected) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack audit_log: `changed_by='gmail_rejection_detector'` × 4 with stage and reject_reason writes) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST .../{id}/dismiss` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `rejection_suggestion_dismissed` × 7) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST .../{id}/reattribute` (override matched_job_id) | (unverified — would need to fire on a real rejection_suggestions row; route handler exists per code) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /board/rejections-review/` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /board/rejections-review/widget` (badge HTMX poll) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST .../{id}/confirm` (apply not_selected) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack audit_log: `changed_by='gmail_rejection_detector'` × 4 with stage and reject_reason writes) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST .../{id}/dismiss` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `rejection_suggestion_dismissed` × 7) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST .../{id}/reattribute` (override matched_job_id) | ✓ 2026-05-22 `3d03dce` (staging: synthetic row id=1 inserted with `user_action='pending'`, `matched_job_id=NULL`; POST with `job_id=<applied-stage uuid>` → 303; audit_log ids 6382–6383 show `stage applied→not_selected` + `reject_reason` both `changed_by='gmail_rejection_detector'`; `rejection_suggestions.user_action` updated to `'reassigned'`) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 ### Materials & prep flow
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /materials/` index | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /materials/` index | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 | `GET /materials/{fp}/` (Phase A briefing-ready state) | ✓ 2026-05-21 `6ff8057` (staging: page renders for briefing_ready fp during pass 5 continue-prep exercise) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
 | `GET /materials/{fp}/` (Phase B materials_drafted state) | ✓ 2026-05-21 `6ff8057` (staging: page renders for materials_drafted fp; verified during pass 5 reject-from-materials) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
 | Briefing-first gate visible at `briefing_ready` stage | ✓ 2026-05-21 `6ff8057` (staging: continue-prep + reject buttons fire from briefing_ready state — pass 5 cycle reached this gate) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
 | `POST /materials/{fp}/continue-prep` (Phase B from materials page) | ✓ 2026-05-21 `a30957e` (staging: 303 redirect handled) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
-| `POST /materials/{fp}/reject` (reject from briefing) | ✓ 2026-05-21 `a30957e` (staging: 303, stage→rejected; un-rejected to restore) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /materials/{fp}/reject` (reject from briefing) | ✓ 2026-05-21 `a30957e` (staging: 303, stage→rejected; un-rejected to restore) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 | `POST /materials/{fp}/regenerate` (materials-page regen) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `web_regen_dispatched_from_materials` × 5) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
 | `GET /materials/{fp}/{filename}` (download artifact) | ✓ 2026-05-21 `a30957e` (staging: 200 with HTML page rendering markdown briefing) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
-| `POST /materials/{fp}/files/{filename}` (edit artifact) | (unverified — multipart edit POST not exercised; route handler exists per code) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
-| `GET /jobs/{fp}/jd` (JD modal) | ✓ 2026-05-21 `a30957e` (staging: 200 with JD modal HTML) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `POST /materials/{fp}/files/{filename}` (edit artifact) | ✓ 2026-05-22 `3d03dce` (staging: POST `content=@briefing.md` to `d5f2e67cd1c14db6/files/<filename>` → 200; modtime advanced from 2026-05-20 to 2026-05-22; sha256 identical `cdbf681d`; `.bak` sidecar created) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
+| `GET /jobs/{fp}/jd` (JD modal) | ✓ 2026-05-21 `a30957e` (staging: 200 with JD modal HTML) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 Subprocess launchers (spawn detached generator processes):
 
@@ -166,8 +166,8 @@ Subprocess launchers (spawn detached generator processes):
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /ingest/` (manual + speculative form) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /ingest/manual` (URL paste) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `manual_job_ingested` × 6) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /ingest/` (manual + speculative form) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /ingest/manual` (URL paste) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `manual_job_ingested` × 6) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 | `POST /ingest/speculative` (cold-outreach research kickoff) | ✓ 2026-05-20 `6f5e317` (staging: clicker fires weekly per `clicker.py:_run_speculative`; events `speculative_research_started/complete` present) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
 | `GET /speculative/status/{id}` (status page) | ✓ 2026-05-21 `a30957e` (staging: 200 against GitLab request id=2) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
 | `GET /speculative/status/{id}/poll` (5s HTMX poll) | ✓ 2026-05-21 `a30957e` (staging: 200, small HTMX partial) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; verified via shared launch path — `/board/jobs/{fp}/prep` on Anthropic Data Center Hardware Operations Lead produced `prep_started` + cost_log entry $0.0180 from company_researcher; `/tools/trigger-cron/watchdog` produced full dispatcher + script-internal event chain — proving `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` now resolves correctly on Fly) |
@@ -182,76 +182,79 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 
 | Step | Surface | Docker | Fly |
 |------|---------|--------|-----|
-| Step 1 — API keys page | `GET /onboarding/` | ✓ 2026-05-20 `6f5e317` (staging — verified earlier as part of landing routes) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 1 — save own keys | `POST /onboarding/keys` | ✓ 2026-05-21 `a30957e` (staging: 400 with onboarding HTML on empty body — validation works) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 1 — use detected env vars | `POST /onboarding/keys/use-detected` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 2 — interview page | `GET /onboarding/interview/{sid}` | ✓ 2026-05-21 `a30957e` (staging: 200, page renders) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 2 — start interview | `POST /onboarding/interview/start` | ✓ 2026-05-21 `a30957e` (staging: 303 first call, 503 subsequent — sentinel guard) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 2 — turn (non-stream) | `POST /onboarding/interview/turn` | ✓ 2026-05-21 `a30957e` (staging: 200 with chat HTML when fields valid; 422 on missing fields) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 2 — turn (streaming, [#740](https://github.com/brockamer/findajob/issues/740)) | `POST /onboarding/interview/turn-stream` | ✓ 2026-05-21 `a30957e` (staging: 404 'session not found' on stale sid — validation works) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 2 — finalize | `POST /onboarding/interview/{sid}/finalize` | ✓ 2026-05-21 `a30957e` (staging: 400 with onboarding HTML — captured_blocks validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 3 — connections page | `GET /onboarding/connections/{sid}/` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 3 — connections upload | `POST /onboarding/connections/{sid}/upload` | ✓ 2026-05-21 `a30957e` (staging: 422 'connections_csv field required' — multipart validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 3 — skip connections | `POST /onboarding/connections/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 4 — spend ceiling page | `GET /onboarding/spend-ceiling/{sid}/` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 4 — save spend ceiling | `POST /onboarding/spend-ceiling/{sid}/` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 4 — finish | `GET /onboarding/spend-ceiling/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: route exists — 405 confirms method discrimination) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 5 — Gmail config page | `GET /onboarding/gmail-config/{sid}/` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 5 — finish Gmail | `POST /onboarding/gmail-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 400 onboarding HTML — validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 5 — skip Gmail | `POST /onboarding/gmail-config/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 6 — feed config page | `GET /onboarding/feed-config/{sid}` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 6 — save feed config | `POST /onboarding/feed-config/{sid}` | ✓ 2026-05-21 `a30957e` (staging: 400 'API key is required' — validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Step 6 — finish (writes sentinel) | `POST /onboarding/feed-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Step 1 — API keys page | `GET /onboarding/` | ✓ 2026-05-20 `6f5e317` (staging — verified earlier as part of landing routes) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 1 — save own keys | `POST /onboarding/keys` | ✓ 2026-05-21 `a30957e` (staging: 400 with onboarding HTML on empty body — validation works) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 1 — use detected env vars | `POST /onboarding/keys/use-detected` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 2 — interview page | `GET /onboarding/interview/{sid}` | ✓ 2026-05-21 `a30957e` (staging: 200, page renders) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 2 — start interview | `POST /onboarding/interview/start` | ✓ 2026-05-21 `a30957e` (staging: 303 first call, 503 subsequent — sentinel guard) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 2 — turn (non-stream) | `POST /onboarding/interview/turn` | ✓ 2026-05-21 `a30957e` (staging: 200 with chat HTML when fields valid; 422 on missing fields) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 2 — turn (streaming, [#740](https://github.com/brockamer/findajob/issues/740)) | `POST /onboarding/interview/turn-stream` | ✓ 2026-05-21 `a30957e` (staging: 404 'session not found' on stale sid — validation works) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 2 — finalize | `POST /onboarding/interview/{sid}/finalize` | ✓ 2026-05-21 `a30957e` (staging: 400 with onboarding HTML — captured_blocks validation) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 3 — connections page | `GET /onboarding/connections/{sid}/` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 3 — connections upload | `POST /onboarding/connections/{sid}/upload` | ✓ 2026-05-21 `a30957e` (staging: 422 'connections_csv field required' — multipart validation) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 3 — skip connections | `POST /onboarding/connections/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 4 — spend ceiling page | `GET /onboarding/spend-ceiling/{sid}/` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 4 — save spend ceiling | `POST /onboarding/spend-ceiling/{sid}/` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 4 — finish | `GET /onboarding/spend-ceiling/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: route exists — 405 confirms method discrimination) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 5 — Gmail config page | `GET /onboarding/gmail-config/{sid}/` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 5 — finish Gmail | `POST /onboarding/gmail-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 400 onboarding HTML — validation) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 5 — skip Gmail | `POST /onboarding/gmail-config/{sid}/skip` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 6 — feed config page | `GET /onboarding/feed-config/{sid}` | ✓ 2026-05-21 `6ff8057` (staging: 200) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 6 — save feed config | `POST /onboarding/feed-config/{sid}` | ✓ 2026-05-21 `a30957e` (staging: 400 'API key is required' — validation) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Step 6 — finish (writes sentinel) | `POST /onboarding/feed-config/{sid}/finish` | ✓ 2026-05-21 `a30957e` (staging: 303 redirect) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 ### Settings (domain-aware editors)
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /settings/reject-reasons/` ([#490](https://github.com/brockamer/findajob/issues/490)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /settings/reject-reasons/` | ✓ 2026-05-21 `a30957e` (staging: 200 with validation error 'reasons must be non-empty' — route + validation) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /settings/active-sources/` ([#603](https://github.com/brockamer/findajob/issues/603)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /settings/active-sources/` | ✓ 2026-05-21 `a30957e` (staging: 200 idempotent re-POST of current 4-adapter set; file unchanged) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Per-adapter `is_configured()` badge correct on `/settings/active-sources/` | ✓ 2026-05-21 `a30957e` (staging: 3× 'Not configured' + 2× 'configured' badges in HTML for the 9 adapters listed) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /settings/connections/` ([#614](https://github.com/brockamer/findajob/issues/614)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /settings/connections/upload` (atomic replace) | (unverified — multipart upload POST not exercised; route handler exists) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Connections remove confirm-zone modal | ✓ 2026-05-21 `a30957e` (staging: GET /confirm + /cancel both 200; POST /remove also 200) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /settings/spend-ceiling/` ([#671](https://github.com/brockamer/findajob/issues/671)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /settings/spend-ceiling/` | ✓ 2026-05-21 `a30957e` (staging: 200, ceiling saved with current values; restored to default during pass) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /settings/excluded-employers/` ([#729](https://github.com/brockamer/findajob/issues/729)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /settings/excluded-employers/` | ✓ 2026-05-21 `a30957e` (staging: 200 'Saved' with count=0 body — route + persistence) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /settings/reject-reasons/` ([#490](https://github.com/brockamer/findajob/issues/490)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /settings/reject-reasons/` | ✓ 2026-05-21 `a30957e` (staging: 200 with validation error 'reasons must be non-empty' — route + validation) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /settings/active-sources/` ([#603](https://github.com/brockamer/findajob/issues/603)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /settings/active-sources/` | ✓ 2026-05-21 `a30957e` (staging: 200 idempotent re-POST of current 4-adapter set; file unchanged) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Per-adapter `is_configured()` badge correct on `/settings/active-sources/` | ✓ 2026-05-21 `a30957e` (staging: 3× 'Not configured' + 2× 'configured' badges in HTML for the 9 adapters listed) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /settings/connections/` ([#614](https://github.com/brockamer/findajob/issues/614)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /settings/connections/upload` (atomic replace) | ✓ 2026-05-22 `3d03dce` (staging: multipart `-F connections_csv=@<file>` → 200 with "File refreshed" message; connections.csv created on host at `/opt/stacks/findajob-staging/state/data/connections.csv`, 2 lines, modtime 2026-05-22) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Connections remove confirm-zone modal | ✓ 2026-05-21 `a30957e` (staging: GET /confirm + /cancel both 200; POST /remove also 200) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /settings/spend-ceiling/` ([#671](https://github.com/brockamer/findajob/issues/671)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /settings/spend-ceiling/` | ✓ 2026-05-21 `a30957e` (staging: 200, ceiling saved with current values; restored to default during pass) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /settings/excluded-employers/` ([#729](https://github.com/brockamer/findajob/issues/729)) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /settings/excluded-employers/` | ✓ 2026-05-21 `a30957e` (staging: 200 'Saved' with count=0 body — route + persistence) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 ### Config editor (raw text)
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /config/` index | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /config/files/{relpath}` (allowlisted file load) | ✓ 2026-05-21 `6ff8057` (staging: 403 forbidden on direct path access — additional auth gate beyond basic-auth; route exists, returns expected forbidden code) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /config/files/{relpath}` (atomic save) | (unverified — would modify real config; not safe to exercise blindly) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /config/gmail/` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /config/gmail/save` | ✓ 2026-05-21 `a30957e` (staging: 422 'address' + 'app_password' fields required — validation works) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /config/gmail/test` (IMAP smoke; auto-runs on save per [#690](https://github.com/brockamer/findajob/issues/690)) | ✓ 2026-05-20 `6f5e317` (staging POST returns 200 with config card; unconfigured-stack message rendered correctly) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /config/gmail/disconnect` | ✓ 2026-05-21 `a30957e` (staging: 200 — route fires even on unconfigured) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /config/` index | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /config/files/{relpath}` (allowlisted file load) | ✓ 2026-05-21 `6ff8057` (staging: 403 forbidden on direct path access — additional auth gate beyond basic-auth; route exists, returns expected forbidden code) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /config/files/{relpath}` (atomic save) | ✓ 2026-05-22 `3d03dce` (staging: POST `content=32.48` to `config/spend_ceiling.txt` → 200 with "Saved config/spend_ceiling.txt." partial; modtime advanced to 2026-05-22; value unchanged at 32.48) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /config/gmail/` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /config/gmail/save` | ✓ 2026-05-21 `a30957e` (staging: 422 'address' + 'app_password' fields required — validation works) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /config/gmail/test` (IMAP smoke; auto-runs on save per [#690](https://github.com/brockamer/findajob/issues/690)) | ✓ 2026-05-20 `6f5e317` (staging POST returns 200 with config card; unconfigured-stack message rendered correctly) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /config/gmail/disconnect` | ✓ 2026-05-21 `a30957e` (staging: 200 — route fires even on unconfigured) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 ### Notifications surfaces
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /notifications/` index | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /notifications/badge` (HTMX nav poll) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /notifications/{id}/read` | ✓ 2026-05-20 `6f5e317` (staging: 303 redirect on POST `/notifications/37/read`; idempotent on already-read row) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `POST /notifications/mark-all-read` | ✓ 2026-05-20 `6f5e317` (staging: 303 redirect, post-call unread=0) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /notifications/` index | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /notifications/badge` (HTMX nav poll) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /notifications/{id}/read` | ✓ 2026-05-20 `6f5e317` (staging: 303 redirect on POST `/notifications/37/read`; idempotent on already-read row) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `POST /notifications/mark-all-read` | ✓ 2026-05-20 `6f5e317` (staging: 303 redirect, post-call unread=0) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 ### Stats, docs, tools, health
 
 | Surface | Docker | Fly |
 |---------|--------|-----|
-| `GET /stats/` redirect | ✓ 2026-05-21 `6ff8057` (staging: 307 redirect to /stats/funnel) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /stats/funnel` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /stats/feedback` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /docs/` (renders `docs/usage.md` etc.) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /stats/` redirect | ✓ 2026-05-21 `6ff8057` (staging: 307 redirect to /stats/funnel) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /stats/funnel` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /stats/feedback` | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /stats/scoring` ([#194](https://github.com/brockamer/findajob/issues/194)) | ✓ 2026-05-22 `3d03dce` (staging: 200 — Pass-8 smoke) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GET re-smoked) |
+| `GET /stats/rejections` ([#195](https://github.com/brockamer/findajob/issues/195)) | ✓ 2026-05-22 `3d03dce` (staging: 200 — Pass-8 smoke) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GET re-smoked) |
+| `GET /stats/throughput` ([#196](https://github.com/brockamer/findajob/issues/196)) | ✓ 2026-05-22 `3d03dce` (staging: 200 — Pass-8 smoke) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GET re-smoked) |
+| `GET /docs/` (renders `docs/usage.md` etc.) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 | `GET /docs/{slug}` (allowlisted: see `_PAGES` in `routes/docs.py`) | ✓ 2026-05-20 `6f5e317` (16/16 slugs return 200) | ✓ 2026-05-21 `a0c4ac5` (Fly post-#772 IMAGE_ROOT fix; 9/9 slugs return 200 via in-container curl: usage, troubleshooting, getting-started, operations, getting-started/{install-fly,install-docker,configure,prerequisites}, operations/internet-exposure) |
-| `GET /tools/` (LLM-prompt tile gallery) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `GET /healthz` (container liveness probe) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `GET /tools/` (LLM-prompt tile gallery) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `GET /healthz` (container liveness probe) | ✓ 2026-05-20 `6f5e317` | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 ---
 
@@ -261,15 +264,15 @@ First-run sentinel `data/.onboarding-complete` redirects to `/onboarding/` until
 
 | Job | Cadence (PT) | Docker | Fly |
 |-----|--------------|--------|-----|
-| `triage` | 00:00 daily | ✓ 2026-05-20 `6f5e317` (2 cycles in last 500 events) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `watchdog` | every 10 min | ✓ 2026-05-20 `6f5e317` (278 watchdog_run events) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `notify-apply` | 06:00 daily | ✓ 2026-05-21 `6ff8057` (cron entry in ops/scheduled-jobs.yaml + scripts/notify.py present; same supercronic config Docker↔Fly per substrate-parity; live event tail at next 06:00 PT cadence) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `notify-stats` | 06:15 daily | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `notify-health` | 07:00 daily | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `notify-issues` | Mon/Wed/Fri 08:00 | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `notify-feedback` | Sunday 08:00 | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `discover` (company_discoverer) | Sunday 02:00 | ✓ 2026-05-21 `6ff8057` (cron entry present + verified firing on Fly leg as 'discovery_complete' event) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `detect-rejections` | every 30 min | ✓ 2026-05-20 `6f5e317` (93 rejection_scan_* events) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| `triage` | 00:00 daily | ✓ 2026-05-20 `6f5e317` (2 cycles in last 500 events) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `watchdog` | every 10 min | ✓ 2026-05-20 `6f5e317` (278 watchdog_run events) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `notify-apply` | 06:00 daily | ✓ 2026-05-21 `6ff8057` (cron entry in ops/scheduled-jobs.yaml + scripts/notify.py present; same supercronic config Docker↔Fly per substrate-parity; live event tail at next 06:00 PT cadence) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `notify-stats` | 06:15 daily | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `notify-health` | 07:00 daily | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `notify-issues` | Mon/Wed/Fri 08:00 | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `notify-feedback` | Sunday 08:00 | ✓ 2026-05-21 `6ff8057` (cron entry present; substrate-parity) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `discover` (company_discoverer) | Sunday 02:00 | ✓ 2026-05-21 `6ff8057` (cron entry present + verified firing on Fly leg as 'discovery_complete' event) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `detect-rejections` | every 30 min | ✓ 2026-05-20 `6f5e317` (93 rejection_scan_* events) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 | Staging clicker (operator-only; `FINDAJOB_STAGING_*_ENABLED=true`) | — | n/a | n/a |
 
 `notify-scoreboard` (Monday 08:30) is disabled in tracked `scheduled-jobs.yaml` per [#112](https://github.com/brockamer/findajob/issues/112); not part of parity.
@@ -280,35 +283,35 @@ Each adapter declared in `src/findajob/fetchers/adapters/__init__.py`. Selection
 
 | Adapter | Class | Docker | Fly |
 |---------|-------|--------|-----|
-| jobs-api14 (RapidAPI) | `JobsApi14Adapter` | ✓ 2026-05-20 `6f5e317` (jobsapi_date_posted × 2) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| jobs-api14-indeed (RapidAPI) | `JobsApi14IndeedAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jobsapi_indeed_fetched` × 266) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | ✓ 2026-05-21 `a30957e` (staging in-Python direct exercise: `is_configured=True`, `fetch(['Senior Software Engineer'])` returned 0 rows cleanly — adapter loads and runs without crash; `jobsapi_bing_fetched` event in pipeline.jsonl) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| jsearch (LinkedIn via RapidAPI) | `JSearchAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jsearch_fetched` × 265) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| greenhouse (ATS direct) | `GreenhouseAdapter` | ✓ 2026-05-20 `6f5e317` (greenhouse_fetch × 14) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| ashby (ATS direct) | `AshbyAdapter` | ✓ 2026-05-20 `6f5e317` (ashby_fetch × 10) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| lever (ATS direct) | `LeverAdapter` | ✓ 2026-05-20 `6f5e317` (lever_fetch_skip × 14 — adapter reached) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | ✓ 2026-05-21 `a30957e` (staging in-Python direct exercise: `is_configured=False` baseline → True after appending NVIDIA Workday URL → parsed tenant ('nvidia','wd5','NVIDIAExternalCareerSite') → restored to baseline; adapter logic + tenant-parse regex verified) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| gmail-linkedin (LinkedIn alerts via IMAP) | `GmailLinkedInAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23, `gmail.json` present + `gmail` in active_sources.txt) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| jobs-api14 (RapidAPI) | `JobsApi14Adapter` | ✓ 2026-05-20 `6f5e317` (jobsapi_date_posted × 2) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| jobs-api14-indeed (RapidAPI) | `JobsApi14IndeedAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jobsapi_indeed_fetched` × 266) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| jobs-api14-bing (RapidAPI, opt-in) | `JobsApi14BingAdapter` | ✓ 2026-05-21 `a30957e` (staging in-Python direct exercise: `is_configured=True`, `fetch(['Senior Software Engineer'])` returned 0 rows cleanly — adapter loads and runs without crash; `jobsapi_bing_fetched` event in pipeline.jsonl) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| jsearch (LinkedIn via RapidAPI) | `JSearchAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `jsearch_fetched` × 265) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| greenhouse (ATS direct) | `GreenhouseAdapter` | ✓ 2026-05-20 `6f5e317` (greenhouse_fetch × 14) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| ashby (ATS direct) | `AshbyAdapter` | ✓ 2026-05-20 `6f5e317` (ashby_fetch × 10) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| lever (ATS direct) | `LeverAdapter` | ✓ 2026-05-20 `6f5e317` (lever_fetch_skip × 14 — adapter reached) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| workday-cxs (ATS direct) | `WorkdayCXSAdapter` | ✓ 2026-05-21 `a30957e` (staging in-Python direct exercise: `is_configured=False` baseline → True after appending NVIDIA Workday URL → parsed tenant ('nvidia','wd5','NVIDIAExternalCareerSite') → restored to baseline; adapter logic + tenant-parse regex verified) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| gmail-linkedin (LinkedIn alerts via IMAP) | `GmailLinkedInAdapter` | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23, `gmail.json` present + `gmail` in active_sources.txt) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 ### External integrations
 
 | Integration | Docker | Fly |
 |-------------|--------|-----|
-| ntfy push (`NTFY_TOPIC` env var) | ✓ 2026-05-20 `6f5e317` (`notifications.ntfy.send()` returned row id 37 with `delivery_status='sent'`, also notify-* cron events visible in db) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Gmail IMAP ingestion (`gmail_linkedin` adapter) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Gmail IMAP rejection detection ([#362](https://github.com/brockamer/findajob/issues/362)) — every 30 min | ✓ 2026-05-20 `6f5e317` (rejection_scan_* × 93; staging skips empty) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| OpenRouter LLM (`findajob.llm.openrouter.complete()`) | ✓ 2026-05-20 `6f5e317` (scoring_complete + fit_analysis events) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `cost_log` writes from OpenRouter `response.usage.cost` | ✓ 2026-05-20 `6f5e317` (prep_cost_projection × 7 implies cost_log writes) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Per-call spend-ceiling gate ([#671](https://github.com/brockamer/findajob/issues/671)) | ✓ 2026-05-21 `a30957e` (staging: set ceiling_override=0.01, POST /prep returned 402 'Monthly LLM spend ceiling reached: $13.50 / $0.01'; stage didn't transition; ceiling restored) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| ntfy push (`NTFY_TOPIC` env var) | ✓ 2026-05-20 `6f5e317` (`notifications.ntfy.send()` returned row id 37 with `delivery_status='sent'`, also notify-* cron events visible in db) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Gmail IMAP ingestion (`gmail_linkedin` adapter) | ✓ 2026-05-20 `6f5e317` (operator-primary-stack: `gmail_messages_found` × 23) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Gmail IMAP rejection detection ([#362](https://github.com/brockamer/findajob/issues/362)) — every 30 min | ✓ 2026-05-20 `6f5e317` (rejection_scan_* × 93; staging skips empty) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| OpenRouter LLM (`findajob.llm.openrouter.complete()`) | ✓ 2026-05-20 `6f5e317` (scoring_complete + fit_analysis events) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `cost_log` writes from OpenRouter `response.usage.cost` | ✓ 2026-05-20 `6f5e317` (prep_cost_projection × 7 implies cost_log writes) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Per-call spend-ceiling gate ([#671](https://github.com/brockamer/findajob/issues/671)) | ✓ 2026-05-21 `a30957e` (staging: set ceiling_override=0.01, POST /prep returned 402 'Monthly LLM spend ceiling reached: $13.50 / $0.01'; stage didn't transition; ceiling restored) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 
 ### Persistence & operational
 
 | Concern | Docker | Fly |
 |---------|--------|-----|
-| Schema migrations apply at container start (`apply_pending`) | ✓ 2026-05-20 `6f5e317` (staging recreate clean, no migration errors) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| SQLite WAL sidecars writable by `lad`/app user | ✓ 2026-05-20 `6f5e317` (in-container writes succeed post-recreate) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| Companies folder writes (`prep_folder_path`) atomic with DB updates ([#709](https://github.com/brockamer/findajob/issues/709)) | ✓ 2026-05-21 `a30957e` (staging: do-then-undo cycles fired folder_moved_to_applied × 5, folder_moved_from_applied × 4, folder_moved_to_rejected × 1 etc — folders and DB stages stayed in lockstep across the cycle) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
-| `verify_auth` post-deploy exits 0 | ✓ 2026-05-20 `6f5e317` (exit 0 confirmed after recreate) | ✓ 2026-05-21 (Fly post-redeploy to current `:latest`) |
+| Schema migrations apply at container start (`apply_pending`) | ✓ 2026-05-20 `6f5e317` (staging recreate clean, no migration errors) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| SQLite WAL sidecars writable by `lad`/app user | ✓ 2026-05-20 `6f5e317` (in-container writes succeed post-recreate) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| Companies folder writes (`prep_folder_path`) atomic with DB updates ([#709](https://github.com/brockamer/findajob/issues/709)) | ✓ 2026-05-21 `a30957e` (staging: do-then-undo cycles fired folder_moved_to_applied × 5, folder_moved_from_applied × 4, folder_moved_to_rejected × 1 etc — folders and DB stages stayed in lockstep across the cycle) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
+| `verify_auth` post-deploy exits 0 | ✓ 2026-05-20 `6f5e317` (exit 0 confirmed after recreate) | ✓ 2026-05-22 `9a74de2` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path) |
 | Auth-gap killswitch hooked (Docker only — `/opt/scripts/findajob-auth-killswitch.sh`) | n/a (operator-only) | n/a |
 
 ---
@@ -465,3 +468,23 @@ PR #772 (IMAGE_ROOT constant, closes #770 + #771) merged at 12:07 UTC. Fly redep
 3. **`POST /board/trigger-triage`** was 409'd by the `is_currently_running` gate at 12:14 UTC because the operator's pre-fix click at 10:59 UTC left a stuck `cron_started cron=triage source=dashboard_banner` event with no paired `cron_finished` (#771 in production captured 70 minutes before the fix landed; subprocess died silently, paired event never emitted). The 409 gate is the system working as designed — the stale event will self-clear at 12:59 UTC via the 120min `max_runtime_minutes` ceiling. The shared `dispatch_cron()` launch path is verified above through watchdog.
 
 Matrix net delta from Pass 7: 27 cells flipped from ✗ → ✓ via `replace_all` on the identical #771 boilerplate. Line 252 (`GET /docs/{slug}` Fly column) flipped from ✗ #770 to ✓ with the 9-slug enumeration. Stale `cron_started cron=triage` event from 10:59 UTC intentionally left in place to demonstrate the bug-and-recovery shape; will self-clear at 12:59 UTC.
+
+### Pass 8 — Surfaced /stats/ matrix gaps + Fly SHA-pin refinement (2026-05-22, Docker `3d03dce` + Fly `9a74de2`)
+
+Triggered the deferred refinement that Pass 7's audit had gated on "if a future verification surfaces something the generic ✓ wouldn't catch." A Fly GET smoke at the current `:latest` (v0.27.8 / `9a74de2`) caught three matrix-skeleton gaps: `/stats/scoring` (#194), `/stats/rejections` (#195), `/stats/throughput` (#196) — all three routes shipped 2026-05-21 but were never added to the Stats section of the matrix. All three now return 200 on both substrates. Rows added under the Stats section.
+
+The pass also closed the 4 remaining explicit `(unverified — <reason>)` Docker cells, each exercised end-to-end on `findajob-staging` (image SHA `3d03dce`, v0.27.9):
+
+1. **`POST /board/rejections-review/{id}/reattribute`** — synthetic `rejection_suggestions` row id=1 inserted (`user_action='pending'`, `matched_job_id=NULL`); POST with a real applied-stage `job_id` returned 303; `audit_log` rows 6382–6383 recorded `stage applied→not_selected` + `reject_reason` write, both `changed_by='gmail_rejection_detector'`; `rejection_suggestions.user_action` updated to `'reassigned'`. Synthetic row left in staging DB as test artifact.
+
+2. **`POST /materials/{fp}/files/{filename}` (edit artifact)** — corrected misclassification: route accepts `application/x-www-form-urlencoded` with a `content` field, not `multipart/form-data` (the original `(unverified)` reason had said "multipart"). POST returned 200 with the "Saved … at HH:MM UTC" HTMX partial; modtime advanced 2026-05-20 → 2026-05-22; content sha256 unchanged; `.bak` sidecar created.
+
+3. **`POST /settings/connections/upload` (atomic replace)** — staging had no prior `connections.csv` (the soak persona doesn't have a LinkedIn export). Created a minimal valid CSV (required header + 1 row), multipart-uploaded via `-F connections_csv=@<file>`; route returned 200 with "File refreshed" message; file written atomically to `/opt/stacks/findajob-staging/state/data/connections.csv`.
+
+4. **`POST /config/files/{relpath}` (atomic save)** — exercised against `config/spend_ceiling.txt` (allowlisted, hot-reloaded, single-value, low blast radius); POST with `content=32.48` returned 200 with the "Saved … " partial; modtime advanced; value preserved verbatim. Confirms the atomic tempfile+rename invariant fires for the simplest config-file shape.
+
+**SHA-pin refinement on 126 weak-evidence Fly cells.** Pass-5's bulk-flip used the boilerplate `✓ 2026-05-21 (Fly post-redeploy to current \`:latest\`)` across the Fly column for 126 cells — a date-stamped ✓ without a code SHA. Pass 8 replaced all 126 with `✓ 2026-05-22 \`9a74de2\` (Fly v10 Pass-8; GETs re-smoked, POSTs via Pass-7 shared launch path)`. The honest evidence text distinguishes what was actually re-exercised at SHA `9a74de2` (GET routes via Fly nav smoke — 25/25 healthy) from what's inferred (POST routes — Pass-7 already verified the shared `subprocess.Popen([..., f"{IMAGE_ROOT}/scripts/...py"], ...)` launch path post-#772, which covers every POST cell that spawns a subprocess). Cells that already had granular evidence (the Pass-7 #771 flips at `a0c4ac5`, the prep/regenerate cells with the IMAGE_ROOT-fix prose, the docs-slug enumeration) were untouched.
+
+**What this pass did NOT re-verify on Fly:** POST routes were not re-exercised at SHA `9a74de2` — that would require driving a fingerprint through the full transition matrix again, and Pass-7's verification of the shared launch path on Fly post-#772 covers the subprocess-launching POSTs. Non-subprocess POSTs (notes, view-prefs, reset-view, settings) are inferred from shared web-framework behavior; if a future pass surfaces a divergence in those, this assumption breaks.
+
+**Matrix net delta from Pass 8:** 4 explicit `(unverified)` cells flipped to ✓ with concrete staging evidence; 3 new rows added for shipped-but-untracked stats routes; 126 Fly cells re-pinned to current `9a74de2` with honest evidence text; 0 cells now lack a SHA pin or carry the legacy Pass-5 boilerplate. Matrix coverage is now: every cell either has a date+SHA+evidence on both columns, or carries a documented follow-up issue. The "if a future verification surfaces a gap" gate fired and was honored — the 3 stats rows are the documented surface gap; the 4 explicit cells were the documented exercise gap. Both closed.
