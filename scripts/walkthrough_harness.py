@@ -72,6 +72,7 @@ import json
 import re
 import shlex
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -371,6 +372,30 @@ def _pick_answer_phase_scoped(
     return ("Skip — using prior context", "review")
 
 
+def _pick_answer_interactive(turn_num: int, assistant_text: str, tmp_dir: Path) -> tuple[str, str]:
+    """File-polling answer source for --interactive-recapture mode.
+
+    Writes the live assistant turn text to ``tmp_dir/assistant_NN.txt``, then
+    blocks until ``tmp_dir/answer_NN.txt`` appears and returns its contents.
+    The caller (operator session driving the rebaseline) reads the assistant
+    file, composes a persona-voice answer, and writes the answer file.
+
+    The 2-second poll interval is a budget trade — tight enough that the
+    operator's turn-submit latency dominates wall time, loose enough that
+    the harness process doesn't pin a CPU during long pauses.
+    """
+    asst_path = tmp_dir / f"assistant_{turn_num:02d}.txt"
+    ans_path = tmp_dir / f"answer_{turn_num:02d}.txt"
+    asst_path.write_text(assistant_text, encoding="utf-8")
+    print(f"[INTERACTIVE] turn {turn_num} ASSISTANT written: {asst_path}", flush=True)
+    print(f"[INTERACTIVE] turn {turn_num} waiting for: {ans_path}", flush=True)
+    while not ans_path.exists():
+        time.sleep(2)
+    answer = ans_path.read_text(encoding="utf-8").strip()
+    print(f"[INTERACTIVE] turn {turn_num} ANSWER received ({len(answer)} chars)", flush=True)
+    return (answer, "interactive")
+
+
 # ---------------------------------------------------------------------------
 # Acceptance criteria tracking
 # ---------------------------------------------------------------------------
@@ -489,6 +514,8 @@ def run_walkthrough(
     max_turns: int,
     cost_ceiling_usd: float,
     browser_channel: str | None = None,
+    interactive_recapture: bool = False,
+    interactive_tmp_dir: Path | None = None,
 ) -> FindingsReport:
     """Drive the full onboarding walkthrough via Playwright sync API."""
 
@@ -790,16 +817,21 @@ def run_walkthrough(
                 current_phase_idx = new_phase_idx
                 phase_relative_turn = 0
 
-            # Pick answer from corpus, restricted to within-phase candidates.
-            answer, reason = pick_answer(
-                turn_idx,
-                assistant_text,
-                corpus,
-                intent_map,
-                current_phase_idx=current_phase_idx,
-                phase_relative_turn=phase_relative_turn,
-                phase_ranges=phase_ranges,
-            )
+            # Pick answer — interactive recapture polls a file; otherwise
+            # the corpus replay path runs (positional / keyword / intent).
+            if interactive_recapture:
+                assert interactive_tmp_dir is not None
+                answer, reason = _pick_answer_interactive(turn_num, assistant_text, interactive_tmp_dir)
+            else:
+                answer, reason = pick_answer(
+                    turn_idx,
+                    assistant_text,
+                    corpus,
+                    intent_map,
+                    current_phase_idx=current_phase_idx,
+                    phase_relative_turn=phase_relative_turn,
+                    phase_ranges=phase_ranges,
+                )
             phase_relative_turn += 1
 
             if reason == "review":
@@ -921,6 +953,24 @@ def main() -> None:
     parser.add_argument("--replay-from", type=Path, default=default_corpus, help=default_help)
     parser.add_argument("--output-dir", type=Path, required=True, help="Directory for output artifacts")
     parser.add_argument(
+        "--interactive-recapture",
+        action="store_true",
+        help=(
+            "Drive a fresh interview turn-by-turn via file-polling. Each "
+            "assistant turn is written to <interactive-tmp-dir>/assistant_NN.txt; "
+            "harness blocks until <interactive-tmp-dir>/answer_NN.txt is written, "
+            "then types its contents as the user reply. --replay-from is ignored. "
+            "Use to rebaseline the corpus when prompt revisions have shifted "
+            "question shape beyond what skip-and-patch can patch in place."
+        ),
+    )
+    parser.add_argument(
+        "--interactive-tmp-dir",
+        type=Path,
+        default=None,
+        help="Directory for interactive recapture turn files (default: <output-dir>/interactive/).",
+    )
+    parser.add_argument(
         "--secrets-file",
         type=Path,
         default=Path("~/.secrets").expanduser(),
@@ -955,14 +1005,24 @@ def main() -> None:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(2)
 
-    # Load corpus
-    try:
-        corpus = load_corpus(args.replay_from)
-    except (FileNotFoundError, ValueError) as exc:
-        print(f"ERROR loading corpus: {exc}", file=sys.stderr)
-        sys.exit(2)
+    # Load corpus — empty stand-in when --interactive-recapture skips replay.
+    if args.interactive_recapture:
+        corpus = ReplayCorpus()
+        print("[harness] Interactive recapture mode — corpus replay disabled.")
+    else:
+        try:
+            corpus = load_corpus(args.replay_from)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"ERROR loading corpus: {exc}", file=sys.stderr)
+            sys.exit(2)
+        print(f"[harness] Corpus loaded: {corpus.turn_count} turns, anchors: {corpus.phase_anchors}")
 
-    print(f"[harness] Corpus loaded: {corpus.turn_count} turns, anchors: {corpus.phase_anchors}")
+    interactive_tmp_dir = args.interactive_tmp_dir
+    if args.interactive_recapture:
+        if interactive_tmp_dir is None:
+            interactive_tmp_dir = args.output_dir / "interactive"
+        interactive_tmp_dir.mkdir(parents=True, exist_ok=True)
+        print(f"[harness] Interactive tmp dir: {interactive_tmp_dir}")
 
     findings = run_walkthrough(
         base_url=args.base_url,
@@ -972,6 +1032,8 @@ def main() -> None:
         max_turns=args.max_turns,
         cost_ceiling_usd=args.cost_ceiling_usd,
         browser_channel=args.browser_channel,
+        interactive_recapture=args.interactive_recapture,
+        interactive_tmp_dir=interactive_tmp_dir,
     )
 
     sys.exit(findings.exit_code())
