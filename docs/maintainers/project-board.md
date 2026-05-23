@@ -55,13 +55,13 @@ Five columns, left to right. An issue moves rightward as it progresses.
 | Column | Meaning | Expected count |
 |---|---|---|
 | **Backlog** | Captured but not yet scheduled. Triaged (has Priority) but not actively planned this cycle. | Unbounded |
-| **Up Next** | Scheduled to be picked up next. The on-deck queue. When In Progress frees up, the top of Up Next moves over. | 1–3 items |
-| **In Progress** | Actively being worked on right now. | 1–3 items |
+| **Up Next** | Scheduled to be picked up next. The on-deck queue. When In Progress frees up, the top of Up Next moves over. | 1–8 items |
+| **In Progress** | Actively being worked on right now. | 1–4 items |
 | **Blocked** | Was pulled to In Progress and then hit an unanticipated stoppage. Has a `## Blocked by` body section naming the unblock owner and the specific event being waited on. Returns to In Progress when unblocked or to Backlog if punted. | 0–2 items |
 | **Done** | Closed issues. Auto-populated when an issue closes. | Growing |
 
 **Rules:**
-- In Progress should stay small. More than ~3 items means focus is scattered.
+- In Progress should stay small. More than ~4 items means focus is scattered.
 - Up Next should be ordered — top item is what gets worked next. Priority field breaks ties within the column.
 - Nothing in In Progress without Priority set.
 - When an issue closes, it moves to Done automatically.
@@ -229,7 +229,7 @@ An issue without Priority will sort into the "no-field" bucket at the bottom of 
 2. **Status is In Progress but no Priority** — actively-worked items must be fully triaged.
 3. **Issue on board but closed** — should auto-move to Done; if not, set status manually.
 4. **High-priority backlog items older than two weeks** — either promote to Up Next, downgrade to Medium, or close if no longer relevant.
-5. **More than 3 items in In Progress** — focus is scattered; pause and decide which to finish first.
+5. **More than 4 items in In Progress** — focus is scattered; pause and decide which to finish first.
 
 ## Fields quick reference (for gh project CLI)
 
