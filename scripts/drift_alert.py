@@ -6,13 +6,13 @@ key metrics (precision, cost-per-applied), and fires an ntfy alert when the
 delta exceeds threshold (>15% precision shift, >25% cost shift).
 """
 
-import sqlite3
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from findajob.db import connect
 from findajob.metrics.stats import before_after_metrics
 from findajob.notifications.ntfy import send
 from findajob.paths import BASE
@@ -25,8 +25,7 @@ LOOKBACK_DAY = 7
 
 
 def main() -> None:
-    conn = sqlite3.connect(str(DB_PATH), timeout=30)
-    conn.row_factory = sqlite3.Row
+    conn = connect(DB_PATH)
 
     target_date = (datetime.now(UTC) - timedelta(days=LOOKBACK_DAY)).strftime("%Y-%m-%d")
 

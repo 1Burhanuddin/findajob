@@ -24,6 +24,7 @@ def wilson_ci(
     """
     if total <= 0:
         return (0.0, 0.0)
+    successes = min(successes, total)
 
     # z-score lookup for common confidence levels; fall back to 1.96
     z_table = {0.90: 1.645, 0.95: 1.96, 0.99: 2.576}
