@@ -97,7 +97,5 @@ def test_ntfy_send_imported_by_prep_and_interview_orchestrators():
     from findajob.prep import orchestrator as prep_orchestrator
 
     for module in (prep_orchestrator, interview_orchestrator):
-        assert hasattr(module, "ntfy_send"), (
-            f"{module.__name__} missing ntfy_send import"
-        )
+        assert hasattr(module, "ntfy_send"), f"{module.__name__} missing ntfy_send import"
         assert callable(module.ntfy_send)

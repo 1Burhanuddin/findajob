@@ -81,5 +81,3 @@ def test_analyze_feedback_exposes_analyze():
 
     assert callable(analyze)
     assert callable(format_report)
-
-

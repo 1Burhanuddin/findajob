@@ -167,9 +167,7 @@ def test_phase_b_failure_fires_single_notification(
     with pytest.raises(SystemExit):
         _run_prep_phase_b(COMPANY, TITLE, URL, JOB_ID)
 
-    failure_notifs = [
-        (a, kw) for a, kw in notif_spy if kw.get("kind") == "prep_failure"
-    ]
+    failure_notifs = [(a, kw) for a, kw in notif_spy if kw.get("kind") == "prep_failure"]
     assert len(failure_notifs) == 1, (
         f"failure must fire exactly one prep_failure notif; got {len(failure_notifs)}: {failure_notifs}"
     )

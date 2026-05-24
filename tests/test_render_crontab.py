@@ -230,5 +230,3 @@ def test_live_yaml_includes_canonical_active_jobs() -> None:
     assert "*/10 * * * *" in schedules  # watchdog
     assert "0 6 * * *" in schedules  # notify-apply
     assert "0 2 * * 0" in schedules  # discover
-
-
