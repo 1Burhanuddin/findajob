@@ -33,7 +33,7 @@ def _sample_candidates(
     hard_rejected = conn.execute(
         """
         SELECT j.id, j.fingerprint, j.title, j.company, j.location,
-               j.relevance_score, j.scored_by, j.jd_text
+               j.relevance_score, j.scored_by, j.raw_jd_text
         FROM jobs j
         JOIN audit_log a ON a.job_id = j.id
           AND a.field_changed = 'stage' AND a.new_value = 'rejected'
@@ -50,7 +50,7 @@ def _sample_candidates(
     low_scored = conn.execute(
         """
         SELECT j.id, j.fingerprint, j.title, j.company, j.location,
-               j.relevance_score, j.scored_by, j.jd_text
+               j.relevance_score, j.scored_by, j.raw_jd_text
         FROM jobs j
         JOIN audit_log a ON a.job_id = j.id
           AND a.field_changed = 'stage' AND a.new_value = 'scored'
@@ -75,7 +75,7 @@ def _sample_candidates(
                 "location": row["location"] if isinstance(row, sqlite3.Row) else row[4],
                 "original_score": row["relevance_score"] if isinstance(row, sqlite3.Row) else row[5],
                 "scored_by": row["scored_by"] if isinstance(row, sqlite3.Row) else row[6],
-                "jd_text": row["jd_text"] if isinstance(row, sqlite3.Row) else row[7],
+                "jd_text": row["raw_jd_text"] if isinstance(row, sqlite3.Row) else row[7],
             }
         )
     return candidates
