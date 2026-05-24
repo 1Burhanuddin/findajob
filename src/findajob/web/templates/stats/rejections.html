@@ -14,6 +14,7 @@
   all-time and adds a per-company axis — useful for spotting where rejection
   volume concentrates over months rather than weeks.
   Total: <span class="font-semibold">{{ total_rejections }}</span> rejection{{ '' if total_rejections == 1 else 's' }}.
+  Proportions show Wilson 95% confidence intervals; "—" indicates insufficient sample size for a reliable estimate.
 </p>
 
 <section class="mb-8">
@@ -33,6 +34,7 @@
           <tr>
             <th class="px-3 py-2">Reason</th>
             <th class="px-3 py-2 text-right">Count</th>
+            <th class="px-3 py-2 text-right">%</th>
           </tr>
         </thead>
         <tbody>
@@ -40,6 +42,13 @@
             <tr class="{% if loop.index0 % 2 %}bg-slate-50{% endif %}">
               <td class="px-3 py-1">{{ reason }}</td>
               <td class="px-3 py-1 text-right {% if global_totals[reason] == 0 %}text-slate-300{% endif %}">{{ global_totals[reason] }}</td>
+              <td class="px-3 py-1 text-right">
+                {% if reason_cis[reason].gated %}
+                  <span class="text-slate-400">—</span>
+                {% else %}
+                  {{ reason_cis[reason].pct }}<span class="text-xs text-slate-400 ml-1">[{{ reason_cis[reason].lo }}%, {{ reason_cis[reason].hi }}%]</span>
+                {% endif %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>

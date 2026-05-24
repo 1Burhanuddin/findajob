@@ -7,9 +7,8 @@
 
 <p class="mb-4 text-sm text-slate-600">
   Each cell counts <em>transitions into</em> the stage on that day — not the
-  number of jobs sitting in it. A job moved from <code>scored</code> to
-  <code>applied</code> adds to the applied column on the day it transitioned.
-  Window: {{ start_day }} → {{ end_day }}.
+  number of jobs sitting in it. Window: {{ start_day }} → {{ end_day }}.
+  All proportions show Wilson 95% CIs; strata with N &lt; 20 show "—".
 </p>
 
 <section class="mb-6">
@@ -21,6 +20,37 @@
         <div class="text-xl font-semibold">{{ totals[stage] }}</div>
       </div>
     {% endfor %}
+  </div>
+</section>
+
+<section class="mb-6">
+  <h2 class="text-lg font-semibold mb-2">Conversion rates</h2>
+  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+    {% for stage in funnel_stages[1:] %}
+      {% set ci = conversions[stage] %}
+      <div class="bg-white rounded border border-slate-200 px-3 py-2">
+        <div class="text-xs uppercase text-slate-500 tracking-wide">→ {{ stage }}</div>
+        {% if ci.gated %}
+          <div class="text-xl font-semibold text-slate-300">—</div>
+          <div class="text-xs text-slate-400">N={{ ci.n }} (min 20)</div>
+        {% else %}
+          <div class="text-xl font-semibold">{{ ci.pct }}%</div>
+          <div class="text-xs text-slate-400">[{{ ci.lo }}%, {{ ci.hi }}%] N={{ ci.n }}</div>
+        {% endif %}
+      </div>
+    {% endfor %}
+    {% if rejection_rate %}
+      <div class="bg-white rounded border border-red-200 px-3 py-2">
+        <div class="text-xs uppercase text-red-500 tracking-wide">Rejection rate</div>
+        {% if rejection_rate.gated %}
+          <div class="text-xl font-semibold text-slate-300">—</div>
+          <div class="text-xs text-slate-400">N={{ rejection_rate.n }} (min 20)</div>
+        {% else %}
+          <div class="text-xl font-semibold text-red-700">{{ rejection_rate.pct }}%</div>
+          <div class="text-xs text-slate-400">[{{ rejection_rate.lo }}%, {{ rejection_rate.hi }}%] N={{ rejection_rate.n }}</div>
+        {% endif %}
+      </div>
+    {% endif %}
   </div>
 </section>
 
@@ -63,25 +93,27 @@
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{% include "stats/_config_markers.html" %}
 <script id="funnel-chart-data" type="application/json">{{ chart_data_json | safe }}</script>
 <script>
   (function () {
-    const payload = JSON.parse(document.getElementById('funnel-chart-data').textContent);
-    // Muted palette: funnel stages in a blue-to-green ramp, terminals in red/orange/grey.
-    const funnelPalette = ['#1d4ed8', '#2563eb', '#0891b2', '#0d9488', '#059669', '#10b981', '#22c55e'];
-    const terminalPalette = { rejected: '#b91c1c', not_selected: '#c2410c', waitlisted: '#64748b' };
-    let f = 0;
-    const datasets = payload.datasets.map((ds) => ({
-      label: ds.label,
-      data: ds.data,
-      borderColor: ds.terminal ? terminalPalette[ds.label] : funnelPalette[f++ % funnelPalette.length],
-      backgroundColor: 'transparent',
-      borderWidth: ds.terminal ? 1.5 : 2,
-      borderDash: ds.terminal ? [4, 4] : [],
-      pointRadius: 2,
-      tension: 0.2,
-    }));
-    new Chart(document.getElementById('funnel-chart'), {
+    var payload = JSON.parse(document.getElementById('funnel-chart-data').textContent);
+    var funnelPalette = ['#1d4ed8', '#2563eb', '#0891b2', '#0d9488', '#059669', '#10b981', '#22c55e'];
+    var terminalPalette = { rejected: '#b91c1c', not_selected: '#c2410c', waitlisted: '#64748b' };
+    var f = 0;
+    var datasets = payload.datasets.map(function(ds) {
+      return {
+        label: ds.label,
+        data: ds.data,
+        borderColor: ds.terminal ? terminalPalette[ds.label] : funnelPalette[f++ % funnelPalette.length],
+        backgroundColor: 'transparent',
+        borderWidth: ds.terminal ? 1.5 : 2,
+        borderDash: ds.terminal ? [4, 4] : [],
+        pointRadius: 2,
+        tension: 0.2,
+      };
+    });
+    var chart = new Chart(document.getElementById('funnel-chart'), {
       type: 'line',
       data: { labels: payload.labels, datasets: datasets },
       options: {
@@ -93,10 +125,13 @@
         },
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 16 } },
-          tooltip: { callbacks: { title: (items) => items[0].label } },
+          tooltip: { callbacks: { title: function(items) { return items[0].label; } } },
         },
       },
+      plugins: [window.ConfigMarkerPlugin],
     });
+    window.addConfigMarkers(chart, payload.config_markers);
+    window.configMarkerClickHandler(chart, payload.config_markers, document.getElementById('funnel-chart'));
   })();
 </script>
 {% endblock %}

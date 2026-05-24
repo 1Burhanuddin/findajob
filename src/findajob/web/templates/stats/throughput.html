@@ -14,6 +14,7 @@
   <a href="/stats/funnel" class="text-blue-700 underline">/stats/funnel</a>,
   which slices a 30-day window by day and includes the full stage set.
   Total: <span class="font-semibold">{{ grand_total }}</span> transition{{ '' if grand_total == 1 else 's' }}.
+  Stage proportions show Wilson 95% confidence intervals; shown as "—" when N &lt; 20.
 </p>
 
 <section class="mb-6">
@@ -23,6 +24,11 @@
       <div class="bg-white rounded border border-slate-200 px-3 py-2">
         <div class="text-xs uppercase text-slate-500 tracking-wide">{{ stage }}</div>
         <div class="text-xl font-semibold">{{ totals[stage] }}</div>
+        {% if stage_cis[stage].gated %}
+          <div class="text-xs text-slate-400">— (N &lt; 20)</div>
+        {% else %}
+          <div class="text-xs text-slate-400">{{ stage_cis[stage].pct }}% [{{ stage_cis[stage].lo }}%, {{ stage_cis[stage].hi }}%]</div>
+        {% endif %}
       </div>
     {% endfor %}
   </div>
@@ -77,6 +83,7 @@
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{% include "stats/_config_markers.html" %}
 <script id="throughput-data" type="application/json">{{ chart_data_json | safe }}</script>
 <script>
   (function () {
@@ -97,7 +104,7 @@
       backgroundColor: colors[ds.label] || '#64748b',
       borderWidth: 0,
     }));
-    new Chart(el, {
+    var chart = new Chart(el, {
       type: 'bar',
       data: { labels: c.labels, datasets: datasets },
       options: {
@@ -111,7 +118,10 @@
           tooltip: { mode: 'index', intersect: false },
         },
       },
+      plugins: [window.ConfigMarkerPlugin],
     });
+    window.addConfigMarkers(chart, c.config_markers);
+    window.configMarkerClickHandler(chart, c.config_markers, el);
   })();
 </script>
 {% endif %}
