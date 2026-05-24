@@ -72,6 +72,7 @@ REJECTION_IMAP_BODY_MARKERS: tuple[str, ...] = (
     "decided to move forward with other candidates",
     "decided to pursue other candidates",
     "will not be moving forward",
+    "unable to move forward with your application",
     "we have decided not to proceed",
     "we will not be proceeding with your candidacy",
     "your application was not selected",

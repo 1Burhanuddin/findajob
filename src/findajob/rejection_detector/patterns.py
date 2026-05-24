@@ -27,6 +27,7 @@ REJECTION_BODY_MARKERS: tuple[str, ...] = (
     "decided to pursue other candidates",
     "unfortunately, we are not moving forward",
     "will not be moving forward",
+    "unable to move forward with your application",
     "yours was not selected",
     "your application was not selected",
     "regret to inform",
