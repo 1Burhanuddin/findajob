@@ -230,7 +230,15 @@ def test_rejection_scan_uses_rejection_allowlist_not_jobs(fake_config) -> None:
     assert "no-reply@us.greenhouse-mail.io" in args_concat
     assert "no-reply@ashbyhq.com" in args_concat
     assert "jobalerts-noreply@linkedin.com" not in args_concat
-    assert len(search_calls) == 2
+    # Pass 1: 2 sender-domain searches; Pass 2: body marker searches
+    sender_searches = [
+        c for c in search_calls if "FROM" in " ".join(a.decode() if isinstance(a, bytes) else a for a in c.args[1:])
+    ]
+    body_searches = [
+        c for c in search_calls if "BODY" in " ".join(a.decode() if isinstance(a, bytes) else a for a in c.args[1:])
+    ]
+    assert len(sender_searches) == 2
+    assert len(body_searches) == len(gmail_imap.REJECTION_IMAP_BODY_MARKERS)
 
 
 def test_rejection_scan_uses_uid_search_with_rejection_last_uid_plus_one(fake_config) -> None:
@@ -366,9 +374,105 @@ def test_rejection_scan_emits_pipeline_events(fake_config) -> None:
         with patch("findajob.gmail_imap.imaplib.IMAP4_SSL", return_value=fake_client):
             gmail_imap.fetch_new_messages_for_rejection_scan(fake_config, state)
 
-    event_names = [e for e, _ in captured]
-    assert event_names.count("rejection_email_scanned") == 2
-    assert "rejection_scan_completed" in event_names
+    scanned_events = [(e, kw) for e, kw in captured if e == "rejection_email_scanned"]
+    assert len(scanned_events) == 2
+    assert "rejection_scan_completed" in [e for e, _ in captured]
     completed_kwargs = next(kw for e, kw in captured if e == "rejection_scan_completed")
     assert completed_kwargs["count"] == 2
     assert completed_kwargs["max_uid"] == 20
+
+
+def test_body_marker_search_catches_non_ats_sender(fake_config) -> None:
+    """BODY-marker IMAP search catches rejections from senders NOT in
+    the ATS allowlist (e.g. Amazon sending from their own domain).
+
+    The fake IMAP client returns a match on a BODY marker phrase, the email
+    has a non-ATS sender, and the classifier assigns medium confidence.
+    """
+    from findajob.rejection_detector.classifier import classify_email
+
+    raw = (
+        b"From: Amazon Jobs <no-reply@amazon.com>\r\n"
+        b"Subject: Your application at Amazon\r\n"
+        b"Message-ID: <amazon-test-1@amazon.com>\r\n"
+        b"Date: Sat, 24 May 2026 10:00:00 +0000\r\n"
+        b"\r\n"
+        b"Thank you for your interest in Amazon.\r\n"
+        b"After careful review, we have decided to pursue other candidates\r\n"
+        b"whose qualifications more closely match the requirements.\r\n"
+    )
+    state = gmail_imap.GmailState(rejection_last_uid=0)
+    fake_client = _make_fake_imap_client(
+        uidvalidity=99,
+        search_results={
+            "no-reply@us.greenhouse-mail.io": [],
+            "no-reply@ashbyhq.com": [],
+            "decided to pursue other candidates": [99],
+        },
+        messages={99: raw},
+    )
+    with patch("findajob.gmail_imap.imaplib.IMAP4_SSL", return_value=fake_client):
+        outcome = gmail_imap.fetch_new_messages_for_rejection_scan(fake_config, state)
+
+    assert outcome.result == gmail_imap.TestResult.SUCCESS
+    assert len(outcome.messages) == 1
+    fetched_sender, fetched_raw = outcome.messages[0]
+    assert fetched_sender == "_body_marker"
+
+    suggestion = classify_email(fetched_raw)
+    assert suggestion is not None, "classifier dropped a body-marker-sourced rejection"
+    assert suggestion.confidence == "medium"
+    assert suggestion.extracted_company == "Amazon"
+
+
+def test_body_marker_search_dedupes_against_sender_search(fake_config) -> None:
+    """A message found by both the sender allowlist and a body marker
+    must appear exactly once in the result set (dedup via seen_uids)."""
+    raw = (
+        b"From: no-reply@us.greenhouse-mail.io\r\n"
+        b"Subject: Update\r\n"
+        b"Message-ID: <dedup-test-1@greenhouse.io>\r\n"
+        b"Date: Sat, 24 May 2026 10:00:00 +0000\r\n"
+        b"\r\n"
+        b"We have decided to pursue other candidates.\r\n"
+    )
+    state = gmail_imap.GmailState(rejection_last_uid=0)
+    fake_client = _make_fake_imap_client(
+        uidvalidity=99,
+        search_results={
+            "no-reply@us.greenhouse-mail.io": [42],
+            "no-reply@ashbyhq.com": [],
+            "decided to pursue other candidates": [42],
+        },
+        messages={42: raw},
+    )
+    with patch("findajob.gmail_imap.imaplib.IMAP4_SSL", return_value=fake_client):
+        outcome = gmail_imap.fetch_new_messages_for_rejection_scan(fake_config, state)
+
+    assert outcome.result == gmail_imap.TestResult.SUCCESS
+    assert len(outcome.messages) == 1
+    assert outcome.messages[0][0] == "no-reply@us.greenhouse-mail.io"
+
+
+def test_body_marker_search_uses_since_clause_on_backlog(fake_config) -> None:
+    """Body marker IMAP searches use SINCE when since_days is passed."""
+    state = gmail_imap.GmailState(rejection_last_uid=0)
+    fake_client = _make_fake_imap_client(
+        uidvalidity=99,
+        search_results={
+            "no-reply@us.greenhouse-mail.io": [],
+            "no-reply@ashbyhq.com": [],
+        },
+        messages={},
+    )
+    with patch("findajob.gmail_imap.imaplib.IMAP4_SSL", return_value=fake_client):
+        gmail_imap.fetch_new_messages_for_rejection_scan(fake_config, state, since_days=30)
+    search_calls = [c for c in fake_client.uid.call_args_list if c.args[0] == "SEARCH"]
+    body_searches = [
+        " ".join(a.decode() if isinstance(a, bytes) else a for a in c.args[1:])
+        for c in search_calls
+        if "BODY" in " ".join(a.decode() if isinstance(a, bytes) else a for a in c.args[1:])
+    ]
+    assert len(body_searches) > 0
+    for s in body_searches:
+        assert "SINCE" in s

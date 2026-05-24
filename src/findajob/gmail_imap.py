@@ -44,11 +44,8 @@ _SCHEMA_VERSION = 1
 # Workday tenants with custom mail domains (talent.{company}.com instead of
 # myworkday.com) bypass this filter. Empirically rare: a 90-day probe of the
 # operator's mailbox found 1 rejection from talent.{company}.com (Digital
-# Realty) — well under the threshold that would justify the broad-pattern
-# alternatives (FROM "no-reply" or BODY-marker SEARCH), both of which carry
-# false-positive rates that outweigh the coverage gain at current volumes.
-# If a target employer using a custom Workday tenant emerges, add its bare
-# domain to this tuple directly.
+# Realty). If a target employer using a custom Workday tenant emerges, add
+# its bare domain to this tuple directly.
 DEFAULT_REJECTION_ALLOWLIST: tuple[str, ...] = (
     "us.greenhouse-mail.io",
     "eu.greenhouse-mail.io",
@@ -59,6 +56,25 @@ DEFAULT_REJECTION_ALLOWLIST: tuple[str, ...] = (
     "email.careers.microsoft.com",
     "oracle.com",
     "tesla.com",
+)
+
+# Curated subset of rejection body markers for IMAP BODY search.
+# Complements the sender-domain allowlist above: sender-domain covers known
+# ATS platforms; body-marker search catches rejections from any sender
+# (company-owned domains, unknown ATS, etc.) without per-company config.
+#
+# Selected for IMAP search suitability: discriminating enough to avoid
+# excessive false-positive fetches, common enough to cover real rejections.
+# The classifier (rejection_detector.classifier) has the full marker set for
+# body classification after fetch — this list only needs to be good enough
+# to surface the email to the classifier.
+REJECTION_IMAP_BODY_MARKERS: tuple[str, ...] = (
+    "decided to move forward with other candidates",
+    "decided to pursue other candidates",
+    "will not be moving forward",
+    "we have decided not to proceed",
+    "we will not be proceeding with your candidacy",
+    "your application was not selected",
 )
 
 
@@ -398,19 +414,22 @@ def fetch_new_messages_for_rejection_scan(
     state: GmailState,
     since_days: int | None = None,
 ) -> FetchOutcome:
-    """Fetch new messages from ``rejection_sender_allowlist`` for classification.
+    """Fetch new messages for rejection classification via two passes.
 
-    Read-only IMAP semantics matching :func:`fetch_new_messages` (BODY.PEEK,
-    no STORE/COPY/EXPUNGE/APPEND/MOVE/CREATE/DELETE). Maintains a separate
-    UID checkpoint at ``state.rejection_last_uid`` so the rejection scan
-    cycle is independent of the job-fetch cycle.
+    Pass 1: ``FROM`` search per ``rejection_sender_allowlist`` — catches
+    rejections from known ATS platforms (Greenhouse, Ashby, Lever, etc.).
 
-    Does NOT do cold-start widening — first-run backlog scan is the
-    caller's responsibility (``scripts/detect_rejections.py`` in M-stage 4).
+    Pass 2 : ``BODY`` search per ``REJECTION_IMAP_BODY_MARKERS`` —
+    catches rejections from any sender (company-owned domains, unknown
+    ATS, etc.) by searching for rejection-specific phrases in the email
+    body. Deduped against Pass 1 via UID set so no double-fetch.
+
+    Read-only IMAP semantics (BODY.PEEK, no STORE/COPY/EXPUNGE/APPEND/
+    MOVE/CREATE/DELETE). Maintains a separate UID checkpoint at
+    ``state.rejection_last_uid``.
+
     Pass ``since_days`` for the one-shot first-run backlog scan; logs
     ``rejection_scan_since_override``.
-
-    Spec: docs/superpowers/specs/2026-05-01-362-rejection-detection-design.md §4.4
     """
     client: imaplib.IMAP4_SSL | None = None
     try:
@@ -453,6 +472,34 @@ def fetch_new_messages_for_rejection_scan(
                         if uid > max_uid:
                             max_uid = uid
                         log_event("rejection_email_scanned", uid=uid, sender=sender)
+                        break
+
+        # Pass 2: IMAP BODY search for rejection marker phrases .
+        # Catches rejections from any sender — company-owned domains,
+        # unknown ATS, etc. — without per-company config. Deduped against
+        # Pass 1 via seen_uids so ATS-sourced messages aren't re-fetched.
+        for marker in REJECTION_IMAP_BODY_MARKERS:
+            if override_since_date:
+                criteria = f'(SINCE "{override_since_date}" BODY "{marker}")'
+            else:
+                criteria = f'(UID {state.rejection_last_uid + 1}:* BODY "{marker}")'
+            typ, search_resp = client.uid("SEARCH", criteria)
+            if typ != "OK":
+                continue
+            uids = _parse_search_uids(search_resp)
+            for uid in uids:
+                if uid in seen_uids:
+                    continue
+                seen_uids.add(uid)
+                fetch_typ, fetch_resp = client.uid("FETCH", str(uid), "(BODY.PEEK[])")
+                if fetch_typ != "OK":
+                    continue
+                for entry in fetch_resp:
+                    if isinstance(entry, tuple) and len(entry) >= 2:
+                        all_messages.append(("_body_marker", entry[1]))
+                        if uid > max_uid:
+                            max_uid = uid
+                        log_event("rejection_email_scanned", uid=uid, sender="_body_marker")
                         break
 
         log_event("rejection_scan_completed", count=len(all_messages), max_uid=max_uid)
