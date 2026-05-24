@@ -1,18 +1,12 @@
-"""Stats tabs: /stats/, /stats/funnel, /stats/feedback, /stats/scoring, /stats/rejections (14e).
-
-Infrastructure for the `/stats/*` web UI group. Deferred dashboards render as
-disabled tabs in stats/_tabs.html until their respective follow-ups ship
-(#196 throughput, #197 effectiveness).
+"""Stats tabs: /stats/funnel, /stats/feedback, /stats/scoring, /stats/rejections,
+/stats/throughput, /stats/effectiveness, /stats/recall-audit.
 
 Data source: SQLite at request time. No materialized stats tables; pipeline.db
-is small enough that a 30-day audit_log scan is sub-10ms. The feedback
-dashboard deviates from spec AC (jsonl event_type='feedback_stats') and reads
-the feedback_log table instead — the spec assumed #55 emitted that event but
-it was never wired up, and the table carries the same data with a canonical
-timestamp format.
+is small enough that a 30-day audit_log scan is sub-10ms.
 
-Canonical funnel stages (top → bottom). Terminal exits rendered as separate
-series in the chart, not as continuations of the main funnel.
+Phase 2 rigor (#230): every proportion has a Wilson 95% CI, strata with N<20
+render "—", at least one page shows per-source stratification, and config-change
+markers appear on trend charts.
 """
 
 from __future__ import annotations
@@ -22,9 +16,15 @@ import sqlite3
 from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from findajob.config_loader import load_reject_reasons
+from findajob.metrics.stats import (
+    before_after_metrics,
+    config_change_markers,
+    min_n_gate,
+    wilson_ci_pct,
+)
 from findajob.web.routes.materials import get_db
 
 router = APIRouter()
@@ -124,7 +124,27 @@ def funnel(
     daily = _build_daily_matrix(rows, start_day, today)
     totals = {stage: sum(daily[d][stage] for d in daily) for stage in ALL_STAGES}
 
-    # Chart.js payload — server-serialized so no fetch-on-load.
+    total_scored = totals.get("scored", 0)
+    conversions = {}
+    for i, stage in enumerate(FUNNEL_STAGES[1:], 1):
+        prev_stage = FUNNEL_STAGES[i - 1]
+        prev_n = totals.get(prev_stage, 0)
+        cur_n = totals.get(stage, 0)
+        if min_n_gate(prev_n):
+            pct, lo, hi = wilson_ci_pct(cur_n, prev_n)
+            conversions[stage] = {"pct": pct, "lo": lo, "hi": hi, "n": prev_n, "gated": False}
+        else:
+            conversions[stage] = {"pct": 0, "lo": 0, "hi": 0, "n": prev_n, "gated": True}
+    rejection_rate = None
+    n_rejected = totals.get("rejected", 0)
+    if min_n_gate(total_scored):
+        pct, lo, hi = wilson_ci_pct(n_rejected, total_scored)
+        rejection_rate = {"pct": pct, "lo": lo, "hi": hi, "n": total_scored, "gated": False}
+    else:
+        rejection_rate = {"pct": 0, "lo": 0, "hi": 0, "n": total_scored, "gated": True}
+
+    markers = config_change_markers(db, start_day, today)
+
     chart_data = {
         "labels": [d.isoformat() for d in sorted(daily)],
         "datasets": [
@@ -135,6 +155,7 @@ def funnel(
             }
             for stage in ALL_STAGES
         ],
+        "config_markers": markers,
     }
 
     templates = request.app.state.templates
@@ -154,6 +175,8 @@ def funnel(
                 for d in sorted(daily, reverse=True)
             ],
             "totals": totals,
+            "conversions": conversions,
+            "rejection_rate": rejection_rate,
             "chart_data_json": json.dumps(chart_data),
         },
     )
@@ -232,6 +255,16 @@ def feedback(
     this_week_total = sum(week_totals.values())
     window_total = sum(window_totals.values())
 
+    reason_cis = {}
+    for r in reasons:
+        if min_n_gate(window_total):
+            pct, lo, hi = wilson_ci_pct(window_totals[r], window_total)
+            reason_cis[r] = {"pct": pct, "lo": lo, "hi": hi, "gated": False}
+        else:
+            reason_cis[r] = {"pct": 0, "lo": 0, "hi": 0, "gated": True}
+
+    markers = config_change_markers(db, window_start, today)
+
     chart_data = {
         "labels": [d.isoformat() for d in sorted(daily)],
         "datasets": [
@@ -241,6 +274,7 @@ def feedback(
             }
             for r in reasons
         ],
+        "config_markers": markers,
     }
 
     templates = request.app.state.templates
@@ -259,6 +293,7 @@ def feedback(
             "window_totals": window_totals,
             "this_week_total": this_week_total,
             "window_total": window_total,
+            "reason_cis": reason_cis,
             "daily_table": [
                 {"day": d.isoformat(), **{r: daily[d][r] for r in reasons}} for d in sorted(daily, reverse=True)
             ],
@@ -322,6 +357,7 @@ def scoring(
 
     histograms: dict[str, list[dict[str, int | str]]] = {}
     coverage: dict[str, dict[str, int]] = {}
+    per_source: dict[str, dict[str, list[dict[str, int | str]]]] = {}
 
     if scored_ids:
         placeholders = ",".join("?" * len(scored_ids))
@@ -333,6 +369,26 @@ def scoring(
             values = [r["v"] if isinstance(r, sqlite3.Row) else r[0] for r in rows]
             histograms[slug] = _bucketize_scores(values, kind)
             coverage[slug] = {"with_value": len(values), "total_scored": total_scored}
+
+        source_rows = db.execute(
+            f"""
+            SELECT j.source, j.relevance_score AS v
+            FROM jobs j
+            WHERE j.id IN ({placeholders})
+              AND j.relevance_score IS NOT NULL
+              AND j.source IS NOT NULL AND j.source != ''
+            """,
+            scored_ids,
+        ).fetchall()
+        source_groups: dict[str, list] = {}
+        for row in source_rows:
+            src = row["source"] if isinstance(row, sqlite3.Row) else row[0]
+            val = row["v"] if isinstance(row, sqlite3.Row) else row[1]
+            source_groups.setdefault(src, []).append(val)
+
+        for src, vals in sorted(source_groups.items(), key=lambda x: -len(x[1])):
+            if min_n_gate(len(vals)):
+                per_source.setdefault("relevance", {})[src] = _bucketize_scores(vals, "int_1_10")
     else:
         for _col, _label, kind, slug in SCORING_COLUMNS:
             histograms[slug] = _bucketize_scores([], kind)
@@ -353,7 +409,9 @@ def scoring(
             "histograms": histograms,
             "coverage": coverage,
             "total_scored": total_scored,
+            "per_source": per_source,
             "chart_data_json": json.dumps(chart_data),
+            "per_source_json": json.dumps(per_source),
         },
     )
 
@@ -440,6 +498,14 @@ def rejections(
             global_totals[reason] = n
     total_rejections = sum(global_totals.values())
 
+    reason_cis = {}
+    for r in reasons:
+        if min_n_gate(total_rejections):
+            pct, lo, hi = wilson_ci_pct(global_totals[r], total_rejections)
+            reason_cis[r] = {"pct": pct, "lo": lo, "hi": hi, "gated": False}
+        else:
+            reason_cis[r] = {"pct": 0, "lo": 0, "hi": 0, "gated": True}
+
     top_company_rows = db.execute(
         f"""
         SELECT company, COUNT(*) AS n
@@ -500,6 +566,7 @@ def rejections(
             "tab": "rejections",
             "reasons": reasons,
             "global_totals": global_totals,
+            "reason_cis": reason_cis,
             "total_rejections": total_rejections,
             "top_companies": top_companies,
             "company_totals": company_totals,
@@ -556,11 +623,23 @@ def throughput(
     totals = {stage: sum(weekly[w][stage] for w in weekly) for stage in _THROUGHPUT_STAGES}
     grand_total = sum(totals.values())
 
+    stage_cis = {}
+    for stage in _THROUGHPUT_STAGES:
+        n = totals[stage]
+        if min_n_gate(grand_total):
+            pct, lo, hi = wilson_ci_pct(n, grand_total)
+            stage_cis[stage] = {"pct": pct, "lo": lo, "hi": hi, "gated": False}
+        else:
+            stage_cis[stage] = {"pct": 0, "lo": 0, "hi": 0, "gated": True}
+
+    markers = config_change_markers(db)
+
     chart_data = {
         "labels": weeks_sorted,
         "datasets": [
             {"label": stage, "data": [weekly[w][stage] for w in weeks_sorted]} for stage in _THROUGHPUT_STAGES
         ],
+        "config_markers": markers,
     }
 
     templates = request.app.state.templates
@@ -573,7 +652,219 @@ def throughput(
             "weeks": weeks_sorted,
             "weekly": weekly,
             "totals": totals,
+            "stage_cis": stage_cis,
             "grand_total": grand_total,
             "chart_data_json": json.dumps(chart_data),
         },
     )
+
+
+_EFFECTIVENESS_GHOST_DAYS = 21
+
+
+@router.get("/stats/effectiveness", response_class=HTMLResponse)
+def effectiveness(
+    request: Request,
+    db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    """Outcome tracking: apply-to-response rates, stratified."""
+    applied_rows = db.execute(
+        """
+        SELECT j.id, j.fingerprint, j.company, j.source, j.company_tier,
+               j.relevance_score, j.stage,
+               MIN(a.changed_at) AS applied_at
+        FROM jobs j
+        JOIN audit_log a ON a.job_id = j.id
+           AND a.field_changed = 'stage' AND a.new_value = 'applied'
+        WHERE j.stage IN ('applied', 'interview', 'offer', 'not_selected', 'withdrawn')
+        GROUP BY j.id
+        """,
+    ).fetchall()
+
+    total_applied = len(applied_rows)
+
+    interviews = sum(
+        1 for r in applied_rows if (r["stage"] if isinstance(r, sqlite3.Row) else r[4]) in ("interview", "offer")
+    )
+    not_selected = sum(
+        1 for r in applied_rows if (r["stage"] if isinstance(r, sqlite3.Row) else r[4]) == "not_selected"
+    )
+
+    ghost = 0
+    for r in applied_rows:
+        stage = r["stage"] if isinstance(r, sqlite3.Row) else r[4]
+        if stage != "applied":
+            continue
+        applied_at = r["applied_at"] if isinstance(r, sqlite3.Row) else r[7]
+        if not applied_at:
+            continue
+        try:
+            applied_dt = datetime.fromisoformat(applied_at.replace(" ", "T"))
+        except (ValueError, AttributeError):
+            continue
+        if (datetime.now(UTC) - applied_dt.replace(tzinfo=UTC)).days >= _EFFECTIVENESS_GHOST_DAYS:
+            ghost += 1
+
+    responded = interviews + not_selected
+    if min_n_gate(total_applied):
+        response_rate = wilson_ci_pct(responded, total_applied)
+        interview_rate = wilson_ci_pct(interviews, total_applied)
+        ghost_rate = wilson_ci_pct(ghost, total_applied)
+    else:
+        response_rate = (0.0, 0.0, 0.0)
+        interview_rate = (0.0, 0.0, 0.0)
+        ghost_rate = (0.0, 0.0, 0.0)
+
+    by_source: dict[str, dict] = {}
+    source_groups: dict[str, list] = {}
+    for r in applied_rows:
+        src = r["source"] if isinstance(r, sqlite3.Row) else r[3]
+        if not src:
+            continue
+        source_groups.setdefault(src, []).append(r)
+    for src, rows in sorted(source_groups.items(), key=lambda x: -len(x[1])):
+        n = len(rows)
+        src_interviews = sum(
+            1 for r in rows if (r["stage"] if isinstance(r, sqlite3.Row) else r[4]) in ("interview", "offer")
+        )
+        if min_n_gate(n):
+            pct, lo, hi = wilson_ci_pct(src_interviews, n)
+            by_source[src] = {"n": n, "interviews": src_interviews, "pct": pct, "lo": lo, "hi": hi, "gated": False}
+        else:
+            by_source[src] = {"n": n, "interviews": src_interviews, "pct": 0, "lo": 0, "hi": 0, "gated": True}
+
+    latency_days: list[int] = []
+    for r in applied_rows:
+        stage = r["stage"] if isinstance(r, sqlite3.Row) else r[4]
+        if stage not in ("interview", "offer", "not_selected"):
+            continue
+        applied_at = r["applied_at"] if isinstance(r, sqlite3.Row) else r[7]
+        if not applied_at:
+            continue
+        response_row = db.execute(
+            """
+            SELECT MIN(changed_at) AS resp_at FROM audit_log
+            WHERE job_id = ? AND field_changed = 'stage'
+              AND new_value IN ('interview', 'not_selected')
+            """,
+            (r["id"] if isinstance(r, sqlite3.Row) else r[0],),
+        ).fetchone()
+        if response_row and response_row[0]:
+            try:
+                resp_dt = datetime.fromisoformat(response_row[0].replace(" ", "T"))
+                app_dt = datetime.fromisoformat(applied_at.replace(" ", "T"))
+                latency_days.append((resp_dt - app_dt).days)
+            except (ValueError, AttributeError):
+                pass
+
+    latency_stats = None
+    if latency_days:
+        latency_days.sort()
+        latency_stats = {
+            "median": latency_days[len(latency_days) // 2],
+            "p25": latency_days[len(latency_days) // 4] if len(latency_days) >= 4 else latency_days[0],
+            "p75": latency_days[3 * len(latency_days) // 4] if len(latency_days) >= 4 else latency_days[-1],
+            "n": len(latency_days),
+        }
+
+    n_gated = not min_n_gate(total_applied)
+
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request=request,
+        name="stats/effectiveness.html",
+        context={
+            "tab": "effectiveness",
+            "total_applied": total_applied,
+            "interviews": interviews,
+            "not_selected": not_selected,
+            "ghost": ghost,
+            "ghost_days": _EFFECTIVENESS_GHOST_DAYS,
+            "response_rate": {"pct": response_rate[0], "lo": response_rate[1], "hi": response_rate[2]},
+            "interview_rate": {"pct": interview_rate[0], "lo": interview_rate[1], "hi": interview_rate[2]},
+            "ghost_rate": {"pct": ghost_rate[0], "lo": ghost_rate[1], "hi": ghost_rate[2]},
+            "by_source": by_source,
+            "latency_stats": latency_stats,
+            "n_gated": n_gated,
+        },
+    )
+
+
+@router.get("/stats/recall-audit", response_class=HTMLResponse)
+def recall_audit(
+    request: Request,
+    db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    """Recall-audit results — weekly upgrade-rate over time."""
+    audit_rows = db.execute(
+        """
+        SELECT date(audited_at) AS day,
+               COUNT(*) AS total,
+               SUM(upgraded) AS upgrades,
+               auditor_model
+        FROM recall_audit
+        GROUP BY day
+        ORDER BY day DESC
+        LIMIT 52
+        """,
+    ).fetchall()
+
+    weeks: list[dict] = []
+    for row in audit_rows:
+        day = row["day"] if isinstance(row, sqlite3.Row) else row[0]
+        total = row["total"] if isinstance(row, sqlite3.Row) else row[1]
+        upgrades = row["upgrades"] if isinstance(row, sqlite3.Row) else row[2]
+        model = row["auditor_model"] if isinstance(row, sqlite3.Row) else row[3]
+        if min_n_gate(total):
+            pct, lo, hi = wilson_ci_pct(upgrades, total)
+            gated = False
+        else:
+            pct, lo, hi = 0.0, 0.0, 0.0
+            gated = True
+        weeks.append(
+            {
+                "date": day,
+                "total": total,
+                "upgrades": upgrades,
+                "pct": pct,
+                "lo": lo,
+                "hi": hi,
+                "gated": gated,
+                "model": model,
+                "alert": not gated and pct > 10.0,
+            }
+        )
+
+    chart_data = {
+        "labels": [w["date"] for w in reversed(weeks)],
+        "datasets": [
+            {"label": "upgrade rate %", "data": [w["pct"] for w in reversed(weeks)]},
+        ],
+    }
+
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request=request,
+        name="stats/recall_audit.html",
+        context={
+            "tab": "recall-audit",
+            "weeks": weeks,
+            "has_data": len(weeks) > 0,
+            "chart_data_json": json.dumps(chart_data),
+        },
+    )
+
+
+@router.get("/stats/config-change/{change_date}", response_class=JSONResponse)
+def config_change_detail(
+    change_date: str,
+    db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+) -> JSONResponse:
+    """Before/after metrics for a specific config-change date (popover API)."""
+    try:
+        date.fromisoformat(change_date)
+    except ValueError:
+        return JSONResponse({"error": "invalid date"}, status_code=400)
+
+    result = before_after_metrics(db, change_date)
+    return JSONResponse(result)

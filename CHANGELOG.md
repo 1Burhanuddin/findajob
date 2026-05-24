@@ -10,6 +10,10 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Added
+
+- **Tuning loop Phase 2+3** (#230): Statistical rigor on all `/stats/*` pages — Wilson 95% CIs on every proportion, min-N=20 gating (strata below threshold render "—"), per-source stratification on `/stats/scoring`. Config-change vertical markers on trend charts (funnel, feedback, throughput) with click-to-compare before/after popover via `/stats/config-change/{date}` API. New `/stats/effectiveness` page (apply-to-response rate, interview rate, ghost rate, per-source breakdown, response latency). New `/stats/recall-audit` page + weekly `recall_audit` cron (samples 40 hard-rejected/low-scored jobs, re-scores with Sonnet 4.6, alerts at >10% upgrade rate). Daily `drift_alert` cron (fires ntfy 7 days after a config change when reject rate shifts >15pp or cost shifts >25%). `docs/tuning.md` user-facing guide. Statistical helpers module at `src/findajob/metrics/stats.py`.
+
 ### Changed
 
 - **Onboarding interviewer Phase 5** (#833): auto-emit all config-file groups in one response instead of pausing for `next` between each group. Removes 8 confirmation gates; `redo {a|b|c|d}` remains active until Finalize. Voice-sample users with >5000 words of prose may see groups a–c and d split across two messages to avoid output truncation.

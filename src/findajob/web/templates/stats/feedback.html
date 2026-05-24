@@ -10,6 +10,7 @@
   the signal that tunes the scorer's feedback block (#47, #52, #54). Company-side
   "Not Selected" events do not appear here; see <code>/board/rejected</code> for those.
   Window: {{ start_day }} → {{ end_day }}.
+  Proportions show Wilson 95% confidence intervals (min 10 rejections to display).
 </p>
 
 <section class="mb-6">
@@ -43,6 +44,14 @@
       <div class="bg-white rounded border border-slate-200 px-3 py-2 {% if window_totals[reason] == 0 %}opacity-50{% endif %}">
         <div class="text-xs uppercase text-slate-500 tracking-wide">{{ reason }}</div>
         <div class="text-xl font-semibold">{{ window_totals[reason] }}</div>
+        {% if reason_cis and reason in reason_cis %}
+          {% set ci = reason_cis[reason] %}
+          {% if ci.gated %}
+            <div class="text-xs text-slate-400 mt-0.5" title="Requires ≥10 rejections for CI">—</div>
+          {% else %}
+            <div class="text-xs text-slate-500 mt-0.5">{{ ci.pct }}% <span class="text-slate-400">({{ ci.lo }}–{{ ci.hi }})</span></div>
+          {% endif %}
+        {% endif %}
       </div>
     {% endfor %}
   </div>
@@ -87,6 +96,7 @@
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{% include "stats/_config_markers.html" %}
 <script id="feedback-chart-data" type="application/json">{{ chart_data_json | safe }}</script>
 <script>
   (function () {
@@ -105,7 +115,7 @@
       pointRadius: 2,
       tension: 0.2,
     }));
-    new Chart(document.getElementById('feedback-chart'), {
+    var chart = new Chart(document.getElementById('feedback-chart'), {
       type: 'line',
       data: { labels: payload.labels, datasets: datasets },
       options: {
@@ -120,7 +130,10 @@
           tooltip: { callbacks: { title: (items) => items[0].label } },
         },
       },
+      plugins: [window.ConfigMarkerPlugin],
     });
+    window.addConfigMarkers(chart, payload.config_markers);
+    window.configMarkerClickHandler(chart, payload.config_markers, document.getElementById('feedback-chart'));
   })();
 </script>
 {% endblock %}
