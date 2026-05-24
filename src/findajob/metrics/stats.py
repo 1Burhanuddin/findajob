@@ -73,7 +73,7 @@ def stratify(
     """
     groups: dict[tuple, list] = defaultdict(list)
     for row in rows:
-        key = tuple((row[d] if isinstance(row, sqlite3.Row) else row[d]) for d in dims)
+        key = tuple(row[d] for d in dims)  # type: ignore[index]
         groups[key].append(row)
     return dict(groups)
 

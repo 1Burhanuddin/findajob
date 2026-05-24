@@ -105,7 +105,7 @@ def _rescore_job(candidate: dict, roles_dir: Path | None = None) -> dict:
         return {
             "score": int(parsed["score"]),
             "notes": parsed.get("reasoning", ""),
-            "model": result.model,
+            "model": AUDITOR_ROLE,
         }
     except (json.JSONDecodeError, KeyError, ValueError) as exc:
         log.warning("recall-audit: failed to parse response for %s: %s", candidate["id"], exc)
