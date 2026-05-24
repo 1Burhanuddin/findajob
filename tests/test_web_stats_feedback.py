@@ -64,6 +64,12 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         "company TEXT NOT NULL, relevance_score INTEGER, reject_reason TEXT NOT NULL, "
         "jd_excerpt TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS config_changes ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT, lever TEXT NOT NULL, "
+        "  changed_at TEXT DEFAULT (datetime('now')), changed_by TEXT DEFAULT 'manual', "
+        "  change_summary TEXT, content_hash TEXT, diff_summary TEXT)"
+    )
     # Seed feedback_log with known entries across the window.
     # Within the 7-day this-week window:
     entries = [
@@ -154,6 +160,12 @@ def test_empty_feedback_log_renders_zero_state(tmp_path: Path) -> None:
         "id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, title TEXT NOT NULL, "
         "company TEXT NOT NULL, relevance_score INTEGER, reject_reason TEXT NOT NULL, "
         "jd_excerpt TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS config_changes ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT, lever TEXT NOT NULL, "
+        "  changed_at TEXT DEFAULT (datetime('now')), changed_by TEXT DEFAULT 'manual', "
+        "  change_summary TEXT, content_hash TEXT, diff_summary TEXT)"
     )
     conn.commit()
     conn.close()

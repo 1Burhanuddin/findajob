@@ -52,6 +52,12 @@ def client(tmp_path: Path) -> TestClient:
         "company TEXT NOT NULL, relevance_score INTEGER, reject_reason TEXT NOT NULL, "
         "jd_excerpt TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS config_changes ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT, lever TEXT NOT NULL, "
+        "  changed_at TEXT DEFAULT (datetime('now')), changed_by TEXT DEFAULT 'manual', "
+        "  change_summary TEXT, content_hash TEXT, diff_summary TEXT)"
+    )
 
     # Week 2026-W18 (Mon 2026-05-04 .. Sun 2026-05-10): 3 applied, 1 interview
     _seed_event(conn, job_id="j1", field_changed="stage", new_value="applied", changed_at="2026-05-04 10:00:00")
@@ -190,6 +196,12 @@ def test_throughput_empty_state(tmp_path: Path) -> None:
         "company TEXT NOT NULL, relevance_score INTEGER, reject_reason TEXT NOT NULL, "
         "jd_excerpt TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS config_changes ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT, lever TEXT NOT NULL, "
+        "  changed_at TEXT DEFAULT (datetime('now')), changed_by TEXT DEFAULT 'manual', "
+        "  change_summary TEXT, content_hash TEXT, diff_summary TEXT)"
+    )
     conn.commit()
     conn.close()
     companies = tmp_path / "companies"
@@ -228,6 +240,12 @@ def test_throughput_ignores_null_changed_at(tmp_path: Path) -> None:
         "id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, title TEXT NOT NULL, "
         "company TEXT NOT NULL, relevance_score INTEGER, reject_reason TEXT NOT NULL, "
         "jd_excerpt TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS config_changes ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT, lever TEXT NOT NULL, "
+        "  changed_at TEXT DEFAULT (datetime('now')), changed_by TEXT DEFAULT 'manual', "
+        "  change_summary TEXT, content_hash TEXT, diff_summary TEXT)"
     )
     conn.execute(
         "INSERT INTO audit_log (job_id, field_changed, new_value, changed_at) VALUES ('jX', 'stage', 'applied', NULL)"

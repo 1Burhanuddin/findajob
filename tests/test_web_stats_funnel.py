@@ -31,6 +31,12 @@ def client(tmp_path: Path) -> TestClient:
         "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, job_id TEXT, field_changed TEXT, "
         "old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT)"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS config_changes ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT, lever TEXT NOT NULL, "
+        "  changed_at TEXT DEFAULT (datetime('now')), changed_by TEXT DEFAULT 'manual', "
+        "  change_summary TEXT, content_hash TEXT, diff_summary TEXT)"
+    )
     # Seed one transition per funnel stage, spread across the window.
     transitions = [
         ("a1", "scored", _ts(5)),

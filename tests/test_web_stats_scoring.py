@@ -56,12 +56,18 @@ def client(tmp_path: Path) -> TestClient:
         "CREATE TABLE jobs ("
         "  id TEXT PRIMARY KEY, fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
         "  relevance_score INTEGER, interview_likelihood INTEGER, "
-        "  fit_score REAL, probability_score REAL"
+        "  fit_score REAL, probability_score REAL, source TEXT DEFAULT ''"
         ")"
     )
     conn.execute(
         "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, job_id TEXT, field_changed TEXT, "
         "old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS config_changes ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT, lever TEXT NOT NULL, "
+        "  changed_at TEXT DEFAULT (datetime('now')), changed_by TEXT DEFAULT 'manual', "
+        "  change_summary TEXT, content_hash TEXT, diff_summary TEXT)"
     )
     # Seed a spread of jobs scored within the window with varied scores.
     # relevance/interview integers spanning 1-10; fit/probability floats spanning 0-100.
@@ -176,12 +182,18 @@ def test_empty_window_renders_zero_state(tmp_path: Path) -> None:
         "CREATE TABLE jobs ("
         "  id TEXT PRIMARY KEY, fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
         "  relevance_score INTEGER, interview_likelihood INTEGER, "
-        "  fit_score REAL, probability_score REAL"
+        "  fit_score REAL, probability_score REAL, source TEXT DEFAULT ''"
         ")"
     )
     conn.execute(
         "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, job_id TEXT, field_changed TEXT, "
         "old_value TEXT, new_value TEXT, changed_at TEXT, changed_by TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS config_changes ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT, lever TEXT NOT NULL, "
+        "  changed_at TEXT DEFAULT (datetime('now')), changed_by TEXT DEFAULT 'manual', "
+        "  change_summary TEXT, content_hash TEXT, diff_summary TEXT)"
     )
     conn.commit()
     conn.close()

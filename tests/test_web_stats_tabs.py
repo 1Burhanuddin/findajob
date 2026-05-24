@@ -1,8 +1,7 @@
-"""Stats sub-tab bar — full taxonomy visible from day one; deferred tabs disabled.
+"""Stats sub-tab bar — full taxonomy visible from day one.
 
-14e (#63, #193, #194, #195, #196). Funnel, Feedback, Scoring, Rejections, and
-Throughput are active links; Effectiveness renders as a disabled
-<span aria-disabled="true"> placeholder until #197 ships.
+14e (#63, #193, #194, #195, #196, #197). Funnel, Feedback, Scoring, Rejections,
+Throughput, and Effectiveness are all active links.
 """
 
 import sqlite3
@@ -14,8 +13,14 @@ from fastapi.testclient import TestClient
 from findajob.onboarding import mark_complete
 from findajob.web.app import create_app
 
-ENABLED = {"/stats/funnel", "/stats/feedback", "/stats/scoring", "/stats/rejections", "/stats/throughput"}
-DISABLED_LABELS = ("Effectiveness",)
+ENABLED = {
+    "/stats/funnel",
+    "/stats/feedback",
+    "/stats/scoring",
+    "/stats/rejections",
+    "/stats/throughput",
+    "/stats/effectiveness",
+}
 
 
 @pytest.fixture
@@ -26,7 +31,8 @@ def client(tmp_path: Path) -> TestClient:
         "CREATE TABLE jobs ("
         "  id TEXT PRIMARY KEY, fingerprint TEXT, title TEXT, company TEXT, stage TEXT, "
         "  relevance_score INTEGER, interview_likelihood INTEGER, "
-        "  fit_score REAL, probability_score REAL, reject_reason TEXT"
+        "  fit_score REAL, probability_score REAL, reject_reason TEXT, "
+        "  source TEXT DEFAULT '', company_tier TEXT"
         ")"
     )
     conn.execute(
@@ -38,6 +44,12 @@ def client(tmp_path: Path) -> TestClient:
         "id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, title TEXT NOT NULL, "
         "company TEXT NOT NULL, relevance_score INTEGER, reject_reason TEXT NOT NULL, "
         "jd_excerpt TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS config_changes ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT, lever TEXT NOT NULL, "
+        "  changed_at TEXT DEFAULT (datetime('now')), changed_by TEXT DEFAULT 'manual', "
+        "  change_summary TEXT, content_hash TEXT, diff_summary TEXT)"
     )
     conn.commit()
     conn.close()
@@ -117,16 +129,18 @@ def test_throughput_tab_active_marker(client: TestClient) -> None:
     assert 'aria-current="page"' in snippet
 
 
-@pytest.mark.parametrize("label", DISABLED_LABELS)
-def test_deferred_tabs_render_as_disabled_spans(client: TestClient, label: str) -> None:
+def test_effectiveness_tab_has_href(client: TestClient) -> None:
     r = client.get("/stats/funnel")
     assert r.status_code == 200
-    # Each deferred tab must render as <span aria-disabled="true"> with its
-    # label, and must NOT render as an <a href="…"> — we assert both.
-    disabled_path = f"/stats/{label.lower()}"
-    assert f'href="{disabled_path}"' not in r.text, f"{label} should not have an href"
-    assert 'aria-disabled="true"' in r.text
-    assert label in r.text
+    assert 'href="/stats/effectiveness"' in r.text
+
+
+def test_effectiveness_tab_active_marker(client: TestClient) -> None:
+    r = client.get("/stats/effectiveness")
+    assert r.status_code == 200
+    idx = r.text.index('href="/stats/effectiveness"')
+    snippet = r.text[idx : idx + 400]
+    assert 'aria-current="page"' in snippet
 
 
 def test_top_nav_stats_link_resolves(client: TestClient) -> None:
