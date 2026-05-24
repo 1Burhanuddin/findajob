@@ -82,7 +82,12 @@ def client(tmp_path: Path) -> TestClient:
                 "delivery_status": "failed",
                 "delivery_error": "ntfy 503",
             },
-            {"kind": "prep_briefing_ready", "title": "Briefing ready", "body": "Acme/prep", "read_at": "2026-05-04 12:30:00"},
+            {
+                "kind": "prep_briefing_ready",
+                "title": "Briefing ready",
+                "body": "Acme/prep",
+                "read_at": "2026-05-04 12:30:00",
+            },
         ],
     )
     conn.close()
