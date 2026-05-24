@@ -127,5 +127,7 @@ def test_notification_kinds_taxonomy_intact():
         "prep_failure",
         "interview_prep_ready",
         "interview_prep_failed",
+        "recall_audit_alert",
+        "drift_alert",
     }
     assert set(NOTIFICATION_KINDS) == expected
