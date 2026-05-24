@@ -6,6 +6,7 @@ key metrics (precision, cost-per-applied), and fires an ntfy alert when the
 delta exceeds threshold (>15% precision shift, >25% cost shift).
 """
 
+import sqlite3
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
