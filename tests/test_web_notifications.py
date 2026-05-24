@@ -82,7 +82,7 @@ def client(tmp_path: Path) -> TestClient:
                 "delivery_status": "failed",
                 "delivery_error": "ntfy 503",
             },
-            {"kind": "scoreboard", "title": "Scoreboard", "body": "weekly", "read_at": "2026-05-04 12:30:00"},
+            {"kind": "prep_briefing_ready", "title": "Briefing ready", "body": "Acme/prep", "read_at": "2026-05-04 12:30:00"},
         ],
     )
     conn.close()
@@ -99,7 +99,7 @@ def test_index_renders_recent_first(client: TestClient) -> None:
     assert "Morning summary" in r.text
     assert "Apply!" in r.text
     # Read row still appears (default = all states)
-    assert "Scoreboard" in r.text
+    assert "Briefing ready" in r.text
     # 3 unread out of 4 → header shows count
     assert "3</span> unread" in r.text or "3 unread" in r.text or ">3<" in r.text
 

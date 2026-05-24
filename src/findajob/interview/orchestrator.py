@@ -3,8 +3,8 @@
 Extracted from `scripts/interview_prep.py` in M3 (#537). Module-load
 `load_env()` deferred into `main()`. `run_role()` was consolidated to
 `findajob.llm.role_runner` and `notify()` to
-`findajob.notifications.ntfy.quick_notify` in M3's cleanup PR; this
-module imports both rather than redefining them.
+`findajob.notifications.ntfy.send()` for persistent kind-tagged
+delivery (#840).
 
 M6 swap (2026-05-08): the prior `.interview_prep_in_progress` sentinel
 file was replaced by the `background_tasks` row contract. Concurrency
@@ -25,7 +25,7 @@ from findajob.audit import log_event
 from findajob.background_tasks import writeback_subprocess
 from findajob.db import connect
 from findajob.llm.role_runner import run_role
-from findajob.notifications.ntfy import quick_notify
+from findajob.notifications.ntfy import send as ntfy_send
 from findajob.paths import BASE, PANDOC, load_env
 from findajob.prep_naming import safe_filename_part
 from findajob.profile import read_file_prefix
@@ -99,7 +99,11 @@ def _run_interview_prep() -> None:
                 reason="no_prep_folder",
                 folder=prep_folder,
             )
-            quick_notify(f"INTERVIEW PREP SKIPPED: {company} — {title}\nNo prep folder; apply was likely manual.")
+            ntfy_send(
+                f"Interview prep failed: {company} — {title}",
+                "no_prep_folder\nNo prep folder; apply was likely manual.",
+                kind="interview_prep_failed",
+            )
             return
 
         # M6: concurrency control via background_tasks rows, not the
@@ -150,7 +154,11 @@ def _generate(
             reason="no_briefing_in_prep_folder",
             folder=prep_folder,
         )
-        quick_notify(f"INTERVIEW PREP FAILED: {company} — {title}\nNo briefing found in prep folder; cannot expand.")
+        ntfy_send(
+            f"Interview prep failed: {company} — {title}",
+            "no_briefing\nNo briefing found in prep folder; cannot expand.",
+            kind="interview_prep_failed",
+        )
         return
 
     # ── Load profile + master resume — injected directly, never via RAG ──
@@ -167,7 +175,11 @@ def _generate(
             profile=bool(profile),
             master=bool(master),
         )
-        quick_notify(f"INTERVIEW PREP FAILED: {company} — {title}\nMissing profile.md or master_resume.md.")
+        ntfy_send(
+            f"Interview prep failed: {company} — {title}",
+            "missing_files\nMissing profile.md or master_resume.md.",
+            kind="interview_prep_failed",
+        )
         return
 
     # ── Build prompt ──
@@ -208,7 +220,11 @@ def _generate(
             reason="empty_or_short_output",
             chars=len(output_md) if output_md else 0,
         )
-        quick_notify(f"INTERVIEW PREP FAILED: {company} — {title}\nLLM returned empty/short output.")
+        ntfy_send(
+            f"Interview prep failed: {company} — {title}",
+            "empty_or_short_output\nLLM returned empty/short output.",
+            kind="interview_prep_failed",
+        )
         return
 
     # ── Write artifact ──
@@ -246,5 +262,9 @@ def _generate(
         md=os.path.basename(md_path),
         chars=len(output_md),
     )
-    quick_notify(f"Interview prep ready: {company} — {title}\n{md_path}")
+    ntfy_send(
+        f"Interview prep ready: {company} — {title}",
+        md_path,
+        kind="interview_prep_ready",
+    )
     print(f"INTERVIEW_PREP_COMPLETE:{md_path}")

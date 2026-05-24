@@ -288,12 +288,8 @@ def cmd_health_check() -> None:
     conn.close()
 
     if not issues:
-        body = "All systems nominal.\nTriage ran. Poller ran. Sheet synced. No errors in last 25h."
-        priority = "low"
-        tags = "white_check_mark"
-    else:
-        body = "\n".join(issues)
-        priority = "high" if any("ERROR" in i for i in issues) else "default"
-        tags = "warning"
+        return
 
-    send("💼 findajob — health check", body, priority=priority, tags=tags, kind="health_check")
+    body = "\n".join(issues)
+    priority = "high" if any("ERROR" in i for i in issues) else "default"
+    send("💼 findajob — health check", body, priority=priority, tags="warning", kind="health_check")

@@ -42,19 +42,8 @@ def test_tools_page_renders_all_seven_trigger_tiles(client: tuple[TestClient, Pa
         "notify-health",
         "notify-stats",
         "watchdog",
-        "notify-scoreboard",
     ):
         assert f'data-cron-slug="{slug}"' in resp.text, f"Missing tile for {slug}"
-
-
-def test_tools_page_renders_disabled_state_for_notify_scoreboard(client: tuple[TestClient, Path]) -> None:
-    c, _ = client
-    resp = c.get("/tools/")
-    assert resp.status_code == 200
-    assert 'data-cron-slug="notify-scoreboard"' in resp.text
-    # Tile-specific copy from _trigger_tile.html — narrow assertion that
-    # avoids false-positive from any "disabled" class elsewhere in the page.
-    assert "Disabled in scheduled-jobs.yaml" in resp.text
 
 
 def test_tools_page_renders_running_state_for_unmatched_cron_started(client: tuple[TestClient, Path]) -> None:

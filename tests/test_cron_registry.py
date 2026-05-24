@@ -17,9 +17,9 @@ from findajob.web.cron_registry import (
 )
 
 
-def test_registry_has_seven_entries() -> None:
-    """Spec §2.3 — registry is exactly the 7 curated entries."""
-    assert len(CRON_TILES) == 7
+def test_registry_has_six_entries() -> None:
+    """Registry is exactly the 6 curated entries (scoreboard retired in #840)."""
+    assert len(CRON_TILES) == 6
     slugs = {t.slug for t in CRON_TILES}
     assert slugs == {
         "triage",
@@ -28,13 +28,7 @@ def test_registry_has_seven_entries() -> None:
         "notify-health",
         "notify-stats",
         "watchdog",
-        "notify-scoreboard",
     }
-
-
-def test_notify_scoreboard_is_disabled() -> None:
-    """Spec §2.3 — notify-scoreboard mirrors `enabled: false` in yaml."""
-    assert CRON_TILES_BY_SLUG["notify-scoreboard"].enabled is False
 
 
 def test_spend_gated_tiles_are_triage_and_discover_only() -> None:
@@ -59,7 +53,6 @@ def test_max_runtime_minutes_match_spec_table() -> None:
         "notify-health": 2,
         "notify-stats": 2,
         "watchdog": 15,
-        "notify-scoreboard": 2,
     }
 
 
@@ -78,8 +71,6 @@ def test_notify_tiles_use_args_field_not_script_path_concatenation() -> None:
     assert CRON_TILES_BY_SLUG["notify-health"].args == ("health-check",)
     assert CRON_TILES_BY_SLUG["notify-stats"].script_path == "scripts/notify.py"
     assert CRON_TILES_BY_SLUG["notify-stats"].args == ("daily-stats",)
-    assert CRON_TILES_BY_SLUG["notify-scoreboard"].script_path == "scripts/notify.py"
-    assert CRON_TILES_BY_SLUG["notify-scoreboard"].args == ("scoreboard",)
 
 
 def test_non_notify_tiles_have_empty_args() -> None:

@@ -134,7 +134,7 @@ def mocked_orchestrator(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(orch, "render_md_to_docx", lambda *args, **kwargs: None)
     monkeypatch.setattr(orch, "_add_cover_letter_spacing", lambda *args, **kwargs: None)
     monkeypatch.setattr(orch, "_linkify_contact_info", lambda s: s)
-    monkeypatch.setattr(orch, "quick_notify", lambda *args, **kwargs: None)
+    monkeypatch.setattr(orch, "ntfy_send", lambda *args, **kwargs: None)
     monkeypatch.setattr(orch, "load_voice_samples", lambda: "")
     monkeypatch.setattr(orch, "read_file_prefix", lambda: "TST")
     monkeypatch.setattr(orch, "quarantine_stale_prep_folders", lambda *args, **kwargs: None)

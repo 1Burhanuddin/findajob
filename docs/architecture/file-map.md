@@ -61,7 +61,7 @@ When this map drifts from the actual code (renamed file, new route module, retir
 <repo>/scripts/prep_application.py          # entry-point shim → findajob.prep.orchestrator
 <repo>/scripts/find_contacts.py             # entry-point shim → findajob.find_contacts
 <repo>/scripts/ingest_form.py               # Google Form → DB ingestion (retired; kept for manual drains)
-<repo>/scripts/notify.py                    # ntfy push notifications — subcommands: send-raw, scoreboard, health-check, etc.
+<repo>/scripts/notify.py                    # ntfy push notifications — subcommands: daily-stats, health-check, apply-reminder, feedback-review, send-raw
 <repo>/scripts/rename_folders.py            # rename company folders to new format (idempotent)
 <repo>/scripts/discover_companies.py            # weekly company discovery cron entry
 <repo>/scripts/seed_runtime_config.py       # entrypoint-invoked at every container start; thin shim over findajob.config_seed.seed_runtime_config (#627)

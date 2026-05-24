@@ -145,13 +145,29 @@ def test_taxonomy_constant_includes_known_kinds(notify):
         "daily_stats",
         "apply_reminder",
         "feedback_review",
-        "scoreboard",
         "health_check",
-        "issues_ping",
-        "ci_check",
         "send_raw",
         "discovery_run",
         "gmail_auth_failure",
         "rejection_detected",
+        "waitlist_resurface",
+        "prep_briefing_ready",
+        "prep_drafts_ready",
+        "prep_failure",
+        "interview_prep_ready",
+        "interview_prep_failed",
     }
-    assert set(notify.NOTIFICATION_KINDS) >= expected
+    assert set(notify.NOTIFICATION_KINDS) == expected
+
+
+def test_send_rejects_unknown_kind(notify, monkeypatch):
+    """send() raises ValueError on unregistered kind."""
+
+    class _Result:
+        returncode = 0
+        stderr = b""
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _Result())
+
+    with pytest.raises(ValueError, match="Unknown notification kind"):
+        notify.send("title", "body", kind="bogus_kind")

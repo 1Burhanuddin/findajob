@@ -35,10 +35,10 @@ def test_dispatch_unknown_slug_404(db: sqlite3.Connection, base_root: Path) -> N
     assert exc.value.status_code == 404
 
 
-def test_dispatch_disabled_slug_409(db: sqlite3.Connection, base_root: Path) -> None:
+def test_dispatch_unknown_slug_404(db: sqlite3.Connection, base_root: Path) -> None:
     with pytest.raises(HTTPException) as exc:
         dispatch_cron("notify-scoreboard", db, base_root)
-    assert exc.value.status_code == 409
+    assert exc.value.status_code == 404
 
 
 def test_dispatch_already_running_409(db: sqlite3.Connection, base_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:

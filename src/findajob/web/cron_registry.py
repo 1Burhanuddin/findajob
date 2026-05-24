@@ -119,18 +119,6 @@ CRON_TILES: list[CronTile] = [
         max_runtime_minutes=15,
         cost_estimate_fn=None,
     ),
-    CronTile(
-        slug="notify-scoreboard",
-        label="Send weekly scoreboard ntfy",
-        description="Currently disabled in scheduled-jobs.yaml — re-enable there first.",
-        script_path="scripts/notify.py",
-        args=("scoreboard",),
-        enabled=False,
-        confirm_required=False,
-        gated_by_spend_ceiling=False,
-        max_runtime_minutes=2,
-        cost_estimate_fn=None,
-    ),
 ]
 
 

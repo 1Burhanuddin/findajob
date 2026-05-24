@@ -110,7 +110,7 @@ are editable through `/config/` like any other config file.
 
 `/tools/` is the operator console. Two panels:
 
-**Run a job now.** Buttons for the six high-value cron jobs (triage, detect-rejections, discover, notify-health, notify-stats, watchdog), plus notify-scoreboard rendered disabled (it's `enabled: false` in `ops/scheduled-jobs.yaml` until #112 lands). Each tile shows when the cron last ran and whether one is in flight right now. Cost-bearing crons (triage, discover) ask you to confirm in the browser before launching, and refuse with a 402 page when the monthly LLM spend ceiling is reached.
+**Run a job now.** Buttons for the six high-value cron jobs (triage, detect-rejections, discover, notify-health, notify-stats, watchdog). Each tile shows when the cron last ran and whether one is in flight right now. Cost-bearing crons (triage, discover) ask you to confirm in the browser before launching, and refuse with a 402 page when the monthly LLM spend ceiling is reached.
 
 | Cron | When to fire manually |
 |---|---|

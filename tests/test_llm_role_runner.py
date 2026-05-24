@@ -91,28 +91,13 @@ def test_orchestrators_import_run_role_from_canonical_location():
     )
 
 
-def test_quick_notify_callable_and_imported_by_all_orchestrators():
-    """`quick_notify` is the canonical lightweight ntfy wrapper.
-
-    Mirrors the run_role consolidation: triage / prep / interview each
-    used to define their own byte-equivalent `notify(message)` function;
-    the cleanup PR replaced all three with imports of `quick_notify`
-    from `findajob.notifications.ntfy`.
-    """
+def test_ntfy_send_imported_by_prep_and_interview_orchestrators():
+    """Prep and interview orchestrators use `ntfy.send` for persistent notifications."""
     from findajob.interview import orchestrator as interview_orchestrator
-    from findajob.notifications.ntfy import quick_notify
     from findajob.prep import orchestrator as prep_orchestrator
-    from findajob.triage import orchestrator as triage_orchestrator
 
-    assert callable(quick_notify)
-
-    for module in (triage_orchestrator, prep_orchestrator, interview_orchestrator):
-        # Every orchestrator imports quick_notify into its namespace
-        assert module.quick_notify is quick_notify, (
-            f"{module.__name__}.quick_notify drifted from the canonical findajob.notifications.ntfy.quick_notify"
+    for module in (prep_orchestrator, interview_orchestrator):
+        assert hasattr(module, "ntfy_send"), (
+            f"{module.__name__} missing ntfy_send import"
         )
-        # The old `notify` symbol must be gone — fails CI if a future
-        # refactor accidentally re-defines a per-orchestrator copy.
-        assert not hasattr(module, "notify"), (
-            f"{module.__name__} still exposes a `notify` symbol; the cleanup PR removed it. Use quick_notify instead."
-        )
+        assert callable(module.ntfy_send)

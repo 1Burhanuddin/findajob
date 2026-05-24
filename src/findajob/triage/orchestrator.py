@@ -40,7 +40,6 @@ from findajob.fetchers import (
 )
 from findajob.fetchers.adapters import iter_configured_adapters
 from findajob.fetchers.adapters.gmail import GmailLinkedInAdapter
-from findajob.notifications.ntfy import quick_notify
 from findajob.onboarding import is_complete as _onboarding_is_complete
 from findajob.paths import BASE, load_env
 from findajob.scoring import _build_feedback_block, score_job
@@ -577,5 +576,3 @@ def main(gmail_since_days: int | None = None):
         scored=scored_count,
         noise_skipped=noise_count,
     )
-
-    quick_notify(f"Triage done: {new_count} new, {dupe_count} dupes, {scored_count} scored ({SCORE_WORKERS} workers)")

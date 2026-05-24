@@ -4,9 +4,9 @@ Extracted from `scripts/prep_application.py` in M3 (#537). Module-load
 `load_env()` moved into `main()` so this module is import-safe (no env
 file read at import time).
 
-`run_role()` was consolidated to `findajob.llm.role_runner` and
-`notify()` to `findajob.notifications.ntfy.quick_notify` in M3's cleanup
-PR; this module imports both rather than redefining them. `abbrev_title()`
+`run_role()` was consolidated to `findajob.llm.role_runner` in M3's
+cleanup PR. Notifications use `findajob.notifications.ntfy.send()` for
+persistent kind-tagged delivery (#840). `abbrev_title()`
 was consolidated to `findajob.prep_naming` in #556.
 """
 
@@ -26,7 +26,7 @@ from findajob.background_tasks import writeback_subprocess
 from findajob.classification import JD_MAX_CHARS
 from findajob.db import connect
 from findajob.llm.role_runner import run_role
-from findajob.notifications.ntfy import quick_notify
+from findajob.notifications.ntfy import send as ntfy_send
 from findajob.paths import BASE, IMAGE_ROOT, PANDOC, load_env
 from findajob.prep.cost_projection import compute_projection
 from findajob.prep.docx_postprocess import _add_cover_letter_spacing, _linkify_contact_info
@@ -41,28 +41,6 @@ MASTER_RESUME_PATH = f"{BASE}/candidate_context/master_resume.md"
 
 _PROBABILITY_HEADING_RE = re.compile(r"##\s*🎯\s*Probability Assessment")
 _PERCENT_SCORE_RE = re.compile(r":\s*\d{1,3}%")
-
-
-def _emit_phase_b_progress(outdir: str, step: int, label: str, action: str) -> None:
-    """Surface Phase B progress to the operator via two channels:
-
-    1. ntfy — fires ``"Phase B: {action}"`` so the notification stream is
-       visibly distinct from Phase A's ``"Briefing ready: ..."`` notif.
-    2. sidecar — writes ``"{step}/5 {label}\\n"`` to ``<outdir>/.phase_b_step``
-       so the materials page can render "Phase B in progress — step N of 5"
-       instead of the generic "⟳ Regenerating…" button label.
-
-    The sidecar is a dotfile so it stays out of the user-facing file listing
-    (#738). Five visible LLM/subprocess steps: resume, changes, cover,
-    critique, outreach.
-    """
-    try:
-        Path(outdir).mkdir(parents=True, exist_ok=True)
-        (Path(outdir) / ".phase_b_step").write_text(f"{step}/5 {label}\n")
-    except OSError:
-        # Best-effort: a failed sidecar write must not abort the prep run.
-        pass
-    quick_notify(f"Phase B: {action}")
 
 
 def _fit_analysis_is_complete(text: str | None) -> bool:
@@ -147,7 +125,11 @@ def _handle_prep_subprocess_failure(
         returncode=exc.returncode,
     )
     reset_prep_to_scored(conn, job_id, reason=f"subprocess_failed:{os.path.basename(cmd)}")
-    quick_notify(f"PREP FAILED (subprocess): {company} — {title}\n{cmd} exit {exc.returncode}")
+    ntfy_send(
+        f"Prep failed: {company} — {title}",
+        f"A: subprocess_error\n{cmd} exit {exc.returncode}",
+        kind="prep_failure",
+    )
 
 
 def _run_prep() -> None:
@@ -251,7 +233,11 @@ def _run_prep_phase_a(company: str, title: str, url: str, job_id: str) -> None:
             log_event("prep_missing_candidate_files", job_id=job_id, company=company, missing="; ".join(missing_files))
             shutil.rmtree(outdir, ignore_errors=True)
             reset_prep_to_scored(conn, job_id, reason="missing_candidate_files")
-            quick_notify(f"PREP ABORTED (missing candidate files): {company} — {title}\n{'; '.join(missing_files)}")
+            ntfy_send(
+                f"Prep failed: {company} — {title}",
+                f"A: missing_files\n{'; '.join(missing_files)}",
+                kind="prep_failure",
+            )
             return
 
         # ── Per-prep cost projection (#713) ──
@@ -472,7 +458,11 @@ def _run_prep_phase_a(company: str, title: str, url: str, job_id: str) -> None:
             )
             shutil.rmtree(outdir, ignore_errors=True)
             reset_prep_to_scored(conn, job_id, reason="validation_failed")
-            quick_notify(f"PREP FAILED (empty files): {company} — {title}\n{'; '.join(validation_failures)}")
+            ntfy_send(
+                f"Prep failed: {company} — {title}",
+                f"A: validation_fail\n{'; '.join(validation_failures)}",
+                kind="prep_failure",
+            )
             return
 
         # ── Phase A DB write: transition to briefing_ready with scores ──
@@ -490,7 +480,11 @@ def _run_prep_phase_a(company: str, title: str, url: str, job_id: str) -> None:
         write_audit(conn, job_id, "stage", old_stage, "briefing_ready")
 
         log_event("prep_phase_a_complete", company=company, title=title, folder=outdir)
-        quick_notify(f"Briefing ready: {company} — {title}\n{outdir}")
+        ntfy_send(
+            f"Briefing ready: {company} — {title}",
+            outdir,
+            kind="prep_briefing_ready",
+        )
 
         conn.close()
         print(f"PREP_PHASE_A_COMPLETE:{outdir}")
@@ -530,17 +524,12 @@ def _run_prep_phase_b(company: str, title: str, url: str, job_id: str) -> None:
                 title=title,
                 outdir=outdir or "(empty)",
             )
-            quick_notify(f"PHASE B ABORTED (missing prep folder): {company} — {title}")
+            ntfy_send(
+                f"Prep failed: {company} — {title}",
+                f"B: aborted_no_folder\n{outdir or '(empty)'}",
+                kind="prep_failure",
+            )
             raise SystemExit(1)
-
-        # Clear any stale ``.phase_b_step`` sidecar from a prior failed run
-        # (#738). Without this, a retry would briefly show the failed run's
-        # step label on the materials page until Stage 4 overwrites the
-        # sidecar — operator reads it as "wait, did I go backward?"
-        try:
-            (Path(outdir) / ".phase_b_step").unlink(missing_ok=True)
-        except OSError:
-            pass
 
         if not jd_text or len(jd_text) < 50:
             # Fallback curl (same as Phase A)
@@ -599,7 +588,6 @@ def _run_prep_phase_b(company: str, title: str, url: str, job_id: str) -> None:
         out = {k: os.path.join(outdir, v) for k, v in fn.items()}
 
         # ── Stage 4: resume_tailor ──
-        _emit_phase_b_progress(outdir, 1, "resume", "Tailoring resume…")
         resume_md = run_role(
             "resume_tailor",
             f"COMPANY BRIEFING AND FIT ANALYSIS:\n{briefing_context}",
@@ -642,7 +630,6 @@ def _run_prep_phase_b(company: str, title: str, url: str, job_id: str) -> None:
         render_md_to_docx(out["resume_md"], out["resume_docx"])
 
         # ── Stage 5: resume_change_reviewer ──
-        _emit_phase_b_progress(outdir, 2, "changes", "Reviewing resume changes…")
         changes_prompt = (
             f"ORIGINAL MASTER RESUME:\n{master_text}\n\nTAILORED RESUME:\n{resume_md}\n\nTARGET JD:\n{jd_text}"
         )
@@ -651,7 +638,6 @@ def _run_prep_phase_b(company: str, title: str, url: str, job_id: str) -> None:
             f.write(changes_md)
 
         # ── Stage 6: cover_letter_writer ──
-        _emit_phase_b_progress(outdir, 3, "cover", "Drafting cover letter…")
         today_str = datetime.now().strftime("%B %d, %Y")
         cover_prompt = (
             f"{mode_marker}Date: {today_str}\n\n"
@@ -674,7 +660,6 @@ def _run_prep_phase_b(company: str, title: str, url: str, job_id: str) -> None:
         _add_cover_letter_spacing(out["cover_docx"])
 
         # ── Stage 7: recruiter_critic ──
-        _emit_phase_b_progress(outdir, 4, "critique", "Running recruiter critique…")
         critique_md = run_role(
             "recruiter_critic",
             f"Company: {company}\nTitle: {title}\n\nTAILORED RESUME:\n{resume_md}\n\nCOVER LETTER:\n{cover_md_text}",
@@ -688,7 +673,6 @@ def _run_prep_phase_b(company: str, title: str, url: str, job_id: str) -> None:
                 f.write(critique_md)
 
         # ── Step 5: Network outreach ──
-        _emit_phase_b_progress(outdir, 5, "outreach", "Drafting outreach…")
         subprocess.run(
             [
                 sys.executable,
@@ -764,7 +748,11 @@ def _run_prep_phase_b(company: str, title: str, url: str, job_id: str) -> None:
         write_audit(conn, job_id, "stage", old_stage, "materials_drafted")
 
         log_event("prep_complete", company=company, title=title, folder=outdir)
-        quick_notify(f"Drafts ready: {company} — {title}\n{outdir}")
+        ntfy_send(
+            f"Drafts ready: {company} — {title}",
+            outdir,
+            kind="prep_drafts_ready",
+        )
 
         conn.close()
         print(f"PREP_COMPLETE:{outdir}")
@@ -809,4 +797,8 @@ def _handle_phase_b_failure(
     except Exception:
         pass  # best-effort; the subprocess error is already propagating
     log_event("prep_phase_b_failed", company=company, title=title, job_id=job_id, reason=reason)
-    quick_notify(f"Phase B failed: {company} — {title}. Briefing intact; retry available.")
+    ntfy_send(
+        f"Prep failed: {company} — {title}",
+        f"B: {reason}\nBriefing intact; retry available.",
+        kind="prep_failure",
+    )

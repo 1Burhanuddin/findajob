@@ -75,7 +75,7 @@ def _crontab_notify_subcommands() -> list[str]:
 def test_notify_commands_dict_is_parseable():
     cmds = _notify_commands()
     assert cmds, "COMMANDS dict is empty or missing"
-    for expected in {"daily-stats", "health-check", "issues-ping", "apply-reminder", "feedback-review"}:
+    for expected in {"daily-stats", "health-check", "apply-reminder", "feedback-review"}:
         assert expected in cmds, f"Expected COMMANDS to contain '{expected}'"
 
 

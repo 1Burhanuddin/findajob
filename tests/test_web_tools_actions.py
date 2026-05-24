@@ -46,9 +46,9 @@ def test_post_trigger_cron_unknown_slug_404(client: TestClient) -> None:
     assert resp.status_code == 404
 
 
-def test_post_trigger_cron_disabled_slug_409(client: TestClient) -> None:
+def test_post_trigger_cron_unknown_slug_404(client: TestClient) -> None:
     resp = client.post("/tools/trigger-cron/notify-scoreboard")
-    assert resp.status_code == 409
+    assert resp.status_code == 404
 
 
 def test_post_trigger_cron_get_returns_405(client: TestClient) -> None:

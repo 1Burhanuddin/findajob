@@ -64,10 +64,10 @@ def isolate_event_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 @pytest.fixture(autouse=True)
-def stub_quick_notify(monkeypatch: pytest.MonkeyPatch) -> None:
+def stub_ntfy_send(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "findajob.prep.orchestrator.quick_notify",
-        lambda _msg: None,
+        "findajob.prep.orchestrator.ntfy_send",
+        lambda *args, **kwargs: None,
     )
 
 

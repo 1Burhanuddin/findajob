@@ -15,6 +15,6 @@ Audit anchor — classifies persisted state by ownership and recoverability. Upd
 | `data/connections.csv` | Operator-uploaded (LinkedIn export) | No | **Yes** — re-export from LinkedIn (minutes) |
 | `companies/` (active + `_applied/` + `_waitlisted/` + `_rejected/` + `.stale/`) | Pipeline-generated | Selective (skip `.stale/`) | **Partially** — re-runnable per-job, but stale JD URLs no longer reachable |
 | `logs/pipeline.jsonl` | Pipeline-generated | No (observability, not state) | **No** — historical observability lost if dropped |
-| `logs/{form-ingest,jobsync,poller,triage,notify,ci-check,rescore_backfill}.log` | Legacy / pipeline-generated | No | **Yes** — mostly stale; safe to drop |
+| `logs/{form-ingest,jobsync,poller,triage,notify,rescore_backfill}.log` | Legacy / pipeline-generated | No | **Yes** — mostly stale; safe to drop |
 
 The data layer is the only thing `docker compose pull` + a fresh interview can't regenerate. Deep reference: `docs/superpowers/specs/2026-05-03-301-data-model-audit.md` §1 (operator-private).

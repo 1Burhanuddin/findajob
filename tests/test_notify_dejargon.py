@@ -3,8 +3,7 @@
 Three subcommands are direct user nudges (notifications a non-technical
 user reads): daily-stats, apply-reminder, feedback-review. Their
 body strings must avoid pipeline-internal jargon. Operator diagnostics
-(health-check, ci-check, scoreboard) keep their technical detail; only
-the titles are branded.
+(health-check) keeps its technical detail; only the title is branded.
 
 Post-#537: per-command modules live in `findajob.notifications.*`; the
 test monkeypatches the `send` binding inside each command module's
@@ -24,7 +23,7 @@ REPO = Path(__file__).resolve().parents[1]
 NOTIFY_PKG = REPO / "src" / "findajob" / "notifications"
 
 # Pipeline-internal terms that must not appear in user-facing notification bodies.
-# Operator-facing subcommands (health-check, ci-check, scoreboard) are exempt.
+# Operator-facing subcommands (health-check) are exempt.
 USER_FACING_JARGON = (
     "manual_review",
     "feedback_log",

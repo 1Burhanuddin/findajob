@@ -59,7 +59,6 @@ docker compose exec scheduler python3 scripts/manual_prep.py /path/to/job.txt
 docker compose exec scheduler python3 scripts/notify.py daily-stats
 docker compose exec scheduler python3 scripts/notify.py health-check
 docker compose exec scheduler python3 scripts/notify.py apply-reminder
-docker compose exec scheduler python3 scripts/notify.py issues-ping
 docker compose exec scheduler python3 scripts/notify.py feedback-review
 ```
 
@@ -231,11 +230,6 @@ Whether triage completed in the last 25h (looks for `pipeline_complete` event in
 
 The 7h offset gives triage (which can take 30–60 min) comfortable headroom. Firing earlier would race the run.
 
-### `issues-ping` — Open issues reminder
-**Schedule:** Mon/Wed/Fri 08:00.
-
-Open issues from `gh issue list`. Silent if the list is clean.
-
 ### `apply-reminder` — Daily nudge
 **Schedule:** 06:00 daily.
 
@@ -259,11 +253,6 @@ w.writerow(["reject_reason", "n"]); w.writerows(rows)
 '
 ```
 
-### `scoreboard` — Weekly pipeline funnel
-**Schedule:** Monday 08:30.
-
-Updates issue #31 with funnel metrics from the last 7 days: triage throughput, apply rate, interview rate, LLM spend, low-signal feed diagnostics. Pinned issue — no user action required.
-
 ### `send-raw` — Arbitrary notification
 **Manual only.**
 
@@ -273,11 +262,6 @@ docker compose exec scheduler python3 scripts/notify.py send-raw "My Title" "My 
 
 Useful for testing ntfy connectivity or sending one-off alerts from other scripts.
 
-### `ci-check` — CI failure alert
-**Schedule:** triggered after each push (or run manually).
-
-Checks the latest GitHub Actions CI run. Sends a high-priority notification if it failed; silent if passing.
-
 ### Schedule summary
 
 | Notification | Schedule |
@@ -285,21 +269,17 @@ Checks the latest GitHub Actions CI run. Sends a high-priority notification if i
 | `apply-reminder` | 06:00 daily |
 | `daily-stats` | 06:15 daily |
 | `health-check` | 07:00 daily |
-| `issues-ping` | Mon/Wed/Fri 08:00 |
-| `scoreboard` | Monday 08:30 |
 | `feedback-review` | Sunday 08:00 |
 | `send-raw` | Manual only |
-| `ci-check` | Manual / on-push |
 
 ### Customizing
 
-All notification content lives in `scripts/notify.py`. To add a new notification type:
+Notification modules live in `src/findajob/notifications/`. To add a new notification:
 
-1. Add a function in `notify.py` (follow the pattern of existing ones).
-2. Add an `elif` branch in `main()` for the new subcommand name.
-3. Add a new entry to `ops/scheduled-jobs.yaml`.
-
-ntfy supports priorities, tags, and actions via curl headers; see `notify.py`'s `send()` function to add header support.
+1. Add a module in `src/findajob/notifications/` (follow the pattern of existing ones).
+2. Register the subcommand in `src/findajob/notifications/cli.py`.
+3. Add the kind to `NOTIFICATION_KINDS` in `src/findajob/notifications/ntfy.py`.
+4. Add a new entry to `ops/scheduled-jobs.yaml` if scheduled.
 
 ---
 

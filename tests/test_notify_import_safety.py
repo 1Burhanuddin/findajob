@@ -78,9 +78,6 @@ def test_each_command_module_loads_without_db_or_ntfy():
         "findajob.notifications.apply_reminder",
         "findajob.notifications.feedback_review",
         "findajob.notifications.health_check",
-        "findajob.notifications.issues_ping",
-        "findajob.notifications.ci_check",
-        "findajob.notifications.scoreboard",
         "findajob.notifications.send_raw",
     ):
         _reimport(module_name)
@@ -98,12 +95,9 @@ def test_cli_dispatch_table_is_complete():
     expected = {
         "daily-stats",
         "health-check",
-        "issues-ping",
         "apply-reminder",
         "feedback-review",
         "send-raw",
-        "ci-check",
-        "scoreboard",
     }
     assert set(COMMANDS.keys()) == expected, f"COMMANDS keys drifted: {set(COMMANDS.keys()) ^ expected}"
     for key, fn in COMMANDS.items():
@@ -122,13 +116,16 @@ def test_notification_kinds_taxonomy_intact():
         "daily_stats",
         "apply_reminder",
         "feedback_review",
-        "scoreboard",
         "health_check",
-        "issues_ping",
-        "ci_check",
         "send_raw",
         "discovery_run",
         "gmail_auth_failure",
         "rejection_detected",
+        "waitlist_resurface",
+        "prep_briefing_ready",
+        "prep_drafts_ready",
+        "prep_failure",
+        "interview_prep_ready",
+        "interview_prep_failed",
     }
-    assert set(NOTIFICATION_KINDS) >= expected
+    assert set(NOTIFICATION_KINDS) == expected

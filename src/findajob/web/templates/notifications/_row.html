@@ -4,14 +4,17 @@
   "daily_stats": "bg-sky-100 text-sky-800 border-sky-300",
   "apply_reminder": "bg-emerald-100 text-emerald-800 border-emerald-300",
   "feedback_review": "bg-violet-100 text-violet-800 border-violet-300",
-  "scoreboard": "bg-cyan-100 text-cyan-800 border-cyan-300",
   "health_check": "bg-red-100 text-red-800 border-red-300",
-  "issues_ping": "bg-amber-100 text-amber-800 border-amber-300",
-  "ci_check": "bg-orange-100 text-orange-800 border-orange-300",
   "send_raw": "bg-slate-100 text-slate-800 border-slate-300",
   "discovery_run": "bg-teal-100 text-teal-800 border-teal-300",
   "gmail_auth_failure": "bg-rose-100 text-rose-800 border-rose-300",
   "rejection_detected": "bg-amber-200 text-amber-900 border-amber-400",
+  "waitlist_resurface": "bg-indigo-100 text-indigo-800 border-indigo-300",
+  "prep_briefing_ready": "bg-lime-100 text-lime-800 border-lime-300",
+  "prep_drafts_ready": "bg-green-100 text-green-800 border-green-300",
+  "prep_failure": "bg-red-200 text-red-900 border-red-400",
+  "interview_prep_ready": "bg-cyan-100 text-cyan-800 border-cyan-300",
+  "interview_prep_failed": "bg-orange-100 text-orange-800 border-orange-300",
 } %}
 {% set kind_class = kind_color_map.get(item.kind, "bg-slate-100 text-slate-800 border-slate-300") %}
 {% set is_unread = item.read_at is none %}

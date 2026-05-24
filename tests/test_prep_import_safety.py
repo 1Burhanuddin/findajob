@@ -47,7 +47,7 @@ def test_orchestrator_exposes_main():
     `abbrev_title` was consolidated to `findajob.prep_naming` in #556 —
     callers (this module + `scripts/rename_folders.py`) now import from
     there. `notify` was removed in the M3 cleanup PR — callers now import
-    `quick_notify` from `findajob.notifications.ntfy`.
+    `ntfy.send` from `findajob.notifications.ntfy`.
     """
     from findajob.prep.orchestrator import main
 

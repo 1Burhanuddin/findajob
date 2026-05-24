@@ -40,7 +40,7 @@ def test_orchestrator_exposes_main_and_helpers():
     """`main`, `_latest`, `_read_or_empty` are the deliberate public symbols.
 
     `notify` was removed from this module by the M3 cleanup PR — callers
-    now import `quick_notify` from `findajob.notifications.ntfy`.
+    now import `ntfy.send` from `findajob.notifications.ntfy`.
     """
     from findajob.interview.orchestrator import _latest, _read_or_empty, main
 

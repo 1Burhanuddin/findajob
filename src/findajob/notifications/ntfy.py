@@ -30,7 +30,6 @@ from findajob.paths import BASE, load_env
 
 DB_PATH = f"{BASE}/data/pipeline.db"
 LOG_PATH = f"{BASE}/logs/pipeline.jsonl"
-REPO_SLUG = "brockamer/findajob"
 
 
 @functools.cache
@@ -60,14 +59,17 @@ NOTIFICATION_KINDS: tuple[str, ...] = (
     "daily_stats",
     "apply_reminder",
     "feedback_review",
-    "scoreboard",
     "health_check",
-    "issues_ping",
-    "ci_check",
     "send_raw",
     "discovery_run",
     "gmail_auth_failure",
-    "rejection_detected",  # consumed by #362 when it lands
+    "rejection_detected",
+    "waitlist_resurface",
+    "prep_briefing_ready",
+    "prep_drafts_ready",
+    "prep_failure",
+    "interview_prep_ready",
+    "interview_prep_failed",
 )
 
 
@@ -115,9 +117,10 @@ def send(title, body, priority="default", tags=None, kind="send_raw", cta_url=No
     with `delivery_status='failed'` and `delivery_error` populated — never
     deleted. Returns the row id (or None if persistence itself failed).
 
-    `kind` should match one of NOTIFICATION_KINDS; arbitrary strings are
-    accepted but render as plain badges in the UI.
+    `kind` must be one of NOTIFICATION_KINDS; ValueError on unknown kind.
     """
+    if kind not in NOTIFICATION_KINDS:
+        raise ValueError(f"Unknown notification kind {kind!r}; expected one of {NOTIFICATION_KINDS}")
     headers = [
         "-H",
         f"Title: {title}",
@@ -187,40 +190,6 @@ def recent_log_events(hours: int = 25) -> list[dict]:
     except FileNotFoundError:
         pass
     return events
-
-
-def open_issues() -> list[str]:
-    """Fetch open issues from GitHub via `gh issue list`."""
-    try:
-        rc = subprocess.run(
-            [
-                "gh",
-                "issue",
-                "list",
-                "--repo",
-                REPO_SLUG,
-                "--state",
-                "open",
-                "--json",
-                "number,title,labels",
-                "--limit",
-                "50",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if rc.returncode != 0:
-            return []
-        items = json.loads(rc.stdout)
-        results: list[str] = []
-        for item in items:
-            labels = ", ".join(lbl["name"] for lbl in item.get("labels", []))
-            tag = f" [{labels}]" if labels else ""
-            results.append(f"#{item['number']}: {item['title']}{tag}")
-        return results
-    except Exception:
-        return []
 
 
 def quick_notify(message: str) -> None:

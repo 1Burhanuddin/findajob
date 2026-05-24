@@ -68,16 +68,16 @@ def test_render_single_enabled_job() -> None:
 def test_render_disabled_job_is_a_comment_not_a_line() -> None:
     yaml_data = {
         "jobs": {
-            "scoreboard": {
+            "disabled-job": {
                 "schedule": "30 8 * * 1",
-                "command": "python3 /app/scripts/notify.py scoreboard",
-                "description": "Weekly scoreboard.",
+                "command": "python3 /app/scripts/example.py",
+                "description": "A disabled job.",
                 "enabled": False,
             }
         }
     }
     out = render(yaml_data, {})
-    assert "# scoreboard: DISABLED — Weekly scoreboard." in out
+    assert "# disabled-job: DISABLED — A disabled job." in out
     assert _executable_lines(out) == []
 
 
@@ -117,8 +117,8 @@ def test_env_enabled_false_drops_an_active_yaml_job() -> None:
 
 
 def test_env_enabled_true_re_enables_a_disabled_yaml_job() -> None:
-    yaml_data = {"jobs": {"scoreboard": {"schedule": "30 8 * * 1", "command": "x", "enabled": False}}}
-    env = {"FINDAJOB_SCOREBOARD_ENABLED": "true"}
+    yaml_data = {"jobs": {"disabled-job": {"schedule": "30 8 * * 1", "command": "x", "enabled": False}}}
+    env = {"FINDAJOB_DISABLED_JOB_ENABLED": "true"}
     assert _executable_lines(render(yaml_data, env)) == [("30 8 * * 1", "x")]
 
 
@@ -211,7 +211,7 @@ def test_live_yaml_preserves_legacy_crontab_active_lines() -> None:
     legacy_text = legacy_path.read_text(encoding="utf-8")
     legacy_pairs = set(_executable_lines(legacy_text))
 
-    # Disabled-in-YAML jobs (e.g., notify-scoreboard) are already commented
+    # Disabled-in-YAML jobs are already commented
     # out in the legacy crontab, so they appear in neither set. Any genuinely
     # active job in legacy must appear in rendered with the same schedule +
     # command. Whitespace normalization happens via .split() in the helper.
@@ -232,10 +232,3 @@ def test_live_yaml_includes_canonical_active_jobs() -> None:
     assert "0 2 * * 0" in schedules  # discover
 
 
-def test_live_yaml_disables_scoreboard_until_112() -> None:
-    """notify-scoreboard is intentionally disabled until #112 lands."""
-    rendered = render(_load_live(), {})
-    # Schedule line must NOT appear as an executable line
-    assert ("30 8 * * 1", "python3 /app/scripts/notify.py scoreboard") not in _executable_lines(rendered)
-    # ...but the disabled comment SHOULD appear
-    assert "notify-scoreboard: DISABLED" in rendered

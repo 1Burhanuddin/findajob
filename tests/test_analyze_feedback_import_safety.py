@@ -29,8 +29,7 @@ def test_analyze_feedback_loads_without_yaml_read(monkeypatch):
 
     The pre-extraction module-scope ``_, _TITLE_SIGNAL_REASONS = load_reject_reasons()``
     is gone — moved into ``_prefilter_candidates()``. Callers that import
-    ``analyze`` (e.g. ``findajob.notifications.scoreboard``) get
-    side-effect-free behavior.
+    ``analyze`` get side-effect-free behavior.
     """
     calls: list[object] = []
 
@@ -84,19 +83,3 @@ def test_analyze_feedback_exposes_analyze():
     assert callable(format_report)
 
 
-def test_scoreboard_imports_from_canonical_location():
-    """``findajob.notifications.scoreboard`` imports ``analyze`` from the
-    canonical location, not via ``sys.path.insert + from analyze_feedback``.
-
-    Locks the no-re-export-theater discipline: post-#558 the dynamic-import
-    hack from #544 is gone. Future readers can't accidentally reintroduce it.
-    """
-    import findajob.notifications.scoreboard as scoreboard_mod
-
-    # `feedback_analyze` is the local alias used in scoreboard.py
-    assert hasattr(scoreboard_mod, "feedback_analyze")
-
-    # Prove it's the canonical reference, not a re-import
-    from findajob.analyze_feedback import analyze as canonical_analyze
-
-    assert scoreboard_mod.feedback_analyze is canonical_analyze

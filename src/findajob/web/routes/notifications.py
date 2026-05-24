@@ -35,14 +35,17 @@ _KIND_LABELS: dict[str, str] = {
     "daily_stats": "Daily stats",
     "apply_reminder": "Apply reminder",
     "feedback_review": "Feedback review",
-    "scoreboard": "Scoreboard",
     "health_check": "Health check",
-    "issues_ping": "Issues ping",
-    "ci_check": "CI check",
     "send_raw": "Manual send",
     "discovery_run": "Discovery",
     "gmail_auth_failure": "Gmail auth",
     "rejection_detected": "Rejection detected",
+    "waitlist_resurface": "Waitlist resurface",
+    "prep_briefing_ready": "Briefing ready",
+    "prep_drafts_ready": "Drafts ready",
+    "prep_failure": "Prep failed",
+    "interview_prep_ready": "Interview prep ready",
+    "interview_prep_failed": "Interview prep failed",
 }
 
 
