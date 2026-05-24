@@ -124,6 +124,11 @@ _INTEREST_RE = re.compile(
     r"(?:[.,!?\n]|\s+as\s+|\s+and\s+|\s+for\s+(?:our|the)\s+|$)",
     re.IGNORECASE,
 )
+# "{Company} application:" subject format (Amazon, etc.)
+_SUBJECT_COMPANY_RE = re.compile(
+    r"^(.+?)\s+application\s*:",
+    re.IGNORECASE,
+)
 _POSITION_RE = re.compile(
     r"(?:for the position(?: of)?|for our|application for(?: the)?(?: position(?: of)?)?)"
     r"\s+(.+?)(?:\s+at\s+|[.,!?\n]|$)",
@@ -148,6 +153,11 @@ def _extract_company_and_role(parsed: ParsedEmail) -> tuple[str | None, str | No
     interest = _INTEREST_RE.search(subject)
     if interest:
         company = interest.group(1).strip().rstrip(".!?,")
+
+    if company is None:
+        subj_co = _SUBJECT_COMPANY_RE.search(subject)
+        if subj_co:
+            company = subj_co.group(1).strip().rstrip(".!?,")
 
     position = _POSITION_RE.search(subject)
     if position:
