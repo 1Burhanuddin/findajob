@@ -96,10 +96,9 @@ Then set the conversational posture explicitly:
 >   on the wrong track, or ask me to brainstorm with you on anything you're unsure about.
 > - You can ask "why are you asking this?" at any time and I'll explain.
 > - If you want to revisit an earlier answer later, just say so — I'll update it.
-> - Toward the end I'll review what I've captured in **four groups** (identity,
->   targeting, filters, writing voice), one group at a time. Reply **next** to continue
->   or **redo {a|b|c|d}** to fix a group. I'll remind you of the words when we get
->   there.
+> - Toward the end I'll emit your config in **four groups** (identity,
+>   targeting, filters, writing voice), all in one go. If something in a group
+>   looks wrong, type **redo {a|b|c|d}** any time before you click Finalize.
 > - If something I produce isn't right at any point, just say "redo" and tell me what
 >   to change.
 
@@ -681,16 +680,16 @@ Do NOT expose `poison:` patterns in v3.
 
 Tell the user what's coming, in plain terms — no filenames, no file counts:
 
-> I've captured your responses. We'll review them in **four groups**:
+> I've captured your responses. I'm going to emit your config in **four groups**:
 >
 >   a. **Identity** — your name, timezone, and how to push you notifications
 >   b. **Targeting** — your target role and the companies you'd take a job at
 >   c. **Filters** — what to exclude and what to prioritize
 >   d. **Writing voice** — your résumé and any voice samples you provided
 >
-> For each group, I'll show you what I'm going to write, then ask if it looks right.
-> Reply **next** to continue or **redo {a|b|c|d}** to fix a group. When all groups
-> are done, a green Finalize button appears — click it and findajob writes your config.
+> I'll emit all four groups back-to-back. After the last group, a green Finalize
+> button appears — click it and findajob writes your config. If anything in a group
+> looks wrong, type **redo {a|b|c|d}** any time before Finalize.
 > Ready?
 
 Wait for the user to say ready, then proceed to self-check.
@@ -727,9 +726,14 @@ narration should describe what's IN the captured content (e.g., "Identity: your 
 timezone, and notification topic"), not the file format.
 
 Emit the files **in four groups**, in this order. Within a group, emit each file
-back-to-back in the same assistant turn (no pause between files inside a group).
-Between groups, pause and wait for the user to say `next` (advance) or
-`redo <a|b|c|d>` (re-emit all files in that group, then continue waiting for `next`).
+back-to-back. Between groups, emit a brief per-group summary line listing the
+captured filenames, then auto-advance to the next group in the **same assistant turn**.
+Do NOT pause between groups or wait for `next`. Emit all groups in a single response.
+
+**Voice-sample split exception.** If voice samples were provided AND the pasted prose
+is longer than ~5000 words, emit groups a–c in one message, then emit group d
+immediately after the user's next message — no additional confirmation needed, just
+continue emitting. This avoids output-length truncation on the voice-sample block.
 
 Wrap each file in literal triple-angle-bracket delimiters, where `{filename}` is
 replaced with the concrete filename:
@@ -828,15 +832,21 @@ block, do NOT ask the user to type it into this chat, and do NOT echo a key the 
 volunteered. The keys live in findajob's encrypted state and never enter this
 conversation.
 
-After each group, pause and say:
+After each group, emit a brief inline summary:
 
-> That's group **{a|b|c|d} — {Identity|Targeting|Filters|Writing voice}**. Reply
-> **next** to continue, or **redo {a|b|c|d}** to fix something in that group.
+> **Group {a|b|c|d} — {Identity|Targeting|Filters|Writing voice}** done — {N} files captured: {comma-separated filename list}.
 
-Do not proceed until the user replies. If they say `redo a` (or any group letter),
+Then immediately continue to the next group in the same response. Do NOT pause
+or wait for `next` between groups.
+
+After the **last group** (group d if voice samples were provided, group c otherwise),
+close with:
+
+> All groups captured. Click **Finalize** when ready, or type **redo {a|b|c|d}** if anything looks wrong.
+
+If the user says `redo a` (or any group letter) before clicking Finalize,
 ask what to change, apply the change, and re-emit all the files in that group with
-the same delimiters. Then keep waiting for `next` — multiple redos are fine. Only
-move to the next group after the user says `next`.
+the same delimiters.
 
 Internally you know which filenames belong to each group-letter:
 - a (Identity): `profile.md`, `master_resume.md`, `display_name.txt`, `timezone.txt`, `ntfy_topic.txt`
@@ -844,9 +854,9 @@ Internally you know which filenames belong to each group-letter:
 - c (Filters): `prefilter_rules.yaml`, `in_domain_patterns.yaml`, `reject_reasons.yaml`
 - d (Writing voice): `voice-samples.md` (only if provided)
 
-If a change to one group's content would invalidate something already emitted in an
-earlier group, tell the user which earlier group is affected and offer to redo it first,
-then continue. Do not silently contradict an earlier group.
+If a redo in one group would invalidate files already emitted in another group,
+tell the user which other group is also affected and offer to redo both.
+Do not silently contradict an earlier emission.
 
 ---
 

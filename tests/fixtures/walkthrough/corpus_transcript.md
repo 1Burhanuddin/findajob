@@ -1,7 +1,8 @@
 # Walkthrough Replay Corpus — Avery Chen (fictional persona)
 
 Captured 2026-05-23 via `scripts/walkthrough_harness.py --interactive-recapture`
-against a freshly-reset `findajob-clean`. The persona is fictional — no real
+against a freshly-reset `findajob-clean`. Skip-and-patched 2026-05-24 for #833
+(auto-emit Phase 5 groups — collapsed turns 42–45 into turn 42, removed `next` gates). The persona is fictional — no real
 candidate ever submitted any of this content to the pipeline.
 
 The persona is intentionally **non-tech** (a clinical pharmacist transitioning
@@ -65,7 +66,7 @@ A few ground rules before we start:
 This is a conversation. Push back on any question you find confusing, tell me if I'm on the wrong track, or ask me to brainstorm with you on anything you're unsure about.
 You can ask "why are you asking this?" at any time and I'll explain.
 If you want to revisit an earlier answer later, just say so — I'll update it.
-Toward the end I'll review what I've captured in four groups (identity, targeting, filters, writing voice), one group at a time. Reply next to continue or redo {a|b|c|d} to fix a group. I'll remind you of the words when we get there.
+Toward the end I'll emit your config in four groups (identity, targeting, filters, writing voice), all in one go. If something in a group looks wrong, type redo {a|b|c|d} any time before you click Finalize.
 If something I produce isn't right at any point, just say "redo" and tell me what to change.
 
 Before we dive into your background, I want to walk you through how findajob finds jobs in the first place — there are four different sources, and we'll pick the right mix for you later in the interview.
@@ -1252,11 +1253,11 @@ All Tier 1 employers appear under exactly one sector-reference category.
 
 Ready to emit. Here's what's coming and how we'll move through it:
 
-I've captured your responses. We'll review them in four groups:
+I've captured your responses. I'm going to emit your config in four groups:
 
 a. Identity — your name, timezone, and how to push you notifications b. Targeting — your target role and the companies you'd take a job at c. Filters — what to exclude and what to prioritize d. Writing voice — skipped (no voice samples provided)
 
-For each group, I'll show you what I'm going to write, then ask if it looks right. Reply next to continue or redo {a|b|c|d} to fix a group. When all groups are done, a green Finalize button appears — click it and findajob writes your config.
+I'll emit all four groups back-to-back. After the last group, a green Finalize button appears — click it and findajob writes your config. If anything in a group looks wrong, type redo {a|b|c|d} any time before Finalize.
 
 Before I emit Group a, I need three quick values:
 
@@ -1280,19 +1281,11 @@ Before I emit Group a, I need three quick values:
 
 Got it. Let me confirm the three values before I emit:
 
-Display name: Avery Chen, Pharm.D., BCPS
-Timezone: America/Chicago
-Notification topic: avery-pharmd-informatics-2026
+Display name: `Avery Chen, Pharm.D., BCPS`
+Timezone: `America/Chicago`
+Notification topic: `avery-pharmd-informatics-2026`
 
-All three look right to you? If yes I'll emit Group a — all five identity files back to back.
-
-## Turn 42 — USER
-
-
-Yes — all three confirmed. Emit Group a.
-
-## Turn 43 — ASSISTANT
-
+All confirmed — emitting all groups now.
 
 📄 Captured: profile.md
 
@@ -1304,15 +1297,7 @@ Yes — all three confirmed. Emit Group a.
 
 📄 Captured: ntfy_topic.txt
 
-That's group a — Identity. Five files captured: your profile, master resume, display name, timezone, and notification topic. Reply next to continue to Targeting, or redo a to fix anything in this group.
-
-## Turn 43 — USER
-
-
-next
-
-## Turn 44 — ASSISTANT
-
+**Group a — Identity** done — 5 files captured: profile.md, master_resume.md, display_name.txt, timezone.txt, ntfy_topic.txt.
 
 📄 Captured: target_companies.md
 
@@ -1324,19 +1309,9 @@ next
 
 📄 Captured: feed-urls.txt
 
-That's group b — Targeting. Files captured: target companies, sector reference, search queries, Gmail alerts setup checklist, and company career-page feeds.
+**Group b — Targeting** done — 5 files captured: target_companies.md, business_sector_employers_reference.md, jsearch_queries.txt, linkedin-alerts.md, feed-urls.txt.
 
 One note on the feed URLs: most Upper Midwest health systems run Workday, which the pipeline's fetcher doesn't currently support. I've emitted the three I can confirm on supported ATSes (Mayo Clinic on Greenhouse, Allina Health on Greenhouse, Children's Minnesota on Lever) and commented out the rest. When Workday support lands, those commented lines are ready to activate. You may want to verify the three active slugs against the actual career pages — ATS slugs occasionally change after system migrations.
-
-Reply next to continue to Filters, or redo b to fix anything in this group.
-
-## Turn 44 — USER
-
-
-next
-
-## Turn 45 — ASSISTANT
-
 
 📄 Captured: prefilter_rules.yaml
 
@@ -1344,11 +1319,11 @@ next
 
 📄 Captured: reject_reasons.yaml
 
-That's group c — Filters. Three files captured: prefilter rules (ten exclusion categories plus spam), in-domain patterns (eleven positive categories), and reject reasons (thirteen labels with five title-signal flags).
+**Group c — Filters** done — 3 files captured: prefilter_rules.yaml, in_domain_patterns.yaml, reject_reasons.yaml.
 
-Reply next to finish — there's no Group d since you skipped voice samples — and the Finalize button will appear. Or reply redo c to fix anything in this group.
+All groups captured. Click **Finalize** when ready, or type **redo {a|b|c|d}** if anything looks wrong.
 
-## Turn 45 — USER
+## Turn 42 — USER
 
 
 next

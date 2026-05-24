@@ -10,6 +10,10 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Changed
+
+- **Onboarding interviewer Phase 5** (#833): auto-emit all config-file groups in one response instead of pausing for `next` between each group. Removes 8 confirmation gates; `redo {a|b|c|d}` remains active until Finalize. Voice-sample users with >5000 words of prose may see groups a–c and d split across two messages to avoid output truncation.
+
 ## [0.29.0] — 2026-05-24
 
 ### Added
