@@ -10,6 +10,8 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.29.0] — 2026-05-24
+
 ### Added
 
 - **Tuning loop Phase 1** (#229): `config_changes` and `recall_audit` tables; `jobs.company_tier` and `jobs.scored_by` columns; config-drift detector wired into triage, `/config/` POST, and onboarding injector; tier resolver; backfill scripts.
