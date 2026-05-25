@@ -43,7 +43,7 @@ Three render branches:
       <li>Gemini — <span class="text-slate-500">not provided (interview-prep podcasts inactive)</span></li>
       {% endif %}
     </ul>
-    <form method="post" action="/onboarding/keys" class="inline">
+    <form method="post" action="/onboarding/keys" class="inline" hx-boost="false">
       <input type="hidden" name="reset" value="1">
       <button type="submit" class="text-xs underline text-slate-600 hover:text-slate-900">
         Change keys
@@ -70,7 +70,7 @@ Three render branches:
       {% endif %}
     </ul>
     <div class="flex items-center gap-3">
-      <form method="post" action="/onboarding/keys/use-detected" class="inline">
+      <form method="post" action="/onboarding/keys/use-detected" class="inline" hx-boost="false">
         <button type="submit"
                 class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
           Use detected keys
@@ -95,7 +95,7 @@ Three render branches:
     <a class="underline" href="/docs/getting-started/api-keys" target="_blank" rel="noopener">how to get each key</a>.
   </p>
 
-  <form method="post" action="/onboarding/keys" class="space-y-3">
+  <form method="post" action="/onboarding/keys" class="space-y-3" hx-boost="false">
     <div>
       <label class="block text-sm font-medium" for="keys_openrouter">
         OpenRouter API key
