@@ -1,6 +1,6 @@
 ---
 model: openrouter:anthropic/claude-sonnet-4-6
-max_tokens: 4096
+max_tokens: 8192
 temperature: 0.2
 ---
 You produce interview flashcard decks for spaced-repetition study.

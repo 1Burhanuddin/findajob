@@ -72,6 +72,8 @@ NOTIFICATION_KINDS: tuple[str, ...] = (
     "interview_prep_failed",
     "study_guide_failed",
     "flashcard_failed",
+    "podcast_ready",
+    "podcast_failed",
     "recall_audit_alert",
     "drift_alert",
 )
