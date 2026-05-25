@@ -198,8 +198,6 @@ def _bridge_legacy_to_v1(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE onboarding_sessions ADD COLUMN tester_rapidapi_key TEXT DEFAULT NULL")
         if "cumulative_cost_usd" not in sess_cols:
             conn.execute("ALTER TABLE onboarding_sessions ADD COLUMN cumulative_cost_usd REAL NOT NULL DEFAULT 0")
-        if "user_gemini_api_key" not in sess_cols:
-            conn.execute("ALTER TABLE onboarding_sessions ADD COLUMN user_gemini_api_key TEXT DEFAULT NULL")
         if "tester_google_key" in sess_cols:
             conn.execute("ALTER TABLE onboarding_sessions DROP COLUMN tester_google_key")
 

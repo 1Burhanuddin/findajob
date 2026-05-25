@@ -1106,11 +1106,19 @@
           "notnull": 1,
           "pk": 0,
           "type": "REAL"
+        },
+        {
+          "cid": 10,
+          "dflt_value": "NULL",
+          "name": "user_gemini_api_key",
+          "notnull": 0,
+          "pk": 0,
+          "type": "TEXT"
         }
       ],
       "foreign_keys": [],
       "name": "onboarding_sessions",
-      "sql": "CREATE TABLE onboarding_sessions(id TEXT PRIMARY KEY,history_json TEXT NOT NULL,captured_blocks_json TEXT NOT NULL DEFAULT '{}',started_at TEXT NOT NULL,last_turn_at TEXT NOT NULL,completed_at TEXT,error_state TEXT,user_openrouter_key TEXT DEFAULT NULL,user_rapidapi_key TEXT DEFAULT NULL,cumulative_cost_usd REAL NOT NULL DEFAULT 0)",
+      "sql": "CREATE TABLE onboarding_sessions(id TEXT PRIMARY KEY,history_json TEXT NOT NULL,captured_blocks_json TEXT NOT NULL DEFAULT '{}',started_at TEXT NOT NULL,last_turn_at TEXT NOT NULL,completed_at TEXT,error_state TEXT,user_openrouter_key TEXT DEFAULT NULL,user_rapidapi_key TEXT DEFAULT NULL,cumulative_cost_usd REAL NOT NULL DEFAULT 0,user_gemini_api_key TEXT DEFAULT NULL)",
       "tbl_name": "onboarding_sessions",
       "type": "table"
     },
