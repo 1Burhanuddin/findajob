@@ -441,7 +441,10 @@ def folder_view(
 
 _PODCAST_FORMAT_META: dict[str, tuple[str, str]] = {
     "deep_dive": ("Deep Dive", "Two hosts break down the company, role, and interview angles (~8 min)"),
-    "deep_dive_long": ("Deep Dive (Extended)", "Thorough version with more company context and interview prep (~15 min)"),
+    "deep_dive_long": (
+        "Deep Dive (Extended)",
+        "Thorough version with more company context and interview prep (~15 min)",
+    ),
     "brief": ("The Brief", "Quick summary: strongest angle, biggest gap, key question (~3 min)"),
     "qa_drill": ("Q&A Drill", "Mock interview: realistic questions with coaching on each answer (~8 min)"),
     "critical_analysis": (
