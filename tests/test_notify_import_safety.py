@@ -131,5 +131,7 @@ def test_notification_kinds_taxonomy_intact():
         "flashcard_failed",
         "recall_audit_alert",
         "drift_alert",
+        "podcast_ready",
+        "podcast_failed",
     }
     assert set(NOTIFICATION_KINDS) == expected
