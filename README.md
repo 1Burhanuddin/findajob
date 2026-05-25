@@ -15,16 +15,16 @@ Despite the role labels you'll see in the architecture diagram below, you only n
 The pipeline narrows the funnel at every step where a human would otherwise waste attention — LLM triage on the way in, human triage on the way to prep, prep only for jobs worth applying to. Thirty days on the operator's instance:
 
 ```
-Listings ingested                8,309   ── 30-day window
-LLM-scored ≥7 (worth a look)       202      2.4%
-Operator flagged for prep          105      52% of scored
-Applications submitted              69      66% of flagged
-Interviews from those 69 apps       12      17%
+Listings ingested                8,393   ── 30-day window
+LLM-scored ≥7 (worth a look)       187      2.2%
+Entered prep pipeline               93      50% of scored
+Applications submitted              59      63% of prepped
+Interviews from those 59 apps       13      22%
 ```
 
-> Lifetime since the operator started using findajob (~45 days): 110 applications → **17 distinct jobs reached an interview stage** (8 still in interview now). Job-search interview rates are unpredictable; the system shrinks the application volume needed to get them.
+> Lifetime since the operator started using findajob (~50 days, 20,503 jobs processed): **59 applications in the last 30 days → 13 interviews** (22% interview rate). Job-search interview rates are unpredictable; the system shrinks the application volume needed to get them.
 
-8,309 listings narrowed to 69 applications in 30 days. Every rejection along the way is recorded with a reason — *Skills Mismatch*, *Too Senior*, *Comp Too Low*, *Geography/Onsite* — and those reasons feed back into tomorrow's scorer as negative examples. The system gets better at *your* search every week.
+8,393 listings narrowed to 59 applications in 30 days. Every rejection along the way is recorded with a reason — *Skills Mismatch*, *Too Senior*, *Comp Too Low*, *Geography/Onsite* — and those reasons feed back into tomorrow's scorer as negative examples. The system gets better at *your* search every week.
 
 ---
 
@@ -261,10 +261,10 @@ The repo contains zero personal data. All candidate content (resume, profile, wr
 - **[Discussions](https://github.com/brockamer/findajob/discussions)** — "how do I…" or "have you considered…"
 - **Security** — please don't file public issues for security-relevant bugs; see [`SECURITY.md`](SECURITY.md)
 
-Contributions welcome. Start at [`CONTRIBUTING.md`](CONTRIBUTING.md) — dev setup, commit conventions, the `migration-required` label, and the architectural invariants the code enforces.
+Contributions welcome. Start at [`CONTRIBUTING.md`](CONTRIBUTING.md) — dev setup, commit conventions, the `migration-required` label, and the architectural invariants the code enforces. Looking for a place to start? Browse issues labeled [`good first issue`](https://github.com/brockamer/findajob/labels/good%20first%20issue).
 
 ---
 
 ## License
 
-MIT.
+[MIT](LICENSE).

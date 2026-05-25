@@ -20,7 +20,7 @@ drifted turns. Two paths to rebaseline:
 **Primary — fresh interactive recapture** (used 2026-05-23 for this corpus):
 
 1. Reset `findajob-clean` per `docs/personal/findajob-clean-reset.md`.
-2. `uv run python scripts/walkthrough_harness.py --base-url http://docker.lan:8096 \
+2. `uv run python scripts/walkthrough_harness.py --base-url http://localhost:8096 \
    --output-dir /tmp/walkthrough-recapture-$(date +%Y-%m-%d) \
    --interactive-recapture --browser-channel chrome --max-turns 60 \
    --cost-ceiling-usd 6.0` — runs the harness in interactive mode where each
