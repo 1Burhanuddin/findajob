@@ -156,6 +156,8 @@ def test_taxonomy_constant_includes_known_kinds(notify):
         "prep_failure",
         "interview_prep_ready",
         "interview_prep_failed",
+        "study_guide_failed",
+        "flashcard_failed",
         "recall_audit_alert",
         "drift_alert",
     }

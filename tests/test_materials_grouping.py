@@ -63,6 +63,22 @@ def test_classify_interview_prep():
     assert md[1] > 8
 
 
+def test_classify_study_guide():
+    md = _classify_file("Candidate Study Guide - Acme - Senior Engineer - 20260524-101515.md")
+    assert md[0] == "Study Guide"
+    assert md[1] == 10
+
+
+def test_classify_flashcards():
+    apkg = _classify_file("Candidate Flashcards - Acme - Senior Engineer - 20260524-101515.apkg")
+    csv_file = _classify_file("Candidate Flashcards - Acme - Senior Engineer - 20260524-101515.csv")
+    json_file = _classify_file("Candidate Flashcards - Acme - Senior Engineer - 20260524-101515.json")
+    assert apkg[0] == "Flashcards"
+    assert csv_file[0] == "Flashcards"
+    assert json_file[0] == "Flashcards"
+    assert apkg[1] == 11
+
+
 def test_classify_unrecognized_falls_to_other():
     label, order = _classify_file("random.md")
     assert label == "Other"

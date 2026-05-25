@@ -12,6 +12,7 @@ POST routes:
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -57,6 +58,8 @@ _GROUP_RULES: list[tuple[str, str, int]] = [
     (" Critique - ", "Recruiter Critique", 7),
     ("Review Checklist - ", "Review Checklist", 8),
     (" Interview Prep - ", "Interview Prep", 9),
+    (" Study Guide - ", "Study Guide", 10),
+    (" Flashcards - ", "Flashcards", 11),
 ]
 _OTHER_LABEL = "Other"
 _OTHER_ORDER = 99
@@ -64,7 +67,7 @@ _OUTREACH_RECIPIENT_RE = re.compile(r" Outreach to ([^-]+?) - ")
 # Hide audit-snapshot (.applied-YYYY-MM-DD.md, written on apply transition #210)
 # and edit-backup (.bak, written on first edit via /materials/{fp}/files/{name})
 # files from the per-folder view — they exist for audit/recovery, not day-to-day display.
-_HIDE_FROM_VIEW_RE = re.compile(r"\.applied-\d{4}-\d{2}-\d{2}\.md$|\.bak$")
+_HIDE_FROM_VIEW_RE = re.compile(r"\.applied-\d{4}-\d{2}-\d{2}\.md$|\.bak$| Flashcards - .*\.json$")
 _APPLIED_DATE_RE = re.compile(r"\.applied-(\d{4}-\d{2}-\d{2})\.md$")
 
 # Stages where the materials have already been sent — banner reminds the
@@ -126,6 +129,14 @@ _GROUP_DESCRIPTIONS: dict[str, str] = {
         "Interview notes for {title} at {company} — STAR stories, questions to ask, tough Qs to anticipate. "
         "Read before each round to anchor your talking points. For your eyes only."
     ),
+    "Study Guide": (
+        "Condensed study guide for {title} at {company} — key themes, STAR stories, technical deep dives, "
+        "company signals, and your elevator pitch. For your eyes only."
+    ),
+    "Flashcards": (
+        "Spaced-repetition flashcard deck for {title} at {company}. "
+        "Study in-browser below, or import the .apkg into Anki / .csv into Quizlet."
+    ),
 }
 
 # Per-(group, ext) one-liner shown on each file row. Tells the user what to
@@ -147,6 +158,9 @@ _FILE_HINTS: dict[tuple[str, str], str] = {
     ("Review Checklist", "md"): "Markdown source — preview in browser",
     ("Interview Prep", "docx"): "MS Word — printable copy of your interview notes",
     ("Interview Prep", "md"): "Markdown source — preview in browser, or Copy MD into Google Docs",
+    ("Study Guide", "md"): "Markdown source — preview in browser, or Copy MD into Google Docs",
+    ("Flashcards", "apkg"): "Anki package — import into Anki for spaced-repetition study",
+    ("Flashcards", "csv"): "CSV — import into Quizlet or any flashcard app",
 }
 
 
@@ -381,6 +395,18 @@ def folder_view(
             # free-text reject input via the fallback (handled in template).
             reject_reasons = ()
 
+    # Load flashcard data for the in-browser viewer (latest .json in the folder
+    # that matches the Flashcards group pattern). Parsed into a list so Jinja's
+    # |tojson filter produces safe, unambiguous output for the Alpine x-data attr.
+    flashcards_data: list | None = None
+    for p in sorted(folder.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+        if p.is_file() and " Flashcards - " in p.name and p.suffix == ".json":
+            try:
+                flashcards_data = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+            break
+
     templates = request.app.state.templates
     return templates.TemplateResponse(
         request=request,
@@ -399,6 +425,7 @@ def folder_view(
             "applied_date": applied_date,
             "is_briefing_gate": is_briefing_gate,
             "reject_reasons": reject_reasons,
+            "flashcards_data": flashcards_data,
         },
     )
 

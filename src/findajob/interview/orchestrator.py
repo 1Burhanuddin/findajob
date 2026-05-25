@@ -24,6 +24,7 @@ from datetime import datetime
 from findajob.audit import log_event
 from findajob.background_tasks import writeback_subprocess
 from findajob.db import connect
+from findajob.interview.flashcards import build_all as build_flashcards
 from findajob.llm.role_runner import run_role
 from findajob.notifications.ntfy import send as ntfy_send
 from findajob.paths import BASE, PANDOC, load_env
@@ -262,9 +263,170 @@ def _generate(
         md=os.path.basename(md_path),
         chars=len(output_md),
     )
+
+    # ── Study materials: study guide + flashcard deck ──
+    _generate_study_materials(
+        prep_folder=prep_folder,
+        company=company,
+        title=title,
+        job_id=job_id,
+        jd_text=jd_text,
+        briefing=briefing,
+        resume=resume,
+        cover=cover,
+        critique=critique,
+        interview_prep=output_md,
+        cached_prefix=cached_prefix,
+        file_prefix=file_prefix,
+        co=co,
+        t=t,
+        timestamp_fn=timestamp_fn,
+        conn=conn,
+    )
+
     ntfy_send(
         f"Interview prep ready: {company} — {title}",
         md_path,
         kind="interview_prep_ready",
     )
     print(f"INTERVIEW_PREP_COMPLETE:{md_path}")
+
+
+def _generate_study_materials(
+    *,
+    prep_folder: str,
+    company: str,
+    title: str,
+    job_id: str,
+    jd_text: str,
+    briefing: str,
+    resume: str,
+    cover: str,
+    critique: str,
+    interview_prep: str,
+    cached_prefix: str,
+    file_prefix: str,
+    co: str,
+    t: str,
+    timestamp_fn: str,
+    conn: sqlite3.Connection | None,
+) -> None:
+    """Generate study guide + flashcard deck after interview prep completes.
+
+    Non-fatal: failures here log + notify but don't fail the overall
+    interview prep run (the primary artifact already shipped).
+    """
+    cover_section = f"\nCOVER LETTER:\n{cover}\n" if cover else ""
+    critique_section = f"\nRECRUITER CRITIQUE:\n{critique}\n" if critique else ""
+
+    study_prompt = (
+        f"Company: {company}\nTitle: {title}\n\n"
+        f"JOB DESCRIPTION:\n{jd_text}\n\n"
+        f"COMPANY BRIEFING:\n{briefing}\n\n"
+        f"TAILORED RESUME:\n{resume}\n"
+        f"{cover_section}"
+        f"{critique_section}"
+        f"\nINTERVIEW PREP:\n{interview_prep}\n"
+    )
+
+    # ── Study Guide ──
+    study_guide_md = run_role(
+        "study_guide_generator",
+        study_prompt,
+        cached_prefix=cached_prefix,
+        conn=conn,
+        job_id=job_id,
+    )
+
+    if not study_guide_md or len(study_guide_md) < 200:
+        log_event(
+            "study_guide_error",
+            job_id=job_id,
+            company=company,
+            title=title,
+            reason="empty_or_short_output",
+            chars=len(study_guide_md) if study_guide_md else 0,
+        )
+        ntfy_send(
+            f"Study guide failed: {company} — {title}",
+            "empty_or_short_output",
+            kind="study_guide_failed",
+        )
+        return
+
+    sg_base = f"{file_prefix} Study Guide - {co} - {t} - {timestamp_fn}"
+    sg_path = os.path.join(prep_folder, f"{sg_base}.md")
+    with open(sg_path, "w") as f:
+        f.write(study_guide_md)
+
+    log_event(
+        "study_guide_complete",
+        job_id=job_id,
+        company=company,
+        title=title,
+        chars=len(study_guide_md),
+    )
+
+    # ── Flashcard Deck ──
+    flashcard_prompt = (
+        f"Company: {company}\nTitle: {title}\n\n"
+        f"JOB DESCRIPTION:\n{jd_text}\n\n"
+        f"COMPANY BRIEFING:\n{briefing}\n\n"
+        f"TAILORED RESUME:\n{resume}\n"
+        f"\nINTERVIEW PREP:\n{interview_prep}\n"
+        f"\nSTUDY GUIDE:\n{study_guide_md}\n"
+    )
+
+    flashcard_json_raw = run_role(
+        "flashcard_generator",
+        flashcard_prompt,
+        cached_prefix=cached_prefix,
+        conn=conn,
+        job_id=job_id,
+    )
+
+    if not flashcard_json_raw:
+        log_event(
+            "flashcard_error",
+            job_id=job_id,
+            company=company,
+            title=title,
+            reason="empty_output",
+        )
+        ntfy_send(
+            f"Flashcards failed: {company} — {title}",
+            "empty_output",
+            kind="flashcard_failed",
+        )
+        return
+
+    fc_base = f"{file_prefix} Flashcards - {co} - {t} - {timestamp_fn}"
+    try:
+        paths = build_flashcards(
+            raw_json=flashcard_json_raw,
+            company=company,
+            title=title,
+            output_dir=prep_folder,
+            base_name=fc_base,
+        )
+        log_event(
+            "flashcard_complete",
+            job_id=job_id,
+            company=company,
+            title=title,
+            apkg=os.path.basename(paths["apkg"]),
+            cards=len(paths),
+        )
+    except Exception as exc:
+        log_event(
+            "flashcard_error",
+            job_id=job_id,
+            company=company,
+            title=title,
+            reason=f"{type(exc).__name__}: {exc}",
+        )
+        ntfy_send(
+            f"Flashcards failed: {company} — {title}",
+            f"{type(exc).__name__}: {exc}",
+            kind="flashcard_failed",
+        )

@@ -12,6 +12,7 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ### Added
 
+- **Study guide + Anki flashcard deck** (#869): Interview-prep flow now generates a structured study guide (`{prep_folder}/Study Guide - *.md`) and a flashcard deck (`.apkg` for Anki, `.csv` for Quizlet) after the primary interview-prep artifact. Materials page renders an interactive fullscreen flashcard viewer (Alpine.js; arrow keys, space to flip, tag filter, shuffle). Two new role prompts: `study_guide_generator` (Sonnet 4.6) and `flashcard_generator` (Sonnet 4.6). Incremental cost ~$0.02/package. Dependency: `genanki>=0.13.0`.
 - **Tuning loop Phase 2+3** (#230): Statistical rigor on all `/stats/*` pages — Wilson 95% CIs on every proportion, min-N=20 gating (strata below threshold render "—"), per-source stratification on `/stats/scoring`. Config-change vertical markers on trend charts (funnel, feedback, throughput) with click-to-compare before/after popover via `/stats/config-change/{date}` API. New `/stats/effectiveness` page (apply-to-response rate, interview rate, ghost rate, per-source breakdown, response latency). New `/stats/recall-audit` page + weekly `recall_audit` cron (samples 40 hard-rejected/low-scored jobs, re-scores with Sonnet 4.6, alerts at >10% upgrade rate). Daily `drift_alert` cron (fires ntfy 7 days after a config change when reject rate shifts >15pp or cost shifts >25%). `docs/tuning.md` user-facing guide. Statistical helpers module at `src/findajob/metrics/stats.py`.
 
 ### Changed
