@@ -372,8 +372,9 @@
 </div>
 
 {% if flashcards_data %}
+<script>window.__flashcards = {{ flashcards_data | tojson }};</script>
 <section class="mt-6" id="flashcard-viewer"
-         x-data="flashcardViewer({{ flashcards_data | tojson }})"
+         x-data="flashcardViewer(window.__flashcards)"
          x-on:keydown.window="handleKey($event)">
   <div class="flex items-center justify-between mb-3">
     <h2 class="text-lg font-semibold text-slate-900">Flashcard Study</h2>
