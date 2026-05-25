@@ -16,7 +16,7 @@
   ("/docs/", "Docs", "/docs/"),
 ] %}
 <nav class="bg-slate-800 text-slate-100 px-4 py-2 shadow-sm">
-  <ul class="flex gap-4 items-center">
+  <ul class="flex flex-wrap gap-4 items-center">
     <li class="font-bold mr-4">findajob</li>
     {% for href, label, active_prefix in groups %}
       {% set active = (active_prefix == "/" and request.url.path == "/")
