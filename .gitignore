@@ -148,6 +148,9 @@ docs/superpowers/
 Thumbs.db
 desktop.ini
 
+# Jared session locks
+.jared/
+
 # Test / build cache
 .pytest_cache/
 .mypy_cache/
