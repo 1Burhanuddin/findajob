@@ -107,7 +107,7 @@ The script is idempotent — safe to re-run. On a clean run it:
 
 1. Creates the Fly app under the slug you set in `fly.toml`. (No confirmation prompt — a typo in the app name creates an app under the wrong slug on your Fly account. Verify `app =` is exactly what you want before running. If you typo, `fly apps destroy <wrong-name>` removes the wrong app — costs nothing if no machine has been deployed yet (just frees the slug for a re-try).)
 2. Creates the `findajob_state` volume (8 GB, holds all your data).
-3. Prompts you for each secret you haven't already set (`OPENROUTER_API_KEY`, `RAPIDAPI_KEY`, `NTFY_TOPIC`, `FINDAJOB_AUTH_USER`, `FINDAJOB_AUTH_PASS`). Each is stored in Fly's encrypted secrets store, not in `fly.toml` or your shell history.
+3. Prompts you for each secret you haven't already set (`OPENROUTER_API_KEY`, `RAPIDAPI_KEY`, `NTFY_TOPIC`, `FINDAJOB_AUTH_USER`, `FINDAJOB_AUTH_PASS`). `FINDAJOB_WEB_URL` is optional — auto-derived from Fly's `FLY_APP_NAME` at runtime. Each secret is stored in Fly's encrypted secrets store, not in `fly.toml` or your shell history.
 4. Runs `fly deploy`. First build pulls the image (~1 GB; takes 2–4 minutes), then the machine boots and runs `ops/entrypoint.sh` — which materializes the data subdirectories under `/app/state/` and creates an empty `pipeline.db`.
 5. Verifies the basic-auth gate is wired correctly by SSH-ing into the machine and running `python -m findajob.web.verify_auth` (it confirms the password gate is correctly protecting your dashboard, so anonymous visitors can't reach it). Non-zero exit means the auth gate is misconfigured — the script prints debugging commands and exits without claiming success.
 
