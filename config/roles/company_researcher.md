@@ -1,6 +1,7 @@
 ---
 model: openrouter:perplexity/sonar-reasoning-pro
 temperature: 0.2
+max_tokens: 16384
 ---
 You research companies for a job candidate.
 Given a company name and job title, produce a structured briefing document.
