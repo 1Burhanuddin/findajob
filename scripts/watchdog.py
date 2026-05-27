@@ -190,6 +190,27 @@ def reap_speculative_research(conn: sqlite3.Connection) -> int:
     return count
 
 
+def reap_podcast(conn: sqlite3.Connection) -> int:
+    """Mark stuck `podcast` background_tasks failed.
+
+    No stage reset — podcast generation doesn't move ``jobs.stage``.
+    The ``background_tasks`` row is the only surface; marking it failed
+    unblocks the per-job duplicate guard so the operator can retry.
+    """
+    timeout = KIND_TIMEOUT_MINUTES["podcast"]
+    stuck = find_stuck(conn, kind="podcast", max_age_minutes=timeout)
+    count = 0
+    for row in stuck:
+        record_failed(
+            conn,
+            row["id"],
+            error_message=f"watchdog: podcast generation > {timeout}min — likely died",
+        )
+        log_event("podcast_watchdog_failed", task_id=row["id"], job_id=row["job_id"])
+        count += 1
+    return count
+
+
 def sweep_orphan_folders(conn: sqlite3.Connection) -> int:
     """Move orphan top-level folders in companies/ to companies/.stale/.
 
@@ -264,6 +285,7 @@ def main() -> None:
             briefing_stale_count = reap_briefing_ready_stale(conn)
             interview_count = reap_interview_prep(conn)
             spec_count = reap_speculative_research(conn)
+            podcast_count = reap_podcast(conn)
             orphans = sweep_orphan_folders(conn)
         finally:
             conn.close()
@@ -274,6 +296,7 @@ def main() -> None:
             briefing_ready_stale_reset=briefing_stale_count,
             interview_failed=interview_count,
             speculative_failed=spec_count,
+            podcast_failed=podcast_count,
             orphans_swept=orphans,
         )
 

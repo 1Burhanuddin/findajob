@@ -412,7 +412,8 @@ def folder_view(
     # Podcast section (#870). Detect which podcast formats have been generated
     # and build the context for the template's audio player + generate buttons.
     gemini_configured = bool(os.environ.get("GEMINI_API_KEY", "").strip())
-    podcast_formats = _build_podcast_context(folder) if gemini_configured else []
+    job_id = row["id"] if row else None
+    podcast_formats = _build_podcast_context(folder, db=db, job_id=job_id) if gemini_configured else []
 
     templates = request.app.state.templates
     return templates.TemplateResponse(
@@ -435,6 +436,7 @@ def folder_view(
             "flashcards_data": flashcards_data,
             "gemini_configured": gemini_configured,
             "podcast_formats": podcast_formats,
+            "podcast_error": request.query_params.get("podcast_error", ""),
         },
     )
 
@@ -454,8 +456,23 @@ _PODCAST_FORMAT_META: dict[str, tuple[str, str]] = {
 }
 
 
-def _build_podcast_context(folder: Path) -> list[dict]:
-    """Build template context for the podcast section."""
+def _build_podcast_context(
+    folder: Path,
+    db: sqlite3.Connection | None = None,
+    job_id: str | None = None,
+) -> list[dict]:
+    """Build template context for the podcast section.
+
+    When ``db`` and ``job_id`` are provided, checks ``background_tasks``
+    for a running podcast task and sets ``generating=True`` on all format
+    entries — per-job guard means one podcast at a time (#879).
+    """
+    is_generating = False
+    if db is not None and job_id is not None:
+        from findajob.background_tasks import find_active_for_subject
+
+        is_generating = find_active_for_subject(db, job_id, "podcast") is not None
+
     result = []
     for fmt_key, (label, desc) in _PODCAST_FORMAT_META.items():
         filename = f"interview_prep_podcast_{fmt_key}.mp3"
@@ -467,6 +484,7 @@ def _build_podcast_context(folder: Path) -> list[dict]:
             "description": desc,
             "filename": filename,
             "exists": exists,
+            "generating": is_generating,
             "size": "",
             "mtime": "",
         }
@@ -489,9 +507,11 @@ def generate_podcast_from_materials(
     """On-demand podcast generation for any format from the materials page.
 
     Launches the scriptwriter + TTS pipeline synchronously (typical ~30-60s)
-    and redirects back to the materials page. Spend ceiling enforced via
-    launch gate + per-call gate (two-point pattern).
+    and redirects back to the materials page. Per-job concurrency guard via
+    ``background_tasks`` row; spend ceiling enforced via launch gate +
+    per-call gate (two-point pattern).
     """
+    from findajob.background_tasks import find_active_for_subject, record_start, writeback_sync
     from findajob.interview.orchestrator import FORMAT_INSTRUCTIONS, generate_podcast_for_job
     from findajob.spend_ceiling import check_launch_gate
 
@@ -504,6 +524,12 @@ def generate_podcast_from_materials(
     ).fetchone()
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
+
+    if find_active_for_subject(db, job["id"], "podcast"):
+        return RedirectResponse(
+            url=f"/materials/{fingerprint}?podcast_error=already_generating",
+            status_code=303,
+        )
 
     prep_folder = job["prep_folder_path"]
     if not prep_folder or not os.path.isdir(prep_folder):
@@ -548,22 +574,24 @@ def generate_podcast_from_materials(
     master = Path(master_path).read_text(encoding="utf-8") if Path(master_path).is_file() else ""
     cached_prefix = f"CANDIDATE PROFILE:\n{profile}\n\nMASTER RESUME:\n{master}"
 
+    task_id = record_start(db, job_id=job["id"], kind="podcast")
     try:
-        generate_podcast_for_job(
-            prep_folder=prep_folder,
-            company=job["company"],
-            title=job["title"],
-            job_id=job["id"],
-            jd_text=job["raw_jd_text"] or "",
-            briefing=briefing,
-            resume=resume,
-            cover=cover,
-            critique=critique,
-            interview_prep=interview_prep,
-            cached_prefix=cached_prefix,
-            podcast_format=podcast_format,
-            conn=db,
-        )
+        with writeback_sync(db, task_id):
+            generate_podcast_for_job(
+                prep_folder=prep_folder,
+                company=job["company"],
+                title=job["title"],
+                job_id=job["id"],
+                jd_text=job["raw_jd_text"] or "",
+                briefing=briefing,
+                resume=resume,
+                cover=cover,
+                critique=critique,
+                interview_prep=interview_prep,
+                cached_prefix=cached_prefix,
+                podcast_format=podcast_format,
+                conn=db,
+            )
     except Exception as exc:  # noqa: BLE001
         from findajob.audit import log_event
 

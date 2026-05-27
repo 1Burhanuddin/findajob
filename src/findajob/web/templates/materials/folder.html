@@ -518,6 +518,14 @@ function flashcardViewer(cards) {
     <h2 class="text-lg font-semibold text-slate-900">Interview Prep Podcasts</h2>
     <p class="text-xs text-slate-600 mt-1">AI-generated conversational audio covering your prep materials. Each format offers a different perspective.</p>
   </header>
+  {% if podcast_error %}
+  <div class="px-4 py-2 bg-amber-50 border-b border-amber-200 text-sm text-amber-800">
+    {% if podcast_error == 'already_generating' %}A podcast is already being generated for this job. Please wait for it to finish.
+    {% elif podcast_error == 'spend_ceiling' %}Podcast generation blocked — monthly spend ceiling reached.
+    {% elif podcast_error == 'generation_failed' %}Podcast generation failed. Check logs for details.
+    {% else %}{{ podcast_error }}{% endif %}
+  </div>
+  {% endif %}
   <div class="divide-y divide-slate-100">
     {% for fmt in podcast_formats %}
     <div class="px-4 py-3">
@@ -566,6 +574,15 @@ function flashcardViewer(cards) {
               <span x-show="busy">Downloading…</span>
             </button>
           {% endif %}
+          {% if fmt.generating %}
+            <span class="inline-flex items-center px-3 py-1.5 rounded text-sm font-medium bg-purple-100 text-purple-700 opacity-80">
+              <svg class="animate-spin -ml-0.5 mr-1.5 h-3.5 w-3.5 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              Generating…
+            </span>
+          {% else %}
           <form method="POST" action="/materials/{{ fingerprint }}/podcast/{{ fmt.format_key }}"
                 x-data="{ generating: false }"
                 @submit="generating = true">
@@ -577,6 +594,7 @@ function flashcardViewer(cards) {
               <span x-show="generating">Generating…</span>
             </button>
           </form>
+          {% endif %}
         </div>
       </div>
     </div>

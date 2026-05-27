@@ -10,6 +10,14 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Added
+
+- **Server-side podcast generation progress tracking** (#879): Podcast generation now records state in the `background_tasks` table instead of relying on client-side Alpine.js state. "Generating..." indicator survives page refresh. Per-job duplicate guard prevents concurrent podcast generation for the same job. Watchdog reaps stuck podcast tasks after 30 min. New `writeback_sync` context manager in `findajob.background_tasks` — generalizable helper for synchronous in-handler long-running work (counterpart to `writeback_subprocess` for subprocess-based tasks). Error banner surfaces `already_generating`, `spend_ceiling`, and `generation_failed` states.
+
+### Migration required
+
+- `background_tasks.kind` CHECK constraint expanded to include `'podcast'`. Applied automatically by the migration runner at container start (idempotent table rebuild, same pattern as `prep_phase_b`).
+
 ## [0.30.1] — 2026-05-27
 
 ### Fixed

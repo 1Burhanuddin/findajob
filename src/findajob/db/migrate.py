@@ -484,6 +484,28 @@ def _add_prep_phase_b_kind_if_needed(conn: sqlite3.Connection) -> None:
     )
 
 
+def _add_podcast_kind_if_needed(conn: sqlite3.Connection) -> None:
+    """If the live ``background_tasks.kind`` CHECK lacks ``'podcast'``,
+    rebuild from 0002_background_tasks.sql to pick up the new value.
+    Idempotent: a no-op when the constraint already includes it.
+
+    #879: server-side progress tracking for synchronous podcast generation
+    via the ``background_tasks`` table (``writeback_sync`` pattern).
+    """
+    schema_row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='background_tasks'").fetchone()
+    if schema_row is None:
+        return
+    current_sql = schema_row[0] or ""
+    if "'podcast'" in current_sql:
+        return
+    _rebuild_table_with_indexes(
+        conn,
+        table="background_tasks",
+        migration_filename="0002_background_tasks.sql",
+        legacy_alias="_background_tasks_pre_podcast",
+    )
+
+
 def _add_withdrawn_fallback_stage_if_needed(conn: sqlite3.Connection) -> None:
     """If the live ``jobs.stage`` CHECK lacks ``'withdrawn_fallback'``,
     rebuild the table from 0001_initial.sql to pick up the new value.
@@ -642,6 +664,7 @@ def apply_pending(conn: sqlite3.Connection, *, dry_run: bool = False) -> list[Ap
         _tighten_score_status_check_if_needed(conn)
         _add_briefing_ready_stage_if_needed(conn)
         _add_prep_phase_b_kind_if_needed(conn)
+        _add_podcast_kind_if_needed(conn)
         _add_withdrawn_fallback_stage_if_needed(conn)
         _add_fallback_tab_to_view_prefs_if_needed(conn)
 

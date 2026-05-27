@@ -42,6 +42,7 @@ KIND_TIMEOUT_MINUTES: dict[str, int] = {
     "prep_phase_b": 60,
     "interview_prep": 30,
     "speculative_research": 10,
+    "podcast": 30,
 }
 
 # Environment variable through which the launcher passes the task_id
@@ -171,6 +172,29 @@ def find_active_for_subject(conn: sqlite3.Connection, job_id: str, kind: str) ->
         "ORDER BY started_at DESC LIMIT 1",
         (job_id, kind),
     ).fetchone()
+
+
+@contextmanager
+def writeback_sync(conn: sqlite3.Connection, task_id: int) -> Iterator[int]:
+    """Context manager for synchronous (in-handler) long-running work.
+
+    Counterpart to :func:`writeback_subprocess` for code that runs in the
+    same process as the launcher — no env-var relay, no fresh connection.
+    On clean exit → :func:`record_succeeded`. On exception →
+    :func:`record_failed` and re-raise.
+
+    Usage in a web route::
+
+        task_id = record_start(db, job_id=job["id"], kind="podcast")
+        with writeback_sync(db, task_id):
+            do_expensive_work(...)
+    """
+    try:
+        yield task_id
+    except BaseException as exc:
+        record_failed(conn, task_id, error_message=f"{type(exc).__name__}: {exc}")
+        raise
+    record_succeeded(conn, task_id)
 
 
 @contextmanager

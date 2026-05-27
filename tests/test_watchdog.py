@@ -539,3 +539,47 @@ def test_main_emits_phase_b_and_briefing_stale_counts(db, monkeypatch, _patch_lo
     e = next(ev for ev in events if ev["event"] == "watchdog_run")
     assert e["prep_phase_b_failed"] == 1
     assert e["briefing_ready_stale_reset"] == 1
+
+
+# ── reap_podcast ────────────────────────────────────────────────────────
+
+
+def test_reap_podcast_marks_failed_only(db, _patch_log):
+    """Podcast doesn't move jobs.stage to a transient state, so the
+    watchdog only marks the background_tasks row failed — unblocking the
+    per-job duplicate guard for retry."""
+    job_id = _insert_job(db, stage="interview")
+    task_id = record_start(db, job_id=job_id, kind="podcast")
+    _backdate_task(db, task_id, minutes_ago=KIND_TIMEOUT_MINUTES["podcast"] + 1)
+
+    count = watchdog.reap_podcast(db)
+
+    assert count == 1
+    task_status = db.execute("SELECT status FROM background_tasks WHERE id=?", (task_id,)).fetchone()["status"]
+    assert task_status == "failed"
+    job_stage = db.execute("SELECT stage FROM jobs WHERE id=?", (job_id,)).fetchone()["stage"]
+    assert job_stage == "interview"
+
+
+def test_reap_podcast_leaves_fresh_rows_alone(db, _patch_log):
+    job_id = _insert_job(db, stage="interview")
+    task_id = record_start(db, job_id=job_id, kind="podcast")
+
+    count = watchdog.reap_podcast(db)
+
+    assert count == 0
+    task_status = db.execute("SELECT status FROM background_tasks WHERE id=?", (task_id,)).fetchone()["status"]
+    assert task_status == "running"
+
+
+def test_reap_podcast_skips_already_finished(db, _patch_log):
+    from findajob.background_tasks import record_succeeded
+
+    job_id = _insert_job(db, stage="interview")
+    task_id = record_start(db, job_id=job_id, kind="podcast")
+    record_succeeded(db, task_id)
+    _backdate_task(db, task_id, minutes_ago=KIND_TIMEOUT_MINUTES["podcast"] + 1)
+
+    count = watchdog.reap_podcast(db)
+
+    assert count == 0

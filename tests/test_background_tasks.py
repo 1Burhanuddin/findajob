@@ -29,6 +29,7 @@ from findajob.background_tasks import (
     record_start,
     record_succeeded,
     task_id_from_env,
+    writeback_sync,
 )
 from findajob.db.migrate import apply_pending
 
@@ -228,7 +229,7 @@ def test_kind_timeout_minutes_covers_all_kinds() -> None:
     must agree. This test fails if a new kind lands without a
     corresponding watchdog timeout — which would cause find_stuck to
     silently never reap that kind."""
-    expected_kinds = {"prep", "prep_phase_b", "interview_prep", "speculative_research"}
+    expected_kinds = {"prep", "prep_phase_b", "interview_prep", "speculative_research", "podcast"}
     assert set(KIND_TIMEOUT_MINUTES.keys()) == expected_kinds
 
 
@@ -247,3 +248,54 @@ def test_task_id_from_env_returns_none_for_garbage(monkeypatch: pytest.MonkeyPat
     a stale env value — still safer to return None than crash."""
     monkeypatch.setenv(TASK_ID_ENV_VAR, "not-a-number")
     assert task_id_from_env() is None
+
+
+# ── writeback_sync ────────────────────────────────────────────────────
+
+
+def test_writeback_sync_records_succeeded_on_clean_exit(db: sqlite3.Connection) -> None:
+    task_id = record_start(db, job_id="sync-ok", kind="podcast")
+    with writeback_sync(db, task_id):
+        pass
+    row = fetch_by_id(db, task_id)
+    assert row is not None
+    assert row["status"] == "succeeded"
+    assert row["finished_at"] is not None
+
+
+def test_writeback_sync_records_failed_on_exception(db: sqlite3.Connection) -> None:
+    task_id = record_start(db, job_id="sync-fail", kind="podcast")
+    with pytest.raises(ValueError, match="boom"):
+        with writeback_sync(db, task_id):
+            raise ValueError("boom")
+    row = fetch_by_id(db, task_id)
+    assert row is not None
+    assert row["status"] == "failed"
+    assert "ValueError: boom" in (row["error_message"] or "")
+
+
+def test_writeback_sync_yields_task_id(db: sqlite3.Connection) -> None:
+    task_id = record_start(db, job_id="sync-yield", kind="podcast")
+    with writeback_sync(db, task_id) as yielded:
+        assert yielded == task_id
+
+
+# ── podcast kind ──────────────────────────────────────────────────────
+
+
+def test_podcast_kind_accepted_by_check_constraint(db: sqlite3.Connection) -> None:
+    task_id = record_start(db, job_id="podcast-job-1", kind="podcast")
+    row = fetch_by_id(db, task_id)
+    assert row is not None
+    assert row["kind"] == "podcast"
+
+
+def test_find_active_podcast_isolates_from_other_kinds(db: sqlite3.Connection) -> None:
+    record_start(db, job_id="same-job", kind="prep")
+    record_start(db, job_id="same-job", kind="podcast")
+    assert find_active_for_subject(db, job_id="same-job", kind="podcast") is not None
+    # Finishing the podcast task should not affect the prep task.
+    podcast_row = find_active_for_subject(db, job_id="same-job", kind="podcast")
+    record_succeeded(db, podcast_row["id"])
+    assert find_active_for_subject(db, job_id="same-job", kind="podcast") is None
+    assert find_active_for_subject(db, job_id="same-job", kind="prep") is not None
