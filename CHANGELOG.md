@@ -10,6 +10,8 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.31.0] — 2026-05-27
+
 ### Added
 
 - **Server-side podcast generation progress tracking** (#879): Podcast generation now records state in the `background_tasks` table instead of relying on client-side Alpine.js state. "Generating..." indicator survives page refresh. Per-job duplicate guard prevents concurrent podcast generation for the same job. Watchdog reaps stuck podcast tasks after 30 min. New `writeback_sync` context manager in `findajob.background_tasks` — generalizable helper for synchronous in-handler long-running work (counterpart to `writeback_subprocess` for subprocess-based tasks). Error banner surfaces `already_generating`, `spend_ceiling`, and `generation_failed` states.
@@ -1405,7 +1407,8 @@ from GHCR and deployed via Docker Compose on a shared Docker host.
 - Documentation cleanup — removing `sigoden/aichat` references in favor of
   `blob42/aichat-ng` — is tracked in #70
 
-[Unreleased]: https://github.com/brockamer/findajob/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/brockamer/findajob/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/brockamer/findajob/releases/tag/v0.31.0
 [0.28.0]: https://github.com/brockamer/findajob/releases/tag/v0.28.0
 [0.27.11]: https://github.com/brockamer/findajob/releases/tag/v0.27.11
 [0.27.10]: https://github.com/brockamer/findajob/releases/tag/v0.27.10
