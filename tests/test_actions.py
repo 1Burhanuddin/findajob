@@ -33,7 +33,8 @@ CREATE TABLE jobs (
     stage TEXT DEFAULT 'discovered' CHECK(stage IN (
         'discovered', 'enriched', 'scored', 'manual_review',
         'prep_in_progress', 'materials_drafted', 'waitlisted', 'applied',
-        'response_received', 'interview', 'offer', 'rejected', 'not_selected', 'withdrawn'
+        'response_received', 'interview', 'offer', 'rejected', 'not_selected', 'withdrawn',
+        'withdrawn_fallback'
     )),
     stage_updated TEXT,
     apply_flag INTEGER DEFAULT 0,
@@ -1260,3 +1261,85 @@ class TestActionsDeferredFs:
         assert len(audits) == 0
         # Post-rollback: folder still at _waitlisted/
         assert folder.exists()
+
+
+# ── #358: Fallback queue ─────────────────────────────────────────────────
+
+
+class TestFallbackQueue:
+    """Tests for the three fallback action helpers (#358)."""
+
+    def test_withdraw_as_fallback_sets_stage_and_reason(self, db):
+        job = insert_job(db, stage="applied")
+        actions.handle_withdraw_as_fallback(db, job, "Better opportunity")
+        row = db.execute("SELECT stage, reject_reason FROM jobs WHERE id=?", (job["id"],)).fetchone()
+        assert row["stage"] == "withdrawn_fallback"
+        assert row["reject_reason"] == "Better opportunity"
+
+    def test_withdraw_as_fallback_writes_audit(self, db):
+        job = insert_job(db, stage="interview")
+        actions.handle_withdraw_as_fallback(db, job, "Comp too low")
+        audit = db.execute(
+            "SELECT old_value, new_value FROM audit_log WHERE job_id=? AND field_changed='stage'",
+            (job["id"],),
+        ).fetchone()
+        assert audit["old_value"] == "interview"
+        assert audit["new_value"] == "withdrawn_fallback"
+
+    def test_mark_as_fallback_converts_withdrawn(self, db):
+        job = insert_job(db, stage="withdrawn")
+        actions.mark_as_fallback(db, job)
+        row = db.execute("SELECT stage FROM jobs WHERE id=?", (job["id"],)).fetchone()
+        assert row["stage"] == "withdrawn_fallback"
+
+    def test_mark_as_fallback_audit_trail(self, db):
+        job = insert_job(db, stage="withdrawn")
+        actions.mark_as_fallback(db, job)
+        audit = db.execute(
+            "SELECT old_value, new_value FROM audit_log WHERE job_id=? AND field_changed='stage'",
+            (job["id"],),
+        ).fetchone()
+        assert audit["old_value"] == "withdrawn"
+        assert audit["new_value"] == "withdrawn_fallback"
+
+    def test_promote_from_fallback_direct_path(self, db):
+        """Direct path: applied → withdrawn_fallback → promote restores applied."""
+        job = insert_job(db, stage="applied")
+        actions.handle_withdraw_as_fallback(db, job, "Better opp")
+        assert db.execute("SELECT stage FROM jobs WHERE id=?", (job["id"],)).fetchone()["stage"] == "withdrawn_fallback"
+        restored = actions.promote_from_fallback(db, job)
+        assert restored == "applied"
+        row = db.execute("SELECT stage, reject_reason FROM jobs WHERE id=?", (job["id"],)).fetchone()
+        assert row["stage"] == "applied"
+        assert row["reject_reason"] == ""
+
+    def test_promote_from_fallback_indirect_path(self, db):
+        """Indirect path: interview → withdrawn → mark-as-fallback → promote.
+
+        The critical test: promote must chase through the 'withdrawn' hop
+        to find the pre-withdraw stage ('interview'), not stop at 'withdrawn'.
+        """
+        job = insert_job(db, stage="interview")
+        # Step 1: withdraw (normal withdraw, e.g. via Applied tab)
+        now = "2026-01-01T00:00:00"
+        db.execute("UPDATE jobs SET stage='withdrawn', updated_at=? WHERE id=?", (now, job["id"]))
+        db.commit()
+        audit.write_audit(db, job["id"], "stage", "interview", "withdrawn")
+        # Step 2: mark as fallback from Archive
+        job_row = db.execute("SELECT * FROM jobs WHERE id=?", (job["id"],)).fetchone()
+        actions.mark_as_fallback(db, job_row)
+        assert db.execute("SELECT stage FROM jobs WHERE id=?", (job["id"],)).fetchone()["stage"] == "withdrawn_fallback"
+        # Step 3: promote — must restore to 'interview', NOT 'withdrawn'
+        job_row = db.execute("SELECT * FROM jobs WHERE id=?", (job["id"],)).fetchone()
+        restored = actions.promote_from_fallback(db, job_row)
+        assert restored == "interview", (
+            f"promote_from_fallback should chase through 'withdrawn' to find 'interview', got '{restored}'"
+        )
+        row = db.execute("SELECT stage FROM jobs WHERE id=?", (job["id"],)).fetchone()
+        assert row["stage"] == "interview"
+
+    def test_promote_from_fallback_no_audit_falls_back_to_applied(self, db):
+        """Edge case: no audit trail → defaults to 'applied'."""
+        job = insert_job(db, stage="withdrawn_fallback")
+        restored = actions.promote_from_fallback(db, job)
+        assert restored == "applied"

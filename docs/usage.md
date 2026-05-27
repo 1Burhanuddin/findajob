@@ -287,6 +287,24 @@ From the tab:
 
 ---
 
+## The Fallback tab (`/board/fallback`)
+
+Jobs you withdrew from but might revisit if your other opportunities fall through. The difference between Withdraw and Fallback: a plain "Withdrew" sends the job to Archive with no easy way back. "Withdrew (Fallback)" moves it to this dedicated tab where you can see it at a glance.
+
+**Entry points:**
+- On the Applied tab, select **Withdrew (Fallback)** from the status dropdown.
+- On the Archive tab, click the **Fallback** button next to any already-withdrawn job.
+
+**What you see:** title, company, withdraw reason, withdraw date, relevance score, location, remote status, and notes. The same per-column filter framework as other tabs.
+
+**Actions:**
+- **Promote** — restores the job to its prior stage (usually `applied` or `interview`). The row leaves the Fallback tab.
+- **Reject** — rejects the job normally (writes `feedback_log`, moves folder to `_rejected/`).
+
+**Fallback is not rejection.** It does *not* write to `feedback_log`. The scorer never sees it.
+
+---
+
 ## The Archive tab (`/board/archive`)
 
 Every job the pipeline has ever ingested, in one paginated, filterable, sortable table. A per-column filter row provides: substring inputs for Title, Company, and Location; min/max range inputs for Rel, Fit, and Probability scores; popovers (▾) for Stage, Source, Remote, and Date. Active-filter chips appear below the header with ✕ to clear individual filters or **Clear all** to reset. The 🔗 Copy link button copies the current filtered+sorted+paginated URL to the clipboard. This is the backstop — if you can't find a job anywhere else, it's here.
@@ -394,6 +412,7 @@ Each folder renders its Markdown files inline and offers `.docx` downloads. The 
 | `interview` / `offer` | Post-application progress; appears on Applied |
 | `rejected` | User rejection with reason; writes to `feedback_log`; folder moves to `companies/_rejected/` |
 | `not_selected` | Company rejection; does NOT write to `feedback_log` (don't poison the scorer); folder stays in `companies/_applied/` with a `NOT_SELECTED_*.txt` marker |
+| `withdrawn_fallback` | Withdrew but might revisit; folder stays in `companies/_applied/`; scorer never sees it |
 | `waitlisted` | Deferred; folder moves to `companies/_waitlisted/`; scorer never sees it |
 
 **Every STATUS dropdown action is a POST handler.** `findajob.web.routes.board_actions` contains one handler per transition; each calls straight into `findajob.actions` and responds in the same request. The handlers are:
@@ -404,9 +423,12 @@ Each folder renders its Markdown files inline and offers `.docx` downloads. The 
 - `/board/jobs/{fp}/waitlist` — Waitlist
 - `/board/jobs/{fp}/reject` — Reject (with REJECT_REASON)
 - `/board/jobs/{fp}/interview` / `/offer` / `/withdraw` — post-application
+- `/board/jobs/{fp}/withdraw-as-fallback` — Withdraw as Fallback (Applied tab)
 - `/board/jobs/{fp}/not-selected` — Not Selected (with REJECT_REASON)
 - `/board/jobs/{fp}/promote` — Review → scored
 - `/board/jobs/{fp}/reactivate` — Waitlist → scored
+- `/board/jobs/{fp}/mark-as-fallback` — Archive withdrawn → Fallback
+- `/board/jobs/{fp}/promote-from-fallback` — Fallback → prior stage
 - `/board/jobs/{fp}/notes` — user_notes save
 
 No poll cycle. The web UI is the canonical surface for everything — board state, materials, stats, ingest.

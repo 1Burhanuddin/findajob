@@ -27,7 +27,10 @@ from findajob.actions import (
     handle_reactivate,
     handle_rejection,
     handle_waitlist,
+    handle_withdraw_as_fallback,
+    mark_as_fallback,
     notify_waitlist_resurface,
+    promote_from_fallback,
     promote_to_scored,
     snapshot_applied_md_files,
     un_apply_job,
@@ -221,6 +224,7 @@ _STAGE_LABELS = {
     "interview": "Interviewing",
     "offer": "Offer",
     "withdrawn": "Withdrawn",
+    "withdrawn_fallback": "Fallback",
     "not_selected": "Not Selected",
 }
 
@@ -1243,6 +1247,76 @@ def un_withdraw(
     if row["stage"] != "withdrawn":
         raise HTTPException(status_code=409, detail="Only withdrawn jobs can be un-withdrawn")
     restored_stage = un_withdraw_job(db, row)
+    return HTMLResponse(_stage_change_toast_html(request, restored_stage))
+
+
+_FALLBACK_ENTRY_STAGES = ("applied", "interview", "offer")
+
+
+@router.post("/board/jobs/{fingerprint}/withdraw-as-fallback", response_class=HTMLResponse)
+def withdraw_as_fallback(
+    fingerprint: str,
+    request: Request,
+    db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    """Withdraw from the application but mark as fallback-eligible.
+
+    Entry point: Applied tab dropdown. Row leaves Applied; OOB stage-change
+    toast confirms (#830). Fires notify_waitlist_resurface.
+    """
+    job = _fetch_job(db, fingerprint)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["stage"] == "withdrawn_fallback":
+        return HTMLResponse("")
+    if job["stage"] not in _FALLBACK_ENTRY_STAGES:
+        raise HTTPException(
+            status_code=409,
+            detail="Withdraw as Fallback only valid for applied/interview/offer stages",
+        )
+    handle_withdraw_as_fallback(db, job, "Better opportunity")
+    notify_waitlist_resurface(db, job["company"])
+    return HTMLResponse(_stage_change_toast_html(request, "withdrawn_fallback"))
+
+
+@router.post("/board/jobs/{fingerprint}/mark-as-fallback", response_class=HTMLResponse)
+def mark_fallback(
+    fingerprint: str,
+    request: Request,  # noqa: ARG001
+    db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    """Convert an existing withdrawn row to fallback-eligible.
+
+    Entry point: Archive tab. Row vanishes from Archive's withdrawn filter.
+    """
+    job = _fetch_job(db, fingerprint)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["stage"] == "withdrawn_fallback":
+        return HTMLResponse("")
+    if job["stage"] != "withdrawn":
+        raise HTTPException(status_code=409, detail="Mark as Fallback only valid for withdrawn jobs")
+    mark_as_fallback(db, job)
+    return HTMLResponse("")
+
+
+@router.post("/board/jobs/{fingerprint}/promote-from-fallback", response_class=HTMLResponse)
+def promote_fallback(
+    fingerprint: str,
+    request: Request,
+    db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    """Restore a fallback-eligible job to its prior stage.
+
+    Entry point: Fallback tab. Row leaves the Fallback tab; OOB
+    stage-change toast names the restored stage.
+    """
+    job = _fetch_job(db, fingerprint)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["stage"] != "withdrawn_fallback":
+        raise HTTPException(status_code=409, detail="Promote only valid for withdrawn_fallback jobs")
+    restored_stage = promote_from_fallback(db, job)
     return HTMLResponse(_stage_change_toast_html(request, restored_stage))
 
 

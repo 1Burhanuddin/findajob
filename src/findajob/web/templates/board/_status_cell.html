@@ -67,6 +67,7 @@
       {% if stage != 'interview' %}<option value="interview">Interviewing</option>{% endif %}
       {% if stage != 'offer' %}<option value="offer">Offer</option>{% endif %}
       <option value="withdraw">Withdrew</option>
+      <option value="withdraw-as-fallback">Withdrew (Fallback)</option>
       <option value="not-selected">Not Selected</option>
     </select>
     {% endif %}
@@ -98,5 +99,11 @@
               hx-swap="outerHTML"
               title="Reactivate and start prep in one step">Flag for Prep</button>
     </div>
+  {% elif tab == 'fallback' %}
+    <button type="button"
+            class="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-500"
+            hx-post="/board/jobs/{{ fp }}/promote-from-fallback"
+            hx-target="closest tr"
+            hx-swap="outerHTML">Promote</button>
   {% endif %}
 </td>

@@ -991,3 +991,124 @@ def test_score_status_helper_is_idempotent(tmp_path: Path) -> None:
         assert rowid_after == rowid_before, "rebuild ran on second apply_pending — helper is not idempotent"
     finally:
         conn.close()
+
+
+# ── #358: withdrawn_fallback stage CHECK relaxation ──────────────────────
+
+
+def test_fresh_db_accepts_withdrawn_fallback(tmp_path: Path) -> None:
+    db = tmp_path / "fresh_wf.db"
+    conn = sqlite3.connect(str(db))
+    try:
+        apply_pending(conn)
+        assert _stage_check_accepts(conn, "withdrawn_fallback")
+    finally:
+        conn.close()
+
+
+def test_withdrawn_fallback_rebuild_preserves_rows(tmp_path: Path) -> None:
+    """Pre-seed every existing stage, run the rebuild, verify all rows survive."""
+    db = tmp_path / "wf_preserve.db"
+    conn = sqlite3.connect(str(db))
+    try:
+        apply_pending(conn)
+    finally:
+        conn.close()
+
+    stages = [
+        "discovered",
+        "enriched",
+        "scored",
+        "manual_review",
+        "prep_in_progress",
+        "briefing_ready",
+        "materials_drafted",
+        "waitlisted",
+        "applied",
+        "response_received",
+        "interview",
+        "offer",
+        "rejected",
+        "not_selected",
+        "withdrawn",
+    ]
+
+    conn = sqlite3.connect(str(db))
+    try:
+        # Simulate a pre-#358 schema by replacing the CHECK constraint
+        old_check_create = (
+            "CREATE TABLE jobs_old_check ("
+            "    id TEXT PRIMARY KEY,"
+            "    fingerprint TEXT UNIQUE NOT NULL,"
+            "    url TEXT NOT NULL,"
+            "    title TEXT NOT NULL,"
+            "    company TEXT NOT NULL,"
+            "    source TEXT NOT NULL DEFAULT 'test',"
+            "    stage TEXT DEFAULT 'discovered' CHECK(stage IN ("
+            "        'discovered', 'enriched', 'scored', 'manual_review',"
+            "        'prep_in_progress', 'briefing_ready', 'materials_drafted',"
+            "        'waitlisted', 'applied',"
+            "        'response_received', 'interview', 'offer', 'rejected',"
+            "        'not_selected', 'withdrawn'"
+            "    ))"
+            ")"
+        )
+        for i, stage in enumerate(stages):
+            conn.execute(
+                "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage) "
+                "VALUES (?, ?, 'https://x', 'T', 'C', 'test', ?)",
+                (f"wf-{i}", f"fp-wf-{i}", stage),
+            )
+        conn.commit()
+        pre_count = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+
+        # Rebuild with old CHECK (no withdrawn_fallback)
+        cols = [row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()]
+        keep_cols = ["id", "fingerprint", "url", "title", "company", "source", "stage"]
+        keep_csv = ",".join(c for c in keep_cols if c in cols)
+        conn.execute("PRAGMA foreign_keys=OFF")
+        conn.execute("ALTER TABLE jobs RENAME TO _jobs_old_wf")
+        conn.executescript(old_check_create.replace("jobs_old_check", "jobs"))
+        conn.execute(f"INSERT INTO jobs ({keep_csv}) SELECT {keep_csv} FROM _jobs_old_wf")
+        conn.execute("DROP TABLE _jobs_old_wf")
+        conn.commit()
+        conn.execute("PRAGMA foreign_keys=ON")
+
+        assert not _stage_check_accepts(conn, "withdrawn_fallback")
+    finally:
+        conn.close()
+
+    conn = sqlite3.connect(str(db))
+    try:
+        apply_pending(conn)
+        assert _stage_check_accepts(conn, "withdrawn_fallback")
+        post_count = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+        assert post_count == pre_count, f"rows lost: had {pre_count}, now {post_count}"
+        for i, stage in enumerate(stages):
+            row = conn.execute("SELECT stage FROM jobs WHERE id=?", (f"wf-{i}",)).fetchone()
+            assert row[0] == stage, f"stage mismatch for wf-{i}: expected {stage}, got {row[0]}"
+    finally:
+        conn.close()
+
+
+def test_withdrawn_fallback_helper_is_idempotent(tmp_path: Path) -> None:
+    db = tmp_path / "wf_idempotent.db"
+    conn = sqlite3.connect(str(db))
+    try:
+        apply_pending(conn)
+        conn.execute(
+            "INSERT INTO jobs (id, fingerprint, url, title, company, source, stage) "
+            "VALUES ('wf-idem', 'fp-wf-idem', 'https://x', 'T', 'C', 'test', 'withdrawn_fallback')"
+        )
+        conn.commit()
+        rowid_before = conn.execute("SELECT rowid FROM jobs WHERE id='wf-idem'").fetchone()[0]
+    finally:
+        conn.close()
+
+    conn = sqlite3.connect(str(db))
+    try:
+        apply_pending(conn)
+        rowid_after = conn.execute("SELECT rowid FROM jobs WHERE id='wf-idem'").fetchone()[0]
+        assert rowid_after == rowid_before, "rebuild ran on second apply_pending — helper is not idempotent"
+    finally:
+        conn.close()

@@ -484,6 +484,47 @@ def _add_prep_phase_b_kind_if_needed(conn: sqlite3.Connection) -> None:
     )
 
 
+def _add_withdrawn_fallback_stage_if_needed(conn: sqlite3.Connection) -> None:
+    """If the live ``jobs.stage`` CHECK lacks ``'withdrawn_fallback'``,
+    rebuild the table from 0001_initial.sql to pick up the new value.
+    Idempotent: a no-op when the constraint already includes it.
+
+    #358: fallback queue for withdrew-but-might-revisit jobs.
+    """
+    schema_row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='jobs'").fetchone()
+    if schema_row is None:
+        return
+    current_sql = schema_row[0] or ""
+    if "'withdrawn_fallback'" in current_sql:
+        return
+    _rebuild_table_with_indexes(
+        conn,
+        table="jobs",
+        migration_filename="0001_initial.sql",
+        legacy_alias="_jobs_pre_withdrawn_fallback",
+    )
+
+
+def _add_fallback_tab_to_view_prefs_if_needed(conn: sqlite3.Connection) -> None:
+    """If the live ``view_prefs.tab`` CHECK lacks ``'fallback'``,
+    rebuild from 0005_view_prefs.sql. Idempotent.
+
+    #358: fallback queue needs its own tab in the view_prefs table.
+    """
+    schema_row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='view_prefs'").fetchone()
+    if schema_row is None:
+        return
+    current_sql = schema_row[0] or ""
+    if "'fallback'" in current_sql:
+        return
+    _rebuild_table_with_indexes(
+        conn,
+        table="view_prefs",
+        migration_filename="0005_view_prefs.sql",
+        legacy_alias="_view_prefs_pre_fallback",
+    )
+
+
 def _infer_baseline_version(conn: sqlite3.Connection) -> int:
     """Infer the starting schema_version when no ``_meta`` row exists.
 
@@ -601,5 +642,7 @@ def apply_pending(conn: sqlite3.Connection, *, dry_run: bool = False) -> list[Ap
         _tighten_score_status_check_if_needed(conn)
         _add_briefing_ready_stage_if_needed(conn)
         _add_prep_phase_b_kind_if_needed(conn)
+        _add_withdrawn_fallback_stage_if_needed(conn)
+        _add_fallback_tab_to_view_prefs_if_needed(conn)
 
     return applied

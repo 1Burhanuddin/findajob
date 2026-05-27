@@ -5,7 +5,7 @@
     row — a sqlite3.Row (or dict) with fields for the current tab's columns
     specs — sequence of ColumnSpec for the tab
     visible — set of column name strings currently shown
-    tab — "dashboard" | "applied" | "review" | "waitlist" | "rejected" | "archive"
+    tab — "dashboard" | "applied" | "review" | "waitlist" | "fallback" | "rejected" | "archive"
 
   Applies tab-specific conditional formatting via findajob.web.helpers
   (exposed as Jinja globals in app.py::create_app).
@@ -18,7 +18,7 @@
   {% if stage_class %}{% set _ = row_classes.append(stage_class) %}{% endif %}
 {% endif %}
 <tr class="{{ row_classes | join(' ') }}" data-fingerprint="{{ row.fingerprint }}" data-stage="{{ row.stage }}">
-  {% if tab in ('dashboard', 'applied', 'review', 'waitlist') %}
+  {% if tab in ('dashboard', 'applied', 'review', 'waitlist', 'fallback') %}
     {% include "board/_status_cell.html" %}
     {% include "board/_reject_cell.html" %}
     {% if tab == 'dashboard' %}

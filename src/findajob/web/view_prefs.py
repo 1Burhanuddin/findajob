@@ -22,7 +22,7 @@ from urllib.parse import urlencode
 from findajob.web.filters.url import ParsedFilters
 
 ALLOWED_TABS: frozenset[str] = frozenset(
-    {"dashboard", "applied", "review", "waitlist", "rejected", "not_selected", "archive"}
+    {"dashboard", "applied", "review", "waitlist", "fallback", "rejected", "not_selected", "archive"}
 )
 
 

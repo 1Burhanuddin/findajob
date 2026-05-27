@@ -1,10 +1,11 @@
 {#
   Reject reason dropdown. Inputs:
     row — a sqlite3.Row (or dict)
-    tab — "dashboard" | "applied" | "review" | "waitlist"
+    tab — "dashboard" | "applied" | "review" | "waitlist" | "fallback"
 
-  On Dashboard / Review / Waitlist: dropdown POSTs the selected reason to
-  /reject (user rejection — writes feedback_log, moves to _rejected/).
+  On Dashboard / Review / Waitlist / Fallback: dropdown POSTs the selected
+  reason to /reject (user rejection — writes feedback_log, moves to
+  _rejected/).
 
   On Applied: rendered inert. As of #391 every transition off the Applied
   tab is one-click via the status cell (Not Selected fires /not-selected

@@ -804,6 +804,114 @@ def un_apply_job(
         deferred_fs.extend(fs_ops)
 
 
+def handle_withdraw_as_fallback(
+    conn: sqlite3.Connection,
+    job: Any,
+    reason: str,
+) -> None:
+    """Withdraw a post-application job as fallback-eligible.
+
+    Sets stage='withdrawn_fallback', stores the withdraw reason in
+    reject_reason (stage-disjoint from rejected/not_selected).
+    No folder move — the row stays in _applied/.
+    """
+    now = datetime.now(UTC).isoformat()
+    old_stage = job["stage"]
+    conn.execute(
+        "UPDATE jobs SET stage=?, reject_reason=?, updated_at=? WHERE id=?",
+        ("withdrawn_fallback", reason, now, job["id"]),
+    )
+    conn.commit()
+    write_audit(conn, job["id"], "stage", old_stage, "withdrawn_fallback")
+    write_audit(conn, job["id"], "reject_reason", "", reason)
+    log_event(
+        "job_withdrawn_as_fallback",
+        job_id=job["id"],
+        company=job["company"],
+        title=job["title"],
+        reason=reason,
+    )
+
+
+def mark_as_fallback(
+    conn: sqlite3.Connection,
+    job: Any,
+) -> None:
+    """Convert an existing withdrawn row to withdrawn_fallback.
+
+    No folder move, no reason change — the original withdraw context
+    stays intact. Used from the Archive tab to opt existing withdrawn
+    rows into the fallback surface.
+    """
+    now = datetime.now(UTC).isoformat()
+    conn.execute(
+        "UPDATE jobs SET stage=?, updated_at=? WHERE id=?",
+        ("withdrawn_fallback", now, job["id"]),
+    )
+    conn.commit()
+    write_audit(conn, job["id"], "stage", "withdrawn", "withdrawn_fallback")
+    log_event(
+        "job_marked_as_fallback",
+        job_id=job["id"],
+        company=job["company"],
+        title=job["title"],
+    )
+
+
+def promote_from_fallback(
+    conn: sqlite3.Connection,
+    job: Any,
+) -> str:
+    """Restore a withdrawn_fallback job to its pre-withdraw stage.
+
+    Two entry paths into withdrawn_fallback:
+    1. Direct: applied → withdrawn_fallback (withdraw-as-fallback route).
+       Audit chain: old='applied', new='withdrawn_fallback'.
+    2. Indirect: applied → withdrawn → withdrawn_fallback (mark-as-fallback
+       from Archive). Audit chain has two hops.
+
+    For path 2, the immediate old_value is 'withdrawn' — restoring to
+    that would send the row back to Archive, defeating the purpose. When
+    the lookup yields 'withdrawn', chase one more hop to find the
+    pre-withdraw stage. Falls back to 'applied'.
+
+    Clears reject_reason. No folder move. Returns the restored stage.
+    """
+    now = datetime.now(UTC).isoformat()
+
+    prior = conn.execute(
+        "SELECT old_value FROM audit_log "
+        "WHERE job_id=? AND field_changed='stage' AND new_value='withdrawn_fallback' "
+        "ORDER BY changed_at DESC LIMIT 1",
+        (job["id"],),
+    ).fetchone()
+    restored_stage = prior[0] if prior and prior[0] else "applied"
+
+    if restored_stage == "withdrawn":
+        pre_withdraw = conn.execute(
+            "SELECT old_value FROM audit_log "
+            "WHERE job_id=? AND field_changed='stage' AND new_value='withdrawn' "
+            "ORDER BY changed_at DESC LIMIT 1",
+            (job["id"],),
+        ).fetchone()
+        restored_stage = pre_withdraw[0] if pre_withdraw and pre_withdraw[0] else "applied"
+
+    conn.execute(
+        "UPDATE jobs SET stage=?, reject_reason='', updated_at=? WHERE id=?",
+        (restored_stage, now, job["id"]),
+    )
+    conn.commit()
+    write_audit(conn, job["id"], "stage", "withdrawn_fallback", restored_stage, changed_by="user")
+    log_event(
+        "job_promoted_from_fallback",
+        job_id=job["id"],
+        company=job["company"],
+        title=job["title"],
+        restored_stage=restored_stage,
+    )
+    return restored_stage
+
+
 def reactivate_from_ingest(
     conn: sqlite3.Connection,
     job: Any,

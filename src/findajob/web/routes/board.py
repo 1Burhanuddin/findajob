@@ -96,6 +96,7 @@ _STORAGE_TAB_SPECS: dict[str, tuple[ColumnSpec, ...]] = {
     "applied": filter_registry.APPLIED_COLUMNS,
     "review": filter_registry.REVIEW_COLUMNS,
     "waitlist": filter_registry.WAITLIST_COLUMNS,
+    "fallback": filter_registry.FALLBACK_COLUMNS,
     "rejected": filter_registry.REJECTED_COLUMNS,
     "not_selected": filter_registry.NOT_SELECTED_COLUMNS,
     "archive": filter_registry.ARCHIVE_COLUMNS,
@@ -514,6 +515,99 @@ def waitlist(
             "history_by_fp": history_by_fp,
             "density": _normalize_density(density),
             "tab": "waitlist",
+            "materials_base_url": materials_base_url,
+        },
+    )
+
+
+_FALLBACK_DEFAULT_SORT = "withdrawn_date"
+_FALLBACK_BASE_WHERE = "j.stage = 'withdrawn_fallback'"
+
+
+def _fallback_source() -> str:
+    return (
+        "FROM jobs j "
+        "LEFT JOIN ("
+        "  SELECT job_id, MAX(changed_at) AS withdrawn_date "
+        "  FROM audit_log "
+        "  WHERE field_changed = 'stage' AND new_value = 'withdrawn_fallback' "
+        "  GROUP BY job_id"
+        ") al ON al.job_id = j.id"
+    )
+
+
+def _fallback_query(parsed: ParsedFilters) -> tuple[str, list[object]]:
+    specs = filter_registry.FALLBACK_COLUMNS
+    clauses, params = build_filter_clauses(specs, parsed)
+    sort = parsed.sort or _FALLBACK_DEFAULT_SORT
+    sort_spec = next((s for s in specs if s.name == sort), None)
+    sort_ref = sort_spec.sql_ref if sort_spec else "al.withdrawn_date"
+    order = "DESC" if parsed.desc else "ASC"
+    sql = (
+        "SELECT j.fingerprint, j.title, j.company, j.url, j.stage, "
+        "       j.reject_reason, j.relevance_score, j.location, j.remote_status, "
+        "       j.user_notes, j.prep_folder_path, "
+        "       al.withdrawn_date "
+        f"{_fallback_source()} "
+        f"WHERE ({_FALLBACK_BASE_WHERE}){clauses} "
+        f"ORDER BY {sort_ref} {order}"
+    )
+    return sql, params
+
+
+@router.get("/board/fallback", response_class=HTMLResponse)
+def fallback(
+    request: Request,
+    density: str = Query(default=_DEFAULT_DENSITY),
+    db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    specs = filter_registry.FALLBACK_COLUMNS
+    parsed = parse_filter_params(specs, request.query_params)
+    view_prefs_redirect = _maybe_redirect_to_persisted(request, "fallback", parsed, db)
+    if view_prefs_redirect is not None:
+        return view_prefs_redirect  # type: ignore[return-value]
+    _persist_view(db, "fallback", parsed)
+    sql, params = _fallback_query(parsed)
+    rows = db.execute(sql, params).fetchall()
+    materials_base_url = os.environ.get("FINDAJOB_MATERIALS_BASE_URL", "")
+    visible = _resolve_visible(specs, parsed)
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request=request,
+        name="board/fallback.html",
+        context={
+            "specs": specs,
+            "visible": visible,
+            "parsed": parsed,
+            "rows": rows,
+            "density": _normalize_density(density),
+            "tab": "fallback",
+            "materials_base_url": materials_base_url,
+        },
+    )
+
+
+@router.get("/board/fallback/rows", response_class=HTMLResponse)
+def fallback_rows(
+    request: Request,
+    db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    specs = filter_registry.FALLBACK_COLUMNS
+    parsed = parse_filter_params(specs, request.query_params)
+    _persist_view(db, "fallback", parsed)
+    sql, params = _fallback_query(parsed)
+    rows = db.execute(sql, params).fetchall()
+    materials_base_url = os.environ.get("FINDAJOB_MATERIALS_BASE_URL", "")
+    visible = _resolve_visible(specs, parsed)
+    templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request=request,
+        name="_job_rows_fragment.html",
+        context={
+            "specs": specs,
+            "visible": visible,
+            "rows": rows,
+            "tab": "fallback",
             "materials_base_url": materials_base_url,
         },
     )
@@ -948,6 +1042,7 @@ _URL_TAB_TO_STORAGE: dict[str, str] = {
     "applied": "applied",
     "review": "review",
     "waitlist": "waitlist",
+    "fallback": "fallback",
     "rejected": "rejected",
     "not-selected": "not_selected",
     "archive": "archive",

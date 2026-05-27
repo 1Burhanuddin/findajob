@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS jobs (
         'discovered', 'enriched', 'scored', 'manual_review',
         'prep_in_progress', 'briefing_ready', 'materials_drafted', 'waitlisted', 'applied',
         'response_received', 'interview', 'offer', 'rejected',
-        'not_selected', 'withdrawn'
+        'not_selected', 'withdrawn', 'withdrawn_fallback'
     )),
     stage_updated TEXT,
     status TEXT DEFAULT 'active' CHECK(status IN (

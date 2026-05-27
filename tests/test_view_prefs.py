@@ -216,5 +216,5 @@ def test_allowed_tabs_match_route_tab_values() -> None:
     # If this list changes, update both the module and the 0005 migration's
     # CHECK constraint.
     assert view_prefs.ALLOWED_TABS == frozenset(
-        {"dashboard", "applied", "review", "waitlist", "rejected", "not_selected", "archive"}
+        {"dashboard", "applied", "review", "waitlist", "fallback", "rejected", "not_selected", "archive"}
     )

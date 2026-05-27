@@ -37,6 +37,7 @@ _STAGE_VALUES = (
     "rejected",
     "not_selected",
     "withdrew",
+    "withdrawn_fallback",
 )
 _REMOTE_VALUES = ("Remote", "Hybrid", "On-site", "Unknown")
 
@@ -332,6 +333,40 @@ NOT_SELECTED_COLUMNS: tuple[ColumnSpec, ...] = (
 )
 validate_specs(NOT_SELECTED_COLUMNS)
 
+# ─── Fallback ─────────────────────────────────────────────────────────────
+FALLBACK_COLUMNS: tuple[ColumnSpec, ...] = (
+    ColumnSpec(name="title", label="Title", kind=Kind.TEXT, db_expr="j.title"),
+    ColumnSpec(name="company", label="Company", kind=Kind.TEXT, db_expr="j.company"),
+    ColumnSpec(
+        name="reject_reason",
+        label="Reason",
+        kind=Kind.TEXT,
+        db_expr="j.reject_reason",
+    ),
+    ColumnSpec(
+        name="withdrawn_date",
+        label="Withdrawn",
+        kind=Kind.DATE,
+        db_expr="al.withdrawn_date",
+    ),
+    ColumnSpec(
+        name="relevance_score",
+        label="Rel",
+        kind=Kind.SCORE,
+        db_expr="j.relevance_score",
+    ),
+    ColumnSpec(name="location", label="Location", kind=Kind.TEXT, db_expr="j.location"),
+    ColumnSpec(
+        name="remote_status",
+        label="Remote",
+        kind=Kind.ENUM,
+        enum_values=_REMOTE_VALUES,
+        db_expr="j.remote_status",
+    ),
+    ColumnSpec(name="user_notes", label="Notes", kind=Kind.TEXT, db_expr="j.user_notes"),
+)
+validate_specs(FALLBACK_COLUMNS)
+
 # ─── Archive ──────────────────────────────────────────────────────────────────
 ARCHIVE_COLUMNS: tuple[ColumnSpec, ...] = (
     ColumnSpec(name="relevance_score", label="Rel", kind=Kind.SCORE),
@@ -373,6 +408,7 @@ __all__ = [
     "APPLIED_COLUMNS",
     "REVIEW_COLUMNS",
     "WAITLIST_COLUMNS",
+    "FALLBACK_COLUMNS",
     "REJECTED_COLUMNS",
     "NOT_SELECTED_COLUMNS",
     "ARCHIVE_COLUMNS",

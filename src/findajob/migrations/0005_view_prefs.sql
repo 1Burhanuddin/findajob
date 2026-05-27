@@ -9,7 +9,7 @@
 
 CREATE TABLE IF NOT EXISTS view_prefs (
     tab TEXT PRIMARY KEY CHECK (tab IN (
-        'dashboard','applied','review','waitlist',
+        'dashboard','applied','review','waitlist','fallback',
         'rejected','not_selected','archive'
     )),
     query_string TEXT NOT NULL,

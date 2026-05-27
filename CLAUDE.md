@@ -183,6 +183,7 @@ return zero LinkedIn results. Validate each query manually before committing.
 Every transition is a POST handler in `findajob.web.routes.board_actions`
 that calls straight into `findajob.actions` (handle_rejection,
 handle_not_selected, handle_waitlist, handle_reactivate,
+handle_withdraw_as_fallback, mark_as_fallback, promote_from_fallback,
 promote_to_scored, notify_waitlist_resurface, reset_prep_to_scored) and
 responds in the same request — no poll cycle, no mirror table.
 
@@ -200,6 +201,7 @@ responds in the same request — no poll cycle, no mirror table.
 | Interviewing | `POST /board/jobs/{fp}/interview` | Applied dropdown |
 | Offer | `POST /board/jobs/{fp}/offer` | Applied dropdown |
 | Withdrew | `POST /board/jobs/{fp}/withdraw` | Applied dropdown |
+| Withdrew (Fallback) | `POST /board/jobs/{fp}/withdraw-as-fallback` | Applied dropdown. Sets stage=`withdrawn_fallback`, stores reason="Better opportunity", fires `notify_waitlist_resurface`. No folder move (#358). |
 | Not Selected (w/ reason) | `POST /board/jobs/{fp}/not-selected` | Applied dropdown + reject cell |
 | Promote | `POST /board/jobs/{fp}/promote` | Review button |
 | Reactivate | `POST /board/jobs/{fp}/reactivate` | Waitlist button |
@@ -207,9 +209,11 @@ responds in the same request — no poll cycle, no mirror table.
 | Change reject reason | `POST /board/jobs/{fp}/change-reject-reason` | Rejected tab inline dropdown (#697) |
 | Un-not-selected | `POST /board/jobs/{fp}/un-not-selected` | Not Selected tab button (#698) |
 | Change not-selected reason | `POST /board/jobs/{fp}/change-not-selected-reason` | Not Selected tab inline dropdown (#698) |
+| Mark as Fallback | `POST /board/jobs/{fp}/mark-as-fallback` | Archive actions cell (#358). Converts withdrawn → withdrawn_fallback. No folder move. |
+| Promote from Fallback | `POST /board/jobs/{fp}/promote-from-fallback` | Fallback tab button (#358). Restores prior stage from audit_log. Clears reject_reason. |
 | Un-withdraw | `POST /board/jobs/{fp}/un-withdraw` | Archive actions cell (#701) |
 | Reattribute | `POST /board/jobs/{fp}/reattribute-from-archive` | Archive reattribute modal (#701) |
-| Edit user_notes | `POST /board/jobs/{fp}/notes` | Notes input on any tab that surfaces the column (Dashboard / Review / Waitlist / Applied). 800ms debounce. Blur writes `notes_history`; keyup only writes `jobs.user_notes`. |
+| Edit user_notes | `POST /board/jobs/{fp}/notes` | Notes input on any tab that surfaces the column (Dashboard / Review / Waitlist / Fallback / Applied). 800ms debounce. Blur writes `notes_history`; keyup only writes `jobs.user_notes`. |
 | Confirm rejection email | `POST /board/rejections-review/{id}/confirm` | Rejections-review queue (#362) |
 | Dismiss rejection email | `POST /board/rejections-review/{id}/dismiss` | Rejections-review queue (#362) |
 | Reattribute rejection email | `POST /board/rejections-review/{id}/reattribute` | Rejections-review queue (#362) |
@@ -221,6 +225,8 @@ The rejections-review row is keyed by `rejection_suggestions.id` rather than `jo
 - Otherwise: user rejection → `stage=rejected`, writes `feedback_log`, moves folder to `_rejected/`
 
 **Stage `waitlisted`:** Set by `POST /board/jobs/{fp}/waitlist`. Folder moves to `companies/_waitlisted/`. Not a rejection — does not write to feedback_log or contaminate scorer feedback loop. When an active application at the same company is rejected/withdrawn, ntfy notification surfaces waitlisted jobs.
+
+**Stage `withdrawn_fallback`:** Set by `POST /board/jobs/{fp}/withdraw-as-fallback` (from Applied dropdown) or `POST /board/jobs/{fp}/mark-as-fallback` (from Archive, converting existing withdrawn rows). Folder stays in `companies/_applied/` — no folder move. Not a rejection — does not write to `feedback_log`. Withdraw reason stored in `reject_reason` column (stage-disjoint from rejected/not_selected). `notify_waitlist_resurface()` fires on the withdraw-as-fallback route. The Fallback tab (`/board/fallback`) surfaces all `withdrawn_fallback` rows with a Promote button that restores the prior stage via `audit_log` lookup.
 
 **Stage `not_selected`:** Set by `POST /board/jobs/{fp}/not-selected`. Only valid for post-application stages (`applied`, `interview`, `offer`); 409 otherwise. Folder stays in `companies/_applied/` with a `NOT_SELECTED_{reason}_{date}.txt` marker file. Does NOT write to `feedback_log` — company rejections must not contaminate the scorer's feedback loop. `notify_waitlist_resurface()` still fires.
 

@@ -54,11 +54,19 @@
             hx-target="closest td"
             hx-swap="outerHTML">Un-reject</button>
   {% elif row.stage == 'withdrawn' %}
-    <button type="button"
-            class="rounded bg-slate-100 hover:bg-slate-200 px-2 py-0.5 text-xs text-slate-700"
-            hx-post="/board/jobs/{{ row.fingerprint }}/un-withdraw"
-            hx-target="closest tr"
-            hx-swap="outerHTML">Un-withdraw</button>
+    <div class="flex gap-1">
+      <button type="button"
+              class="rounded bg-slate-100 hover:bg-slate-200 px-2 py-0.5 text-xs text-slate-700"
+              hx-post="/board/jobs/{{ row.fingerprint }}/un-withdraw"
+              hx-target="closest tr"
+              hx-swap="outerHTML">Un-withdraw</button>
+      <button type="button"
+              class="rounded bg-amber-100 hover:bg-amber-200 px-2 py-0.5 text-xs text-amber-800"
+              hx-post="/board/jobs/{{ row.fingerprint }}/mark-as-fallback"
+              hx-target="closest tr"
+              hx-swap="outerHTML"
+              title="Move to the Fallback queue for potential revisit">Fallback</button>
+    </div>
   {% elif row.stage == 'not_selected' %}
     <div class="flex gap-1">
       <button type="button"
