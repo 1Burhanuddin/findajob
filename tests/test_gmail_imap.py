@@ -90,6 +90,22 @@ def test_load_config_rejects_unknown_schema_version(cfg_path):
     assert gmail_imap.load_config() is None
 
 
+def test_load_config_permission_denied_returns_none(cfg_path):
+    gmail_imap.save_config(
+        gmail_imap.GmailConfig(
+            address="u@g.com",
+            app_password="abcdefghijklmnop",
+            sender_allowlist=["a@b.com"],
+            configured_at="2026-01-01T00:00:00Z",
+        )
+    )
+    cfg_path.chmod(0o000)
+    try:
+        assert gmail_imap.load_config() is None
+    finally:
+        cfg_path.chmod(0o600)
+
+
 def test_save_config_writes_atomically_and_chmod_600(cfg_path):
     cfg = gmail_imap.GmailConfig(
         address="user@gmail.com",
@@ -129,6 +145,16 @@ def state_path(tmp_path, monkeypatch):
     p = tmp_path / "gmail_state.json"
     monkeypatch.setattr(gmail_imap, "GMAIL_STATE_PATH", str(p))
     return p
+
+
+def test_load_state_permission_denied_returns_zero_state(state_path):
+    gmail_imap.save_state(gmail_imap.GmailState(last_uid=999))
+    state_path.chmod(0o000)
+    try:
+        s = gmail_imap.load_state()
+        assert s.last_uid == 0
+    finally:
+        state_path.chmod(0o600)
 
 
 def test_load_state_missing_returns_zero_state(state_path):

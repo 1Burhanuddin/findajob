@@ -132,6 +132,9 @@ def load_config() -> GmailConfig | None:
     except json.JSONDecodeError as e:
         log_event("gmail_config_invalid", reason="json", error=str(e))
         return None
+    except OSError as e:
+        log_event("gmail_config_invalid", reason="read_error", error=str(e))
+        return None
     if not _validate_config_payload(payload):
         log_event("gmail_config_invalid", reason="schema_or_validation")
         return None
@@ -171,6 +174,9 @@ def load_state() -> GmailState:
         payload = json.loads(p.read_text())
     except json.JSONDecodeError:
         log_event("gmail_state_invalid", reason="json")
+        return GmailState()
+    except OSError as e:
+        log_event("gmail_state_invalid", reason="read_error", error=str(e))
         return GmailState()
     if payload.get("_schema") != _SCHEMA_VERSION:
         log_event("gmail_state_invalid", reason="schema")
