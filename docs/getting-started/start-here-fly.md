@@ -1,10 +1,10 @@
 # Start here — deploy findajob to Fly.io
 
-**If you're not comfortable with the command line, this is the page for you.** It's a 16-step checklist that goes from "I just heard about findajob" to "my first scored job appears on my dashboard," with a screenshot at every screen and a "what to do if it didn't work" branch on every step.
+**No terminal or command line needed.** This is a step-by-step checklist that goes from "I just heard about findajob" to "my first scored job appears on my dashboard," with a screenshot at every screen and a "what to do if it didn't work" branch on every step. Everything happens in your web browser.
 
-> If you operate Linux servers and would rather skim a denser runbook, see [`install-fly.md`](install-fly.md) instead. This page is the same procedure, just paced for first-timers.
+> If you prefer a denser reference-style runbook, see [`install-fly.md`](install-fly.md) instead. This page is the same procedure, just paced for first-timers.
 
-**Plan ~2 hours start-to-finish.** Most of the calendar time is the onboarding interview, which is a 60–90 minute conversation with an AI. The first part of this checklist (account signups + deploy) takes ~25 minutes.
+**Plan ~2 hours start-to-finish.** Most of the calendar time is the onboarding interview, which is a 60–90 minute conversation with an AI. The first part of this checklist (account signups + deploy) takes ~15 minutes.
 
 ---
 
@@ -14,7 +14,7 @@ You'll need:
 
 - [ ] A **credit card** (used for Fly.io hosting ~$5/mo + OpenRouter LLM spend ~$20–50/mo all-in for a typical user)
 - [ ] About **2 hours of unbroken time** for the install + onboarding interview
-- [ ] A **laptop or desktop** running macOS, Linux, or Windows (instructions cover all three)
+- [ ] A **laptop or desktop** with a web browser
 - [ ] A **resume in any text-extractable form** — Word, PDF, plain text, Google Doc; you'll paste it into the interview
 - [ ] A **personal email** (for Fly + OpenRouter + RapidAPI signups; ~5 minutes total)
 
@@ -74,146 +74,95 @@ findajob can push notifications to your phone — "new high-score job found," "m
 
 ---
 
-## Part B — Install and deploy (15 minutes)
+## Part B — Deploy findajob (10 minutes)
 
-The next four steps happen in a terminal app on your laptop. If you've never opened a terminal, here's how:
+Everything in this section happens in your web browser — no terminal or command line needed.
 
-- **macOS:** open the **Terminal** app from Applications → Utilities (or Spotlight-search for "terminal").
-- **Linux:** your distribution's terminal emulator (usually called Terminal, Konsole, or xterm).
-- **Windows:** use **Windows Terminal** (built in to Windows 11) or PowerShell. Note that findajob's deploy script assumes a Unix-like shell; if you're on Windows, the cleanest path is [WSL2 with Ubuntu](https://learn.microsoft.com/en-us/windows/wsl/install) — install that, then follow the Linux instructions in the steps below. After installing WSL2 with Ubuntu, open the WSL2 terminal (in the Start menu, type "Ubuntu" and hit Enter). The Linux commands in the steps below apply once that terminal is open.
+### Step 5. Launch the app from Fly's dashboard *(5 min)*
 
-Once your terminal is open, you'll see a blinking cursor with a `$` prompt. That's where you'll paste each command. **Press Enter after pasting** to run it.
+1. Sign in to your Fly dashboard at <https://fly.io/dashboard>.
+2. Click the purple **Launch an App** button at the top.
 
-### Step 5. Install flyctl *(3 min)*
+   ![Dashboard showing the Launch an App button](install-fly-web/03-dashboard-launch-button.png)
 
-`flyctl` (or `fly` for short) is the command-line tool that drives the deploy.
+3. **Select the findajob repository.** In the dialog that opens, find and click **brockamer/findajob** in the repo list. If you have a GitHub account with a fork, select your fork instead. If you don't have a GitHub account, select **"Use a public repo"** from the Organization dropdown, then enter `brockamer/findajob`.
 
-**On macOS** — if you don't have Homebrew yet, install it first:
+   ![Repository selector — find brockamer/findajob](install-fly-web/04-launch-repo-selector.png)
 
-```
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
+4. **Configure three fields** in the right-hand panel:
 
-The Homebrew install takes about 5 minutes and asks for your Mac login password. When it finishes, install flyctl:
+   - **App name:** Change to `findajob-<your-handle>` (e.g. `findajob-jamie`). This becomes your URL — `findajob-jamie.fly.dev`. Must be globally unique; lowercase letters, digits, hyphens only.
+   - **Region:** Pick the one nearest you. US East → `iad`. US West → `lax`. Europe → `ams`.
+   - **Memory:** Change from 256MB to **1GB**.
 
-```
-brew install flyctl
-```
+   ![Configuration form — region, port, CPU, memory](install-fly-web/05b-launch-config-middle.png)
 
-**On Linux:**
+   Leave everything else as-is — the `fly.toml` in the repo sets the correct port, volume, and machine size automatically.
 
-```
-curl -L https://fly.io/install.sh | sh
-```
+5. Click the purple **Deploy** button at the bottom.
 
-**Verify the install:**
+   ![Bottom of the form — Deploy button](install-fly-web/06-launch-config-bottom.png)
 
-```
-fly version
-```
-
-**What you should see:** a line like `flyctl v0.3.x` printed to the terminal.
-
-**If something went wrong:** if `fly version` says `command not found`, your `$PATH` isn't picking up the install. Open a new terminal window and retry; if still broken, see the [Fly install troubleshooting page](https://fly.io/docs/flyctl/install/).
-
-### Step 6. Sign in to Fly from the terminal *(1 min)*
-
-```
-fly auth login
-```
-
-This opens a browser tab. Click **Continue** in the browser. The terminal will say "successfully logged in" when the auth completes.
-
-**Verify the sign-in:**
-
-```
-fly auth whoami
-```
-
-**What you should see:** your email address printed to the terminal.
-
-**If something went wrong:** if the browser tab doesn't appear, copy the URL the command printed and paste it manually. If `whoami` shows nothing, re-run `fly auth login` and complete the browser tab.
-
-### Step 7. Download findajob and pick your app name *(3 min)*
-
-First, the download. If you don't have `git` installed:
-
-- **macOS:** run `git --version` and accept the Command Line Tools install prompt.
-- **Linux:** `sudo apt install git` (Debian/Ubuntu) or `sudo dnf install git` (Fedora/RHEL).
-
-Then:
-
-```
-git clone https://github.com/brockamer/findajob.git
-cd findajob
-```
-
-**Pick your handle BEFORE editing the config file.** Your app name becomes part of your URL — `findajob-jamie.fly.dev` if your handle is `jamie`. Rules:
-
-- Globally unique across all of Fly. If `findajob-jamie` is taken, try `findajob-jamie-2026` or initials.
-- Lowercase letters, digits, hyphens only. No underscores. No uppercase.
-
-Open the config file in a text editor:
-
-```
-cp ops/fly.toml.example ops/fly.toml   # make a copy you can edit
-open -e ops/fly.toml                   # macOS — opens in TextEdit
-nano ops/fly.toml                      # Linux — opens in the nano terminal editor
-```
-
-Change the line `app = "findajob-<your-handle>"` to your chosen name. **Save and close** (TextEdit: Cmd-S then Cmd-W; nano: Ctrl-O then Enter then Ctrl-X).
-
-**What you should see:** the file is closed. You're back at the `$` prompt.
-
-**Don't change anything else in `fly.toml` for a first deploy** — the defaults are what the next step expects.
-
-### Step 8. Run the deploy script *(8–12 min)*
-
-One command does the whole deploy:
-
-```
-bash ops/fly-deploy.sh
-```
-
-**What the script will ask for** (have these ready from Part A):
-
-1. `OPENROUTER_API_KEY` — paste your OpenRouter key from Step 2
-2. `RAPIDAPI_KEY` — paste your RapidAPI key from Step 3 (or press Enter to skip)
-3. `NTFY_TOPIC` — paste your ntfy topic from Step 4 (or press Enter to skip)
-4. `FINDAJOB_AUTH_USER` — pick a short username for the web login (e.g. your first name)
-5. `FINDAJOB_AUTH_PASS` — press Enter to let the script generate a strong password, or type your own
-
-Each value is stored in Fly's encrypted secrets store — not in any file on your laptop.
-
-**What you should see:** progress messages for ~5 minutes (image pull, machine boot, auth-gate verification), then a final URL printed like:
-
-```
-✓ Deploy complete: https://findajob-jamie.fly.dev/
-```
+**What you should see:** a live deployment page with build steps progressing. This takes 2–4 minutes. When it finishes, you'll see "Deployed" in the breadcrumb at the top.
 
 **If something went wrong:**
 
-- **`HTTP 422 "This functionality is disabled for trial organizations"`** — billing isn't enabled on your Fly org. Go back to Step 1 and add a credit card.
-- **`verify_auth` exits non-zero** — the auth gate is misconfigured. Re-run `bash ops/fly-deploy.sh` and re-enter `FINDAJOB_AUTH_USER` + `FINDAJOB_AUTH_PASS`.
-- **App-name typo** — if you typed the wrong slug, `fly apps destroy <wrong-name>` removes it (costs nothing pre-deploy). Then re-edit `ops/fly.toml` and re-run the deploy script.
+- **Deploy fails with "This functionality is disabled for trial organizations"** — billing isn't enabled on your Fly org. Go back to Step 1 and add a credit card.
+- **App-name already taken** — try a different handle (e.g. add the year: `findajob-jamie-2026`). You can delete the failed app from Settings → Delete app and re-launch.
+
+### Step 6. Add your API keys and password *(3 min)*
+
+After the deploy finishes, navigate to your new app: click the app name in the breadcrumb at the top of the page, or go to `https://fly.io/apps/findajob-<your-handle>`.
+
+1. Click the **Secrets** tab in the bottom nav bar.
+
+   ![Secrets page with Add Secrets and Deploy Secrets buttons](install-fly-web/07-secrets-page.png)
+
+2. Click **Add Secrets**. You'll see a dialog with Name and Secret fields:
+
+   ![Add Secrets dialog — enter Name and Secret value](install-fly-web/08-add-secrets-dialog.png)
+
+3. Add each of the following secrets **one at a time** (type the Name exactly as shown, paste your value, click Add):
+
+   | Name | Required? | What to enter |
+   |------|-----------|---------------|
+   | `OPENROUTER_API_KEY` | **Yes** | Your OpenRouter API key from Step 2 |
+   | `FINDAJOB_AUTH_USER` | **Yes** | A short username for the web login (e.g. your first name) |
+   | `FINDAJOB_AUTH_PASS` | **Yes** | A strong password, 24+ characters (e.g. `correct-horse-battery-staple`) |
+   | `RAPIDAPI_KEY` | Optional | Your RapidAPI key from Step 3 |
+   | `NTFY_TOPIC` | Optional | Your ntfy topic from Step 4 |
+
+4. After adding all secrets, click the **Deploy Secrets** button at the top of the Secrets page. This restarts your app with the secrets active.
+
+**What you should see:** the app status returns to "Deployed" after a few seconds.
+
+**If something went wrong:** if you mistyped a secret value, click **Edit** next to it, correct it, and click **Deploy Secrets** again.
+
+### Step 7. Verify your app is running *(1 min)*
+
+Open `https://findajob-<your-handle>.fly.dev/` in your browser.
+
+**What you should see:** your browser pops up a username/password dialog. Type the `FINDAJOB_AUTH_USER` + `FINDAJOB_AUTH_PASS` you set in Step 6. After signing in, the dashboard redirects to `/onboarding/` — this is the start of the in-app interview.
+
+**If something went wrong:** if the browser shows "Connection refused," the machine may still be restarting after the secrets deploy. Wait 60 seconds and retry.
 
 ---
 
 ## Part C — In-app onboarding (60–90 minutes)
 
-### Step 9. Open your URL and sign in *(1 min)*
+### Step 8. Open your URL and sign in *(1 min)*
 
-Click the URL the deploy script printed (or paste it into your browser).
+Open `https://findajob-<your-handle>.fly.dev/` in your browser (if you haven't already from Step 7).
 
-**What you should see:** your browser pops up a username/password dialog (it looks slightly different in Chrome / Safari / Firefox, but always asks for the same two fields). Type the `FINDAJOB_AUTH_USER` + `FINDAJOB_AUTH_PASS` you set in Step 8.
+**What you should see:** your browser pops up a username/password dialog (it looks slightly different in Chrome / Safari / Firefox, but always asks for the same two fields). Type the `FINDAJOB_AUTH_USER` + `FINDAJOB_AUTH_PASS` you set in Step 6.
 
 After signing in, the dashboard immediately redirects to `/onboarding/` because your stack has no profile yet.
 
-**If something went wrong:** if the browser shows "Connection refused," the machine may still be cold-starting. Wait 60 seconds and retry. If still broken, run `fly status --app findajob-<your-handle>` in the terminal to check the machine state.
+**If something went wrong:** if the browser shows "Connection refused," the machine may still be restarting. Wait 60 seconds and retry.
 
-### Step 10. Confirm your API keys *(1 min)*
+### Step 9. Confirm your API keys *(1 min)*
 
-The first onboarding screen detects the API keys you set in Step 8 and shows the last 4 characters of each as confirmation.
+The first onboarding screen detects the API keys you set in Step 6 and shows the last 4 characters of each as confirmation.
 
 ![Step 1 of onboarding: detected OpenRouter and RapidAPI keys with last-4 confirmation and a Use detected keys button](install-fly/07-step1-api-keys.png)
 
@@ -223,7 +172,7 @@ Click **Use detected keys** to advance.
 
 **If something went wrong:** if you mistyped a key during deploy, click **Enter keys manually instead** and paste the correct value.
 
-### Step 11. Run the onboarding interview *(60–90 min, ~$3–6)*
+### Step 10. Run the onboarding interview *(60–90 min, ~$3–6)*
 
 This is the longest step by far — and the one where findajob learns who you are.
 
@@ -251,7 +200,7 @@ Click **Finalize**. findajob writes your config files to disk and kicks off a on
 
 **If something went wrong:** if the chat seems stuck (no LLM response for 30+ seconds), check `https://openrouter.ai/credits` — your balance may have run out. Top up and refresh the page; the conversation persists server-side.
 
-### Step 12. Set a monthly spend ceiling *(1 min, recommended)*
+### Step 11. Set a monthly spend ceiling *(1 min, recommended)*
 
 This is the single biggest cost-anxiety defuse in findajob — a hard cap on your monthly LLM spend.
 
@@ -263,7 +212,7 @@ This is the single biggest cost-anxiety defuse in findajob — a hard cap on you
 
 **If something went wrong:** if you skipped this and want to set one later, visit `/settings/spend-ceiling/` in your web UI any time.
 
-### Step 13. (Optional) Configure Gmail integration *(3 min)*
+### Step 12. (Optional) Configure Gmail integration *(3 min)*
 
 findajob can read your Gmail inbox to ingest LinkedIn / Indeed job-alert emails AND auto-detect ATS rejection emails.
 
@@ -275,7 +224,7 @@ To wire it up: see [`gmail.md`](gmail.md) for the 2FA + Gmail app-password proce
 
 **What you should see:** the page advances to the LinkedIn connections step.
 
-### Step 14. (Optional) Upload your LinkedIn Connections.csv *(2 min)*
+### Step 13. (Optional) Upload your LinkedIn Connections.csv *(2 min)*
 
 findajob uses your LinkedIn network to find people at companies that posted jobs you're applying to, and drafts outreach to them.
 
@@ -294,7 +243,7 @@ findajob uses your LinkedIn network to find people at companies that posted jobs
 
 ## Part D — Your first triage (5–60 minutes)
 
-### Step 15. Trigger your first triage *(5–60 min, mostly waiting)*
+### Step 14. Trigger your first triage *(5–60 min, mostly waiting)*
 
 You're now on the dashboard. The job table is empty — no jobs have been triaged yet.
 
@@ -312,9 +261,9 @@ Refresh `/board/` to see progress.
 
 **What you should see when it finishes:** a scored shortlist, typically 20–50 jobs at score ≥ 5 out of several hundred to a few thousand ingested.
 
-**If something went wrong:** if the dashboard still shows empty after 60+ minutes, run `fly logs --app findajob-<your-handle>` in your terminal to see what the pipeline is doing.
+**If something went wrong:** if the dashboard still shows empty after 60+ minutes, check your app's **Logs & Errors** tab in the Fly dashboard to see what the pipeline is doing.
 
-### Step 16. See your first scored jobs
+### Step 15. See your first scored jobs
 
 ![Dashboard after onboarding — daily job feed begins populating overnight](install-fly/06-dashboard-post-onboarding.png)
 

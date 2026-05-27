@@ -130,7 +130,7 @@ Specific model picks per stage: [`docs/architecture.md`](docs/architecture.md).
 
 There are two ways to run findajob — pick based on whether you want to operate a Linux server:
 
-- **Hosted on Fly.io** *(recommended for most people)* — runs on Fly's infrastructure under your account. ~$5/month for the always-on machine + 8 GB volume; you don't operate a server. Setup is `fly auth login` + a deploy script that prompts for your API keys, then ~60 minutes inside the app to complete the onboarding interview.
+- **Hosted on Fly.io** *(recommended for most people)* — runs on Fly's infrastructure under your account. ~$5/month for the always-on machine + 8 GB volume; you don't operate a server. Deploy from the Fly.io web dashboard — no terminal needed. Then ~60 minutes inside the app to complete the onboarding interview.
 - **Self-hosted with Docker Compose** *(for operators)* — runs as `ghcr.io/brockamer/findajob` (`linux/amd64` + `linux/arm64`) on a server you operate. Zero hosting cost beyond what you already pay for the box. You handle backups, reverse proxy, TLS, and updates.
 
 Both paths run the same image, complete the same onboarding interview, and reach the same dashboard. Full cost breakdown across paths and LLM cadences: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
@@ -149,38 +149,31 @@ Sign-up walkthroughs: [`docs/getting-started/api-keys.md`](docs/getting-started/
 
 ### Deploy — Fly.io (hosted)
 
-**If you're not comfortable with the command line, start at [`docs/getting-started/start-here-fly.md`](docs/getting-started/start-here-fly.md)** — a step-by-step walkthrough with screenshots at every UI decision point and inline troubleshooting branches, paced for first-timers.
+**No terminal needed.** Start at [`docs/getting-started/start-here-fly.md`](docs/getting-started/start-here-fly.md) — a step-by-step walkthrough with screenshots at every decision point and inline troubleshooting branches.
 
-If you've deployed to a PaaS before and just want the dense version: full runbook at [`docs/getting-started/install-fly.md`](docs/getting-started/install-fly.md). What it'll cost per month, all-in: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
+Denser reference version: [`docs/getting-started/install-fly.md`](docs/getting-started/install-fly.md). Cost breakdown: [`docs/getting-started/cost.md`](docs/getting-started/cost.md).
 
 In short:
 
+1. Sign up at [fly.io](https://fly.io/app/sign-up) and add a credit card
+2. Click **Launch an App** on your Fly dashboard → select `brockamer/findajob` → set your app name (`findajob-<your-handle>`), region, memory (1GB) → **Deploy**
+3. Navigate to your app's **Secrets** tab → add `OPENROUTER_API_KEY`, `FINDAJOB_AUTH_USER`, `FINDAJOB_AUTH_PASS` → **Deploy Secrets**
+4. Visit `https://findajob-<your-handle>.fly.dev/` and complete the onboarding interview
+
+Fly provisions the app, an 8 GB volume, and HTTPS automatically. Your URL is live in under 5 minutes.
+
+<details>
+<summary>Alternative: CLI deploy (power users)</summary>
+
 ```bash
-# 1. (macOS only) Install Homebrew if you don't have it — see https://brew.sh
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# 2. Install flyctl
-brew install flyctl                              # macOS
-curl -L https://fly.io/install.sh | sh           # Linux
-
-# 3. Clone the repo (creates a "findajob" folder in your current directory)
-git clone https://github.com/brockamer/findajob.git
-cd findajob
-
-# 4. Sign in to Fly (opens a browser; signs you up if you don't have an account yet)
+brew install flyctl                              # macOS (Linux: curl -L https://fly.io/install.sh | sh)
+git clone https://github.com/brockamer/findajob.git && cd findajob
 fly auth login
-
-# 5. Pick your app name (becomes part of your URL)
-cp ops/fly.toml.example ops/fly.toml
-open -e ops/fly.toml                             # macOS — opens in TextEdit
-nano ops/fly.toml                                # Linux — terminal editor
-# Change the line: app = "findajob-<your-handle>"  (must be globally unique on Fly)
-
-# 6. Deploy (creates the app + 8GB volume, prompts for API keys, runs `fly deploy`)
-bash ops/fly-deploy.sh
+cp ops/fly.toml.example ops/fly.toml             # edit app = "findajob-<your-handle>"
+bash ops/fly-deploy.sh                           # creates app, volume, prompts for secrets, deploys
 ```
 
-The script provisions the Fly app + 8 GB volume, stages your API keys as Fly secrets, runs `fly deploy`, and verifies the basic-auth gate post-deploy. On success it prints your URL: `https://findajob-<your-handle>.fly.dev/`.
+</details>
 
 ### Deploy — Docker Compose (self-host)
 

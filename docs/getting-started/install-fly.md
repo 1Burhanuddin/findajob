@@ -2,7 +2,7 @@
 
 The hosted path: findajob runs as one app per person on [Fly.io](https://fly.io/), reachable at a `findajob-<your-handle>.fly.dev` URL with HTTPS terminated by Fly. You don't operate a Linux server. You pay Fly directly for the machine + 8 GB volume, and your LLM provider directly for AI calls — no middleman.
 
-**Time to value: ~20 minutes to first onboarding screen, ~2 hours total to a populated dashboard.** Setup + deploy takes ~20 minutes from `fly auth login` through to the auth gate. The in-app onboarding interview that follows takes 60–90 minutes (one-time, ~$3–6 of OpenRouter spend — make sure you've added at least $10 of credit to your OpenRouter wallet before starting; OpenRouter is pay-as-you-go, so you're funding a balance the system draws from). Your dashboard fills overnight when the daily triage runs at midnight in your timezone.
+**Time to value: ~20 minutes to first onboarding screen, ~2 hours total to a populated dashboard.** Deploy takes ~10 minutes through the Fly.io web dashboard (no terminal required). The in-app onboarding interview that follows takes 60–90 minutes (one-time, ~$3–6 of OpenRouter spend — make sure you've added at least $10 of credit to your OpenRouter wallet before starting; OpenRouter is pay-as-you-go, so you're funding a balance the system draws from). Your dashboard fills overnight when the daily triage runs at midnight in your timezone.
 
 This page is for someone who has never deployed anything to Fly before. If you operate Linux servers and would rather run a docker-compose stack on a host you own, see [`install-docker.md`](install-docker.md) instead. Both paths run the same image and reach the same dashboard.
 
@@ -12,7 +12,7 @@ This page is for someone who has never deployed anything to Fly before. If you o
 
 - You want findajob, but you don't want to run a server.
 - You have a credit card and ~$5/month of budget room for hosting (LLM API spend is separate and you control it).
-- You'll paste a handful of commands into a terminal app on your laptop. There is no GUI for the deploy itself — Fly is operated with the `fly` command. If you've never opened a terminal: on macOS, open the **Terminal** app from Applications → Utilities (or Spotlight-search "terminal"). On Linux, your distro's terminal emulator. Each command in this runbook is one line you copy and paste; press Enter to run.
+- You can follow step-by-step instructions in a web browser. No terminal or command line needed.
 
 ## Who this is NOT for
 
@@ -21,109 +21,82 @@ This page is for someone who has never deployed anything to Fly before. If you o
 
 ## What you'll need before you start
 
-Collected before you run the deploy script (it'll prompt for each):
+Have these ready (you'll enter them after the initial deploy):
 
-1. **A Fly.io account with billing enabled.** Sign up at <https://fly.io/app/sign-up>, then after signing in click **Billing** in the left nav of your Fly dashboard and add a card. Trial orgs without a card on file are rejected by `fly deploy` later (HTTP 422); fix this before starting.
+1. **A Fly.io account with billing enabled.** Sign up at <https://fly.io/app/sign-up>, then after signing in click **Billing** in the left nav of your Fly dashboard and add a card. Trial orgs without a card on file are rejected at deploy time.
+
+   ![Fly.io sign-up page — use GitHub, Google, or email](install-fly-web/01-sign-up.png)
+
 2. **An OpenRouter API key** for LLM calls. Pay-as-you-go from $0 (no monthly minimum). Sign-up walkthrough: [`api-keys.md`](api-keys.md#openrouter).
 3. **A RapidAPI key** (optional, for LinkedIn / Indeed / Bing search ingestion). BASIC plan is 150 requests/month free, no credit card. Skipping it means LinkedIn / Indeed search is inactive — Greenhouse / Ashby / Lever and Gmail alerts still work. Walkthrough: [`api-keys.md`](api-keys.md#rapidapi).
-4. **An ntfy topic for push notifications.** findajob uses [ntfy.sh](https://ntfy.sh/) — a free notification service — to send alerts to your phone for things like "new high-score job found" or "monthly LLM spend ceiling reached." Install the free ntfy app on Android or iOS, then pick a "topic name" that only you and findajob will know (e.g. `findajob-jane-2026-19`). The topic acts as the channel ID; anyone who knows or guesses the name can subscribe to and read your alerts, so use something hard to guess. **You can skip this** and configure ntfy later — see [`notifications.md`](notifications.md) for the post-deploy setup.
-5. **A basic-auth username and password.** Anyone with this credential can reach your dashboard and reconfigure the pipeline. The deploy script generates a strong random password if you let it; pick a short username like your first name.
-
-A handful of these (OpenRouter + RapidAPI + ntfy + auth) are collected at deploy time so the first browser visit lands on the auth gate, not a half-configured screen.
-
-**An opt-in safety net.** You can cap monthly LLM spend at any dollar amount via `/settings/spend-ceiling/` after deploy — the pipeline halts new LLM calls when the running monthly total crosses your cap. The onboarding flow walks you through setting one. **If you skip that step, new LLM calls run uncapped** until you configure a ceiling; a dashboard banner reminds you until you set one or dismiss it. Set whatever number won't make you nervous; you can change it later.
+4. **An ntfy topic for push notifications** (optional). findajob uses [ntfy.sh](https://ntfy.sh/) — a free notification service — to send alerts to your phone. Install the free ntfy app on Android or iOS, then pick a "topic name" that only you and findajob will know (e.g. `findajob-jane-2026-19`). **You can skip this** and configure ntfy later — see [`notifications.md`](notifications.md).
+5. **A basic-auth username and password.** Anyone with this credential can reach your dashboard. Pick a short username (like your first name) and a strong password (24+ characters — a passphrase like `correct-horse-battery-staple` works).
 
 ---
 
-## 1. Install flyctl on your laptop
+## 1. Sign in to Fly.io
 
-flyctl is the command-line tool that drives the deploy. Install for your OS:
+Go to <https://fly.io/app/sign-in> and sign in with the account you created. You'll land on your Fly dashboard.
 
-```
-# macOS (Homebrew)
-brew install flyctl
+## 2. Launch the app
 
-# Linux
-curl -L https://fly.io/install.sh | sh
+Click the purple **Launch an App** button at the top of your dashboard.
 
-# Windows (PowerShell)
-iwr https://fly.io/install.ps1 -useb | iex
-```
+![Dashboard showing the Launch an App button](install-fly-web/03-dashboard-launch-button.png)
 
-If you don't have Homebrew yet: see <https://brew.sh> — the install takes 5 minutes and asks for your Mac login password.
+In the dialog that opens:
 
-The Fly installer page (<https://fly.io/docs/flyctl/install/>) has alternative installers and PATH-troubleshooting tips if any of the above don't work. After installing:
+1. **Select the findajob repository.** If you have a GitHub account and have forked `brockamer/findajob`, select your fork. If you're using the public repo, select the Organization dropdown and choose **"Use a public repo"**, then paste `brockamer/findajob`.
 
-```
-fly version            # confirm install
-fly auth login         # opens a browser to sign in
-fly auth whoami        # confirms you're logged in
-```
+   ![Repository selector — find brockamer/findajob](install-fly-web/04-launch-repo-selector.png)
 
-`fly auth login` returns you to the terminal once your browser tab confirms. If `whoami` shows your email, you're set.
+2. **Configure the deploy** — only three fields need attention:
 
-## 2. Clone the repo
+   ![Configuration form — app name, region, machine size](install-fly-web/05-launch-config-top.png)
 
-You need a local working tree because the deploy reads `ops/fly.toml` from disk:
+   - **App name:** Change to `findajob-<your-handle>` (e.g. `findajob-jane`). Must be globally unique — lowercase letters, digits, hyphens only.
+   - **Region:** Pick the one nearest you. US East → `iad` (Ashburn, VA). US West → `lax` (Los Angeles). Europe → `ams` (Amsterdam).
+   - **Memory:** Change from 256MB to **1GB**.
 
-```
-git clone https://github.com/brockamer/findajob.git
-cd findajob
-```
+   ![Region, port, CPU, and memory settings](install-fly-web/05b-launch-config-middle.png)
 
-If you don't have git: on macOS, run `git --version` and accept the Command Line Tools install prompt. On Linux, `sudo apt install git` (Debian/Ubuntu) or `sudo dnf install git` (Fedora/RHEL).
+   Leave everything else as-is. The `fly.toml` in the repo sets the correct internal port (8090), volume (8 GB), and machine size. These override the form defaults.
 
-You won't edit pipeline code — only the `ops/fly.toml` config to set your app name.
+   ![Bottom of the form — config path defaults to ./, Deploy button](install-fly-web/06-launch-config-bottom.png)
 
-## 3. Configure your app name
+3. **Click Deploy.** Fly creates the app, provisions an 8 GB volume, builds the image, and starts the machine. This takes 2–4 minutes. You'll see a live progress page with build steps.
 
-Copy the example fly.toml and pick a handle. The handle is the leftmost label of your URL — `findajob-jane.fly.dev` if your handle is `jane`:
+## 3. Add your secrets
 
-```
-cp ops/fly.toml.example ops/fly.toml   # make a copy you can edit
-open -e ops/fly.toml                   # macOS — opens in TextEdit
-nano ops/fly.toml                      # Linux — terminal editor
-```
+Once the deploy completes, navigate to your app in the Fly dashboard (click the app name in the top-left breadcrumb, or go to `https://fly.io/apps/findajob-<your-handle>`), then click the **Secrets** tab in the left nav.
 
-Change one line:
+![Secrets page with Add Secrets and Deploy Secrets buttons](install-fly-web/07-secrets-page.png)
 
-```
-app = "findajob-<your-handle>"
-```
+Click **Add Secrets** to add each of the following. Enter the name exactly as shown, paste your value, and click Add:
 
-`<your-handle>` must be globally unique across Fly. Lowercase letters, digits, hyphens; no underscores. If `findajob-jane` is taken, try `findajob-jane-<year>` or initials.
+| Name | Required? | Value |
+|------|-----------|-------|
+| `OPENROUTER_API_KEY` | **Yes** | Your OpenRouter API key |
+| `FINDAJOB_AUTH_USER` | **Yes** | Your chosen username (e.g. `jane`) |
+| `FINDAJOB_AUTH_PASS` | **Yes** | Your chosen password (24+ characters) |
+| `RAPIDAPI_KEY` | Optional | Your RapidAPI key |
+| `NTFY_TOPIC` | Optional | Your ntfy topic name |
 
-Don't change anything else in `fly.toml` for a first deploy. The defaults — `shared-cpu-1x` 1 GB machine, 8 GB volume, `auto_stop_machines = "off"` so cron jobs run — are what the next step expects.
+![Add Secrets dialog — enter Name and Secret value](install-fly-web/08-add-secrets-dialog.png)
 
-## 4. Run the deploy script
+After adding all secrets, click the **Deploy Secrets** button at the top of the Secrets page. This restarts your machine with the secrets active — the auth gate and LLM calls will now work.
 
-One command:
+## 4. First browser visit
 
-```
-bash ops/fly-deploy.sh
-```
+Open `https://findajob-<your-handle>.fly.dev/` in your browser. You'll be prompted for the basic-auth username and password you just set. After login, the dashboard redirects to `/onboarding/` — this is the start of the in-app interview.
 
-The script is idempotent — safe to re-run. On a clean run it:
-
-1. Creates the Fly app under the slug you set in `fly.toml`. (No confirmation prompt — a typo in the app name creates an app under the wrong slug on your Fly account. Verify `app =` is exactly what you want before running. If you typo, `fly apps destroy <wrong-name>` removes the wrong app — costs nothing if no machine has been deployed yet (just frees the slug for a re-try).)
-2. Creates the `findajob_state` volume (8 GB, holds all your data).
-3. Prompts you for each secret you haven't already set (`OPENROUTER_API_KEY`, `RAPIDAPI_KEY`, `NTFY_TOPIC`, `FINDAJOB_AUTH_USER`, `FINDAJOB_AUTH_PASS`). `FINDAJOB_WEB_URL` is optional — auto-derived from Fly's `FLY_APP_NAME` at runtime. Each secret is stored in Fly's encrypted secrets store, not in `fly.toml` or your shell history.
-4. Runs `fly deploy`. First build pulls the image (~1 GB; takes 2–4 minutes), then the machine boots and runs `ops/entrypoint.sh` — which materializes the data subdirectories under `/app/state/` and creates an empty `pipeline.db`.
-5. Verifies the basic-auth gate is wired correctly by SSH-ing into the machine and running `python -m findajob.web.verify_auth` (it confirms the password gate is correctly protecting your dashboard, so anonymous visitors can't reach it). Non-zero exit means the auth gate is misconfigured — the script prints debugging commands and exits without claiming success.
-
-On success, the script prints your URL: `https://findajob-<your-handle>.fly.dev/`.
-
-## 5. First browser visit
-
-Open the URL. Your browser asks for the basic-auth credential you just set — username + password. After login, the dashboard 307-redirects to `/onboarding/` because the stack has no profile yet. This is the start of the in-app interview.
-
-## 6. Onboarding
+## 5. Onboarding
 
 The onboarding flow is a structured 60–90 minute LLM conversation that writes your `profile.md`, role prompts, and other config files based on your career history. Plan to sit through it in one session, or use the "resume" affordance to come back later.
 
-**Step 1 — API keys.** Your first onboarding screen detects the `OPENROUTER_API_KEY` and `RAPIDAPI_KEY` you set during the deploy (read from the container's environment — Fly secrets surface there). It shows the last 4 characters of each as confirmation and a **Use detected keys** button. Click it to advance to Step 2 without re-typing. To enter different keys (e.g., you mistyped one or want to rotate), click **Enter keys manually instead** for the empty form.
+**Step 1 — API keys.** Your first onboarding screen detects the `OPENROUTER_API_KEY` and `RAPIDAPI_KEY` you set as secrets (read from the container's environment). It shows the last 4 characters of each as confirmation and a **Use detected keys** button. Click it to advance to Step 2 without re-typing.
 
-**Step 2 — Run the interview.** Click "Start interview." A chat surface opens. The interviewer asks structured questions about your work history, target companies, skills, and preferences, emitting config blocks as you go. You can close the tab anytime — the session is server-side persistent, and the index page surfaces a "Resume your interview" button:
+**Step 2 — Run the interview.** Click "Start interview." A chat surface opens. The interviewer asks structured questions about your work history, target companies, skills, and preferences, emitting config blocks as you go. You can close the tab anytime — the session is server-side persistent:
 
 ![Resume the in-progress interview from where you left off](install-fly/01-interview-resume-prompt.png)
 
@@ -151,36 +124,51 @@ See [`gmail.md`](gmail.md) for the 2FA + app-password procedure. Gmail integrati
 
 **Cost note for onboarding.** The interview itself runs **~$3–6 in OpenRouter spend** (system-prompt caching at OpenRouter keeps subsequent turns cheap; long interviews push the high end). Detail: [`cost.md`](cost.md).
 
-## 7. Verify and wait for first triage
+## 6. Verify and wait for first triage
 
-After onboarding lands you on the dashboard, the feed is empty — no jobs have been triaged yet. By default, triage runs at **midnight America/New_York** (the timezone set by `ops/fly.toml`'s `[env].TZ` value, which the deploy script does not prompt for). If you're on a different coast and want triage to land overnight in your local time, change `TZ` either before deploy (edit `ops/fly.toml`'s `[env]` block) or after (`fly secrets set TZ=America/Los_Angeles --app findajob-<your-handle>` — the secret overrides the `[env]` value and triggers a redeploy). Use any [IANA tz name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
+After onboarding lands you on the dashboard, the feed is empty — no jobs have been triaged yet. By default, triage runs at **midnight America/New_York** (the timezone set by the `fly.toml` `[env].TZ` value).
 
 **The dashboard tells you what to do.** A blue banner above the (empty) job table shows when the next scheduled triage will fire and includes a **Trigger triage now** button. Click it to start the pipeline immediately rather than wait for the cron cycle.
 
-**Plan for 5–60 minutes** on the first run — the wide range depends on how many target companies you named in the onboarding interview (more companies → more Greenhouse / Ashby feeds to walk → more jobs to score). Engineering / hyperscaler-flavored candidates with 20+ named companies often see 30–45 minutes; smaller named lists finish in 5–15. Subsequent daily runs are delta-only and complete in 1–5 minutes.
+**Plan for 5–60 minutes** on the first run — the wide range depends on how many target companies you named in the onboarding interview (more companies → more Greenhouse / Ashby feeds to walk → more jobs to score). Smaller named lists finish in 5–15 minutes. Subsequent daily runs are delta-only and complete in 1–5 minutes.
 
 When it finishes, refresh `/board/` and you should see a scored shortlist (typically 20–50 jobs at score ≥ 5 out of several hundred to a few thousand ingested).
 
-<details>
-<summary>Power-user: trigger from the command line</summary>
-
-If you prefer the CLI or your stack's web UI is down:
-
-```
-fly ssh console --app findajob-<your-handle> --command "python3 /app/scripts/triage.py"
-```
-
-This is equivalent to clicking the dashboard's **Trigger triage now** button — same script, same logs, same `pipeline.jsonl` events.
-
-</details>
-
-## 8. Daily operation
+## 7. Daily operation
 
 This page is the install runbook. Once you're up:
 
 - **Web UI** — primary surface. `/board/` for jobs, `/config/` to edit profile / roles / queries without shelling in, `/stats/` for cost tracking.
 - **Usage walkthrough** — [`../usage.md`](../usage.md) is the tab-by-tab daily workflow.
 - **Notifications** — ntfy push to your phone every morning at 06:00 stack-time with the day's high-scoring shortlist.
+
+---
+
+## Updating to a new release
+
+findajob keeps releasing updates. Two ways to pull new versions — pick whichever fits:
+
+**Web (recommended).** In your app's Settings page, connect your GitHub repo and enable **Auto-Deploy on push**. Every time a new release lands on the `main` branch, Fly redeploys your app automatically.
+
+![Settings page — Connect to GitHub repository for auto-deploy](install-fly-web/09-settings-github-connect.png)
+
+**Manual redeploy from dashboard.** Navigate to your app's overview page and click the deploy button if your repo is connected, or re-run the Launch flow.
+
+<details>
+<summary>Power-user: update via CLI</summary>
+
+If you have `flyctl` installed:
+
+```
+fly deploy --config ops/fly.toml
+fly ssh console --app findajob-<your-handle> --command "python -m findajob.web.verify_auth"
+```
+
+If `verify_auth` exits non-zero, the deploy is up but the auth gate is broken — roll back.
+
+</details>
+
+Release notes are at <https://github.com/brockamer/findajob/blob/main/CHANGELOG.md>. Releases with schema or config migrations call them out in a `### Migration required` block — read that section before updating.
 
 ---
 
@@ -202,46 +190,44 @@ Verify current Fly pricing at <https://fly.io/docs/about/pricing/>.
 - Per fully-prepped job (briefing + tailored resume + cover + recruiter critique + outreach): ~$0.80–$1.20 per prep (see [`cost.md`](cost.md) for the breakdown)
 - Onboarding interview (one-time): ~$3–6
 
-See [`cost.md`](cost.md) for the full breakdown with `cost_log`-grounded ranges, and [`../operations/fly-deploy.md#cost-guide`](../operations/fly-deploy.md#cost-guide) for the operator-tier reference table.
-
-You can cap monthly LLM spend at any dollar amount on the `/settings/spend-ceiling/` page in the web UI — the pipeline halts new LLM calls when the running monthly total crosses the cap. The dashboard prompts you to set a ceiling on first visit if one isn't configured yet.
-
-## Updating to a new release
-
-`ops/fly.toml` ships pinned to `:latest`. To pull the current image:
-
-```
-fly deploy --config ops/fly.toml
-fly ssh console --app findajob-<your-handle> --command "python -m findajob.web.verify_auth"
-```
-
-If `verify_auth` exits non-zero, the deploy is up but the auth gate is broken — roll back. Don't leave a stack live without a verified gate.
-
-Release notes are at <https://github.com/brockamer/findajob/blob/main/CHANGELOG.md>. Releases with schema or config migrations call them out in a `### Migration required` block — read that section before updating.
-
-## Rollback
-
-If a deploy goes bad:
-
-```
-fly releases --app findajob-<your-handle>      # find your prior version
-open -e ops/fly.toml                            # macOS — set image to that prior tag in TextEdit
-nano ops/fly.toml                               # Linux — set image to that prior tag in nano
-fly deploy --config ops/fly.toml
-fly ssh console --app findajob-<your-handle> --command "python -m findajob.web.verify_auth"
-```
-
-A rollback is a re-deploy of the prior tag — Fly doesn't have a separate "rollback" primitive. Schema-breaking releases can't be rolled back this way; check the CHANGELOG `### Migration required` block before rolling forward in the first place.
-
-## When you need more depth
-
-This page covers the average install path. For deeper Fly operations — secret rotation, volume resize, per-tenant teardown, the docker-compose-to-fly command translation table — see the operator-tier runbook at [`../operations/fly-deploy.md`](../operations/fly-deploy.md). It assumes you're already comfortable operating the stack; come back here if you want the basics instead.
+See [`cost.md`](cost.md) for the full breakdown with `cost_log`-grounded ranges.
 
 ## Troubleshooting
 
-- **`fly deploy` rejects with HTTP 422 "This functionality is disabled for trial organizations"** — billing isn't enabled on your Fly org. Add a credit card at `https://fly.io/dashboard/<your-org-slug>/billing` and retry.
-- **`verify_auth` exits non-zero** — basic-auth env vars are missing or wrong. Re-run `bash ops/fly-deploy.sh` and re-enter the auth credential.
-- **Browser sees `Connection refused` after deploy** — the machine may still be cold-starting. Wait 60 seconds and retry; check `fly status --app findajob-<your-handle>`.
+- **Deploy fails with "This functionality is disabled for trial organizations"** — billing isn't enabled on your Fly org. Add a credit card at your Fly dashboard's Billing page and retry.
+- **Browser sees `Connection refused` after deploy** — the machine may still be cold-starting. Wait 60 seconds and retry.
 - **OpenRouter calls fail with `402 PaymentRequired`** — your OpenRouter balance is exhausted. Top up at <https://openrouter.ai/credits>. The onboarding interview handles this gracefully; daily triage does not — it logs and continues at the next cycle.
+- **Secrets not taking effect** — after adding secrets on the Secrets page, you must click **Deploy Secrets** to restart the machine. Secrets are staged until deployed.
 
 For symptoms not listed here, see [`../troubleshooting.md`](../troubleshooting.md).
+
+---
+
+<details>
+<summary>Alternative: CLI deploy (power users)</summary>
+
+If you prefer the command line, the full CLI-based deploy path is available. Install `flyctl`, clone the repo, and run the deploy script:
+
+```
+# Install flyctl
+curl -L https://fly.io/install.sh | sh   # Linux
+brew install flyctl                       # macOS
+
+# Authenticate
+fly auth login
+
+# Clone and configure
+git clone https://github.com/brockamer/findajob.git
+cd findajob
+cp ops/fly.toml.example ops/fly.toml
+# Edit ops/fly.toml — change app = "findajob-<your-handle>"
+
+# Deploy (creates app, volume, prompts for secrets, deploys, verifies auth)
+bash ops/fly-deploy.sh
+```
+
+The script is idempotent — safe to re-run. It creates the app, provisions the volume, prompts for each secret, runs `fly deploy`, and verifies the auth gate.
+
+For deeper CLI operations — secret rotation, volume resize, per-tenant teardown — see the operator-tier runbook at [`../operations/fly-deploy.md`](../operations/fly-deploy.md).
+
+</details>
