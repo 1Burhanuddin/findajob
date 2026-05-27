@@ -10,6 +10,8 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.30.0] — 2026-05-27
+
 ### Added
 
 - **Un-interview — reverse an interview stage transition** (#893): `POST /board/jobs/{fp}/un-interview` restores the prior stage from `audit_log` (fallback `applied`). Applied tab dropdown surfaces "Undo Interview" when `stage=interview`. Row stays on Applied tab with OOB stage-change toast. No migration required.
