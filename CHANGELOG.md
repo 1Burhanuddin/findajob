@@ -10,6 +10,13 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.30.1] — 2026-05-27
+
+### Fixed
+
+- **Speculative prep always failed validation** — `candidate_led_briefing` role lacked the "Overall Recommendation" section that the Phase A validator requires. When prep reused the speculative briefing (bypassing `briefing_writer`), validation failed with "briefing: missing Overall Recommendation" and reset the job to `scored`. Added the section to the role prompt with Pursue/Pass vocabulary appropriate for cold-outreach context.
+- **Speculative briefing truncation** — `candidate_led_briefing` (sonar-deep-research) and `company_researcher` (sonar-reasoning-pro) were using the default `max_tokens: 4096`, too low for reasoning models that produce verbose multi-section output. Raised both to `max_tokens: 16384`.
+
 ## [0.30.0] — 2026-05-27
 
 ### Added
