@@ -2842,9 +2842,9 @@ class TestStageChangeToastOOB:
         assert 'id="undo-toast"' in text
         assert 'hx-swap-oob="true"' in text
         assert "Stage changed to Interviewing." in text
-        # Negative: no Undo button (the /apply precedent has one; this toast doesn't)
+        # Negative: no timed Undo button (the /apply precedent has one; this toast doesn't)
         assert "/un-apply" not in text
-        assert "Undo" not in text
+        assert "Undo (" not in text
 
     # --- /offer --------------------------------------------------------------
 
@@ -2956,10 +2956,53 @@ class TestStageChangeToastOOB:
         assert "Stage changed to Offer." in text
         assert "<tr" not in text
 
+    # --- /un-interview -------------------------------------------------------
+
+    def test_un_interview_response_has_row_and_oob_toast(self, client: TestClient):
+        """un-interview restores prior stage; response contains both the
+        re-rendered <tr> (row stays on Applied) and the OOB stage-change toast."""
+        conn = sqlite3.connect(client._db_path)
+        conn.execute(
+            "INSERT INTO audit_log (job_id, field_changed, old_value, new_value) "
+            "VALUES ('id_interview', 'stage', 'applied', 'interview')"
+        )
+        conn.commit()
+        conn.close()
+
+        response = client.post("/board/jobs/fp_interview/un-interview")
+        assert response.status_code == 200
+        text = response.text
+        assert "<tr" in text
+        assert 'id="undo-toast"' in text
+        assert 'hx-swap-oob="true"' in text
+        assert "Stage changed to Applied." in text
+        assert _fetch_stage(client, "fp_interview") == "applied"
+
+    def test_un_interview_409_on_non_interview_stage(self, client: TestClient):
+        response = client.post("/board/jobs/fp_applied/un-interview")
+        assert response.status_code == 409
+
+    def test_un_interview_round_trip(self, client: TestClient, popen_calls):
+        """applied → interview → un-interview → applied with audit trail."""
+        # fp_applied starts at stage=applied. Transition to interview first.
+        resp1 = client.post("/board/jobs/fp_applied/interview")
+        assert resp1.status_code == 200
+        assert _fetch_stage(client, "fp_applied") == "interview"
+
+        # Now un-interview back to applied.
+        resp2 = client.post("/board/jobs/fp_applied/un-interview")
+        assert resp2.status_code == 200
+        assert _fetch_stage(client, "fp_applied") == "applied"
+
+        audits = _fetch_audit(client, "fp_applied")
+        stage_audits = [(old, new) for field, old, new in audits if field == "stage"]
+        assert ("applied", "interview") in stage_audits
+        assert ("interview", "applied") in stage_audits
+
     # --- 404 paths ------------------------------------------------------------
 
     def test_404_routes_do_not_render_toast(self, client: TestClient):
-        """All six routes raise 404 on unknown fingerprint without rendering
+        """All seven routes raise 404 on unknown fingerprint without rendering
         the toast partial (failure should not flash a misleading confirmation)."""
         for route in (
             "interview",
@@ -2968,6 +3011,7 @@ class TestStageChangeToastOOB:
             "not-selected",
             "un-withdraw",
             "un-not-selected",
+            "un-interview",
         ):
             response = client.post(
                 f"/board/jobs/fp_does_not_exist/{route}",

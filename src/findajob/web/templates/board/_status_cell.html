@@ -65,6 +65,7 @@
         this.value='';">
       <option value="">— Change status —</option>
       {% if stage != 'interview' %}<option value="interview">Interviewing</option>{% endif %}
+      {% if stage == 'interview' %}<option value="un-interview">Undo Interview</option>{% endif %}
       {% if stage != 'offer' %}<option value="offer">Offer</option>{% endif %}
       <option value="withdraw">Withdrew</option>
       <option value="withdraw-as-fallback">Withdrew (Fallback)</option>

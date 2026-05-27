@@ -199,6 +199,7 @@ responds in the same request — no poll cycle, no mirror table.
 | Waitlist | `POST /board/jobs/{fp}/waitlist` | Dashboard dropdown + Review tab button (#702) |
 | Reject (w/ reason) | `POST /board/jobs/{fp}/reject` | Dashboard / Review / Waitlist reject cell |
 | Interviewing | `POST /board/jobs/{fp}/interview` | Applied dropdown |
+| Un-interview | `POST /board/jobs/{fp}/un-interview` | Applied dropdown (when stage=interview). Restores prior stage from audit_log (fallback `applied`). Row stays on Applied tab; OOB stage-change toast. |
 | Offer | `POST /board/jobs/{fp}/offer` | Applied dropdown |
 | Withdrew | `POST /board/jobs/{fp}/withdraw` | Applied dropdown |
 | Withdrew (Fallback) | `POST /board/jobs/{fp}/withdraw-as-fallback` | Applied dropdown. Sets stage=`withdrawn_fallback`, stores reason="Better opportunity", fires `notify_waitlist_resurface`. No folder move (#358). |

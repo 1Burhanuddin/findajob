@@ -1112,6 +1112,28 @@ class TestActionsDeferredFs:
         post_count = db.execute("SELECT COUNT(*) FROM audit_log WHERE job_id=?", (job["id"],)).fetchone()[0]
         assert post_count == seed_audit_count
 
+    def test_un_interview_job_deferred_fs_is_rollback_safe(self, db):
+        job = insert_job(db, stage="interview")
+        db.execute(
+            "INSERT INTO audit_log (job_id, field_changed, old_value, new_value, changed_at, changed_by) "
+            "VALUES (?, 'stage', 'applied', 'interview', datetime('now'), 'user')",
+            (job["id"],),
+        )
+        db.commit()
+        job = db.execute("SELECT * FROM jobs WHERE id=?", (job["id"],)).fetchone()
+        seed_audit_count = db.execute("SELECT COUNT(*) FROM audit_log WHERE job_id=?", (job["id"],)).fetchone()[0]
+
+        deferred: list = []
+        actions.un_interview_job(db, job, deferred_fs=deferred)
+        assert db.execute("SELECT stage FROM jobs WHERE id=?", (job["id"],)).fetchone()["stage"] == "applied"
+        assert deferred == [], "un_interview_job has no fs ops"
+
+        db.rollback()
+
+        assert db.execute("SELECT stage FROM jobs WHERE id=?", (job["id"],)).fetchone()["stage"] == "interview"
+        post_count = db.execute("SELECT COUNT(*) FROM audit_log WHERE job_id=?", (job["id"],)).fetchone()[0]
+        assert post_count == seed_audit_count
+
     def test_handle_not_selected_deferred_fs_is_rollback_safe(self, db, tmp_path):
         folder = tmp_path / "companies" / "_applied" / "Acme_Ops_deferred"
         folder.mkdir(parents=True)

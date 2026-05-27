@@ -716,6 +716,44 @@ def un_withdraw_job(
     return restored_stage
 
 
+def un_interview_job(
+    conn: sqlite3.Connection,
+    job: Any,
+    *,
+    deferred_fs: list[FsOp] | None = None,
+) -> str:
+    """Reverse an interview stage: restore the prior stage from audit_log
+    (typically applied).
+
+    Pure stage restoration — no marker files, no folder moves, no
+    feedback_log. ``deferred_fs`` accepted for API parity; the list
+    stays empty.
+    """
+    own_transaction = deferred_fs is None
+
+    now = datetime.now(UTC).isoformat()
+
+    prior = conn.execute(
+        "SELECT old_value FROM audit_log "
+        "WHERE job_id=? AND field_changed='stage' AND new_value='interview' "
+        "ORDER BY changed_at DESC LIMIT 1",
+        (job["id"],),
+    ).fetchone()
+    restored_stage = prior[0] if prior and prior[0] else "applied"
+
+    conn.execute(
+        "UPDATE jobs SET stage=?, updated_at=? WHERE id=?",
+        (restored_stage, now, job["id"]),
+    )
+    if own_transaction:
+        conn.commit()
+    write_audit(conn, job["id"], "stage", "interview", restored_stage, changed_by="user", commit=own_transaction)
+    log_event(
+        "job_un_interview", job_id=job["id"], company=job["company"], title=job["title"], restored_stage=restored_stage
+    )
+    return restored_stage
+
+
 def un_apply_job(
     conn: sqlite3.Connection,
     job: Any,

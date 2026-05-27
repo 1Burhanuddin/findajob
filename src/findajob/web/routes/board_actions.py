@@ -34,6 +34,7 @@ from findajob.actions import (
     promote_to_scored,
     snapshot_applied_md_files,
     un_apply_job,
+    un_interview_job,
     un_not_selected_job,
     un_reject_job,
     un_withdraw_job,
@@ -700,6 +701,26 @@ def offer(
     updated = _fetch_applied_row(db, fingerprint)
     assert updated is not None
     return _applied_row_with_stage_toast(request, updated, "offer")
+
+
+@router.post("/board/jobs/{fingerprint}/un-interview", response_class=HTMLResponse)
+def un_interview(
+    fingerprint: str,
+    request: Request,
+    db: sqlite3.Connection = Depends(get_db),  # noqa: B008
+) -> HTMLResponse:
+    """Reverse an interview stage transition. Restores the prior stage from
+    audit_log (fallback 'applied'). Row stays on Applied tab with updated
+    dropdown; OOB stage-change toast names the restored stage (#830)."""
+    job = _fetch_job(db, fingerprint)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["stage"] != "interview":
+        raise HTTPException(status_code=409, detail="Only interview-stage jobs can be un-interviewed")
+    restored_stage = un_interview_job(db, job)
+    updated = _fetch_applied_row(db, fingerprint)
+    assert updated is not None
+    return _applied_row_with_stage_toast(request, updated, restored_stage)
 
 
 @router.post("/board/jobs/{fingerprint}/withdraw", response_class=HTMLResponse)
