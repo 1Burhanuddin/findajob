@@ -646,20 +646,21 @@ def generate_podcast_for_job(
     )
 
     if not script or len(script) < 200:
+        chars = len(script) if script else 0
         log_event(
             "podcast_script_error",
             job_id=job_id,
             company=company,
             title=title,
             reason="empty_or_short_script",
-            chars=len(script) if script else 0,
+            chars=chars,
         )
         ntfy_send(
             f"Podcast script failed: {company} — {title}",
             f"empty_or_short_script ({podcast_format})",
             kind="podcast_failed",
         )
-        return ""
+        raise RuntimeError(f"Podcast script empty or too short ({chars} chars)")
 
     mp3_path = os.path.join(prep_folder, f"interview_prep_podcast_{podcast_format}.mp3")
 
