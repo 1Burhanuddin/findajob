@@ -50,6 +50,10 @@ _TIER1_HEADING_RE = re.compile(r"^##\s+tier\s*1\b[^\n]*", re.IGNORECASE | re.MUL
 _NEXT_H2_RE = re.compile(r"^##\s+\S", re.MULTILINE)
 _BULLET_RE = re.compile(r"^\s*(?:[-*]\s+|\d+\.\s+)(.*)")
 _SPLIT_COMMENTARY_RE = re.compile(r"\s+[—-]\s+|\s+\(")
+# Markdown table support: header row precedes a separator row of `---` cells;
+# body rows have a non-empty first cell holding the company name.
+_TABLE_ROW_RE = re.compile(r"^\s*\|(.+)\|\s*$")
+_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$")
 
 # Sentinel regex that never matches anything. Used when a config is missing
 # or empty. Returned in place of None so callers don't need a None-check.
@@ -159,8 +163,15 @@ def parse_target_companies_tier1(target_companies_md: str) -> list[str]:
     """Extract Tier 1 company names from `target_companies.md` content.
 
     Parses the `## Tier 1` section (case-insensitive heading match), reads
-    bullets through the next `##` heading or EOF, strips bullet markers
-    (`-`, `*`, `1.`), and trims trailing parenthetical or em-dash commentary.
+    bullets OR markdown table body rows through the next `##` heading or EOF,
+    strips bullet markers (`-`, `*`, `1.`), and trims trailing parenthetical
+    or em-dash commentary.
+
+    Markdown tables: when a `| ... |` row is followed by a separator row
+    (`|---|---|`), the first row is treated as the header and skipped along
+    with the separator; subsequent body rows contribute their first-cell
+    value as the company name. Mixed bullet+table content within one section
+    is supported.
 
     Returns an ordered list (de-duplication and case-folding are caller
     concerns). Empty list if no Tier 1 section is present.
@@ -173,15 +184,36 @@ def parse_target_companies_tier1(target_companies_md: str) -> list[str]:
     next_h2 = _NEXT_H2_RE.search(remainder)
     section = remainder[: next_h2.start()] if next_h2 else remainder
     companies: list[str] = []
-    for line in section.splitlines():
+    lines = section.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         bullet = _BULLET_RE.match(line)
-        if not bullet:
+        if bullet:
+            raw = bullet.group(1).strip()
+            parts = _SPLIT_COMMENTARY_RE.split(raw, maxsplit=1)
+            name = parts[0].strip()
+            if name:
+                companies.append(name)
+            i += 1
             continue
-        raw = bullet.group(1).strip()
-        parts = _SPLIT_COMMENTARY_RE.split(raw, maxsplit=1)
-        name = parts[0].strip()
-        if name:
-            companies.append(name)
+        table_row = _TABLE_ROW_RE.match(line)
+        if table_row and _TABLE_SEPARATOR_RE.match(line):
+            # Stray separator with no preceding header row — just skip it.
+            i += 1
+            continue
+        if table_row and i + 1 < len(lines) and _TABLE_SEPARATOR_RE.match(lines[i + 1]):
+            # Header row followed by separator — skip both, body starts after.
+            i += 2
+            continue
+        if table_row:
+            cells = [c.strip() for c in table_row.group(1).split("|")]
+            if cells and cells[0]:
+                parts = _SPLIT_COMMENTARY_RE.split(cells[0], maxsplit=1)
+                name = parts[0].strip()
+                if name:
+                    companies.append(name)
+        i += 1
     return companies
 
 

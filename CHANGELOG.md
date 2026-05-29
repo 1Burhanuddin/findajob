@@ -10,6 +10,10 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Tier 1 parser silently disabled mis-score health check on table-formatted `target_companies.md`**: `parse_target_companies_tier1` in `findajob.config_loader` only recognized bullet/numbered list entries, so any `target_companies.md` that used a markdown table for the `## Tier 1` section parsed to an empty list. `load_companies_of_interest()` then returned an empty frozenset and `is_company_of_interest()` always returned False, silently disabling the daily `notify.py health-check` REVIEW line for target-company jobs scored 3–6. The parser now reads both bullets and markdown tables (header row detected by following `|---|` separator; first cell of each body row contributes the company name, with the same trailing-commentary stripping as bullets). Mixed bullet+table sections are supported.
+
 ### Added
 
 - **In-app auth credential setup during onboarding** (#895): New instances can set their HTTP Basic Auth username and password directly in the onboarding flow — no Fly CLI or terminal access needed. Credentials are written to `data/.env` and the auth middleware activates immediately without a container restart. The step is conditional: skipped when credentials are already set via Fly secrets or environment variables. Fly Secrets remain a valid alternative for users who prefer to set auth pre-deploy. Defense against drive-by password squat: a one-time setup token is written to container stdout on first boot and required in the auth-setup form — the operator reads it from `fly logs` / `docker logs`, an attacker hitting the public URL cannot. `verify_auth` now loads `data/.env` so it can verify credentials set via the onboarding flow.

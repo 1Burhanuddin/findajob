@@ -48,6 +48,54 @@ class TestParseTargetCompaniesTier1:
     def test_empty_input(self):
         assert parse_target_companies_tier1("") == []
 
+    def test_parses_markdown_table(self):
+        md = (
+            "## Tier 1 — Dream Jobs\n"
+            "| Company | HQ | Why Strong Fit |\n"
+            "|---|---|---|\n"
+            "| Plaud | Mountain View, CA | hardware NPI fit |\n"
+            "| Meta | Menlo Park, CA | former employer |\n"
+            "| CoreWeave | Roseland, NJ | GPU fleet ops |\n"
+        )
+        assert parse_target_companies_tier1(md) == ["Plaud", "Meta", "CoreWeave"]
+
+    def test_table_strips_first_cell_commentary(self):
+        # Commentary stripper applies inside the first cell too.
+        md = (
+            "## Tier 1\n"
+            "| Company | HQ |\n"
+            "|---|---|\n"
+            "| Amazon (AWS) | Seattle, WA |\n"
+            "| Example Co — known contact | Remote |\n"
+        )
+        assert parse_target_companies_tier1(md) == ["Amazon", "Example Co"]
+
+    def test_table_stops_at_next_h2(self):
+        md = (
+            "## Tier 1\n"
+            "| Company | HQ |\n"
+            "|---|---|\n"
+            "| A | X |\n"
+            "| B | Y |\n"
+            "\n"
+            "## Tier 2\n"
+            "| Company | HQ |\n"
+            "|---|---|\n"
+            "| C | Z |\n"
+        )
+        assert parse_target_companies_tier1(md) == ["A", "B"]
+
+    def test_mixed_bullets_and_table(self):
+        md = "## Tier 1\n- Alpha Co\n\n| Company | HQ |\n|---|---|\n| Beta Inc | NYC |\n\n- Gamma LLC\n"
+        assert parse_target_companies_tier1(md) == ["Alpha Co", "Beta Inc", "Gamma LLC"]
+
+    def test_table_without_separator_treats_all_rows_as_body(self):
+        # Non-standard table (no separator row) — every `| ... |` line is
+        # treated as a body row. Caller responsibility to keep target files
+        # well-formed.
+        md = "## Tier 1\n| Plaud |\n| Meta |\n"
+        assert parse_target_companies_tier1(md) == ["Plaud", "Meta"]
+
 
 class TestLoadCompaniesOfInterest:
     def test_loads_from_fixture(self):
