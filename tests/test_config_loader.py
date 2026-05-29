@@ -96,6 +96,43 @@ class TestParseTargetCompaniesTier1:
         md = "## Tier 1\n| Plaud |\n| Meta |\n"
         assert parse_target_companies_tier1(md) == ["Plaud", "Meta"]
 
+    def test_slash_joiner_splits_into_multiple_names(self):
+        # ` / ` with surrounding whitespace is the operator's "either/or"
+        # shorthand. Without the split, neither "Google" nor "DeepMind" would
+        # substring-match real-world input via is_company_of_interest.
+        md = "## Tier 1\n- Google / DeepMind\n"
+        assert parse_target_companies_tier1(md) == ["Google", "DeepMind"]
+
+    def test_slash_joiner_splits_in_table(self):
+        md = "## Tier 1\n| Company | HQ |\n|---|---|\n| Google / DeepMind | Mountain View, CA |\n"
+        assert parse_target_companies_tier1(md) == ["Google", "DeepMind"]
+
+    def test_slash_joiner_three_way(self):
+        md = "## Tier 1\n- Google / DeepMind / OpenAI\n"
+        assert parse_target_companies_tier1(md) == ["Google", "DeepMind", "OpenAI"]
+
+    def test_slash_without_surrounding_whitespace_is_not_split(self):
+        # Slashes without surrounding spaces are part of the intentional name
+        # (e.g., a stock ticker or hyphenated brand). Leave untouched.
+        md = "## Tier 1\n- S&P/TSX\n- Boeing/Northrop Grumman\n"
+        assert parse_target_companies_tier1(md) == ["S&P/TSX", "Boeing/Northrop Grumman"]
+
+    def test_ampersand_joined_names_pass_through(self):
+        # ` & ` is too common in real company names (Procter & Gamble, Johnson
+        # & Johnson, Black & Decker) to split. Leave untouched.
+        md = "## Tier 1\n- Procter & Gamble\n- Johnson & Johnson\n- Black & Decker\n"
+        assert parse_target_companies_tier1(md) == [
+            "Procter & Gamble",
+            "Johnson & Johnson",
+            "Black & Decker",
+        ]
+
+    def test_slash_joiner_strips_commentary_before_split(self):
+        # Commentary stripper runs first (cuts trailing "— note" / " (note)"),
+        # then the slash split runs on the remaining name portion.
+        md = "## Tier 1\n- Google / DeepMind — both score TPU work\n"
+        assert parse_target_companies_tier1(md) == ["Google", "DeepMind"]
+
 
 class TestLoadCompaniesOfInterest:
     def test_loads_from_fixture(self):

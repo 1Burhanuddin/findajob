@@ -54,6 +54,15 @@ _SPLIT_COMMENTARY_RE = re.compile(r"\s+[—-]\s+|\s+\(")
 # body rows have a non-empty first cell holding the company name.
 _TABLE_ROW_RE = re.compile(r"^\s*\|(.+)\|\s*$")
 _TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$")
+# Tier 1 multi-name joiner: an operator writing "Google / DeepMind" as one
+# bullet or table row means "match either name". Without splitting, the
+# substring check `t in c` fails for both ("google / deepmind" is a substring
+# of nothing real). Requires surrounding whitespace so legitimate single-name
+# uses like "S&P/TSX" or "Boeing/Northrop" — written without spaces around
+# the slash — pass through untouched. ` & ` is deliberately NOT split — many
+# real company names contain ampersand (Procter & Gamble, Johnson & Johnson,
+# Black & Decker), so splitting on ` & ` would corrupt valid entries.
+_NAME_JOINER_RE = re.compile(r"\s+/\s+")
 
 # Sentinel regex that never matches anything. Used when a config is missing
 # or empty. Returned in place of None so callers don't need a None-check.
@@ -173,6 +182,16 @@ def parse_target_companies_tier1(target_companies_md: str) -> list[str]:
     value as the company name. Mixed bullet+table content within one section
     is supported.
 
+    Multi-name entries: a name field containing ` / ` (with surrounding
+    whitespace) is split into multiple entries — `"Google / DeepMind"` emits
+    both `"Google"` and `"DeepMind"`. This rescues the common "either of
+    these" shorthand from `is_company_of_interest`'s substring check, which
+    would otherwise silently fail to match either name on its own. Slashes
+    without surrounding whitespace (`"S&P/TSX"`, `"Boeing/Northrop"`) and
+    `&`-joined names (`"Procter & Gamble"`) pass through untouched — the
+    former is treated as a single intentional name; the latter is too common
+    in real company names to risk splitting.
+
     Returns an ordered list (de-duplication and case-folding are caller
     concerns). Empty list if no Tier 1 section is present.
     """
@@ -190,11 +209,7 @@ def parse_target_companies_tier1(target_companies_md: str) -> list[str]:
         line = lines[i]
         bullet = _BULLET_RE.match(line)
         if bullet:
-            raw = bullet.group(1).strip()
-            parts = _SPLIT_COMMENTARY_RE.split(raw, maxsplit=1)
-            name = parts[0].strip()
-            if name:
-                companies.append(name)
+            _emit_tier1_names(bullet.group(1), companies)
             i += 1
             continue
         table_row = _TABLE_ROW_RE.match(line)
@@ -209,12 +224,21 @@ def parse_target_companies_tier1(target_companies_md: str) -> list[str]:
         if table_row:
             cells = [c.strip() for c in table_row.group(1).split("|")]
             if cells and cells[0]:
-                parts = _SPLIT_COMMENTARY_RE.split(cells[0], maxsplit=1)
-                name = parts[0].strip()
-                if name:
-                    companies.append(name)
+                _emit_tier1_names(cells[0], companies)
         i += 1
     return companies
+
+
+def _emit_tier1_names(raw: str, companies: list[str]) -> None:
+    """Strip trailing commentary, split on ` / ` joiners, append non-empty names."""
+    parts = _SPLIT_COMMENTARY_RE.split(raw.strip(), maxsplit=1)
+    head = parts[0].strip()
+    if not head:
+        return
+    for sub in _NAME_JOINER_RE.split(head):
+        sub = sub.strip()
+        if sub:
+            companies.append(sub)
 
 
 def load_companies_of_interest() -> frozenset[str]:
