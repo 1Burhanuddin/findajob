@@ -2528,6 +2528,48 @@ class TestRegenerateCell:
         assert response.status_code == 404
 
 
+# ── Dashboard dropdown: Applied option per stage (#924) ──────────────────
+
+
+class TestAppliedOptionInDashboardDropdown:
+    """The /board/jobs/{fp}/regenerate/cell endpoint re-renders the Dashboard
+    status cell from the same template the Dashboard table uses, so it's the
+    cheapest way to exercise per-stage dropdown rendering."""
+
+    def test_briefing_ready_shows_applied_option(self, client: TestClient):
+        _seed_briefing_ready(client)
+        response = client.get("/board/jobs/fp_briefing/regenerate/cell")
+        assert response.status_code == 200
+        text = response.text
+        assert 'value="apply"' in text
+        assert "Applied" in text
+
+    def test_briefing_ready_spec_shows_sent_outreach_label(self, client: TestClient):
+        _seed_briefing_ready(client, fingerprint="fp_spec_brief", title="[SPEC] Outreach Co")
+        response = client.get("/board/jobs/fp_spec_brief/regenerate/cell")
+        assert response.status_code == 200
+        text = response.text
+        assert 'value="apply"' in text
+        assert "Sent Outreach" in text
+        assert "Applied" not in text.split('value="apply">', 1)[1].split("</option>", 1)[0]
+
+    def test_prep_in_progress_does_not_show_applied_option(self, client: TestClient):
+        """Orchestrator stage-update SQL lacks a current-stage guard, so a
+        finishing Phase B subprocess would flip an apply'd row back to
+        materials_drafted. Until that's fixed, the dropdown must not expose
+        Applied for prep_in_progress rows."""
+        response = client.get("/board/jobs/fp_prep/regenerate/cell")
+        assert response.status_code == 200
+        assert 'value="apply"' not in response.text
+
+    def test_materials_drafted_still_shows_applied_option(self, client: TestClient):
+        response = client.get("/board/jobs/fp_drafted/regenerate/cell")
+        assert response.status_code == 200
+        text = response.text
+        assert 'value="apply"' in text
+        assert "Applied" in text
+
+
 # ── Review/Waitlist affordance buttons (#702 F8) ──────────────────────────
 
 

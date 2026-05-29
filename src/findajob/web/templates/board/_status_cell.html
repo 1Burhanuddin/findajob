@@ -36,7 +36,10 @@
           <option value="regenerate">Regenerate</option>
         {% endif %}
         <option value="waitlist">Waitlist</option>
-        {% if stage == 'materials_drafted' %}
+        {# prep_in_progress is intentionally excluded: orchestrator stage
+           writes have no current-stage guard, so a finishing subprocess
+           would flip an apply'd row back to materials_drafted. #}
+        {% if stage in ('briefing_ready', 'materials_drafted') %}
           {% if row.title and row.title.startswith('[SPEC]') %}
             <option value="apply">Sent Outreach</option>
           {% else %}
