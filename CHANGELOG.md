@@ -10,8 +10,11 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.31.1] — 2026-05-29
+
 ### Fixed
 
+- **Applied option missing from Dashboard dropdown for `briefing_ready` rows** (#924): After Phase A completed and the row settled at `briefing_ready`, the Dashboard dropdown only exposed Waitlist — operators couldn't skip Phase B and apply with what Phase A produced without round-tripping through `/materials/`. `_status_cell.html` was gating the Applied option on `stage == 'materials_drafted'`; relaxed to also include `briefing_ready` (where there is no running subprocess, so the apply transition cannot race with an orchestrator stage write). The SPEC-row "Sent Outreach" label variant is preserved. `prep_in_progress` is intentionally left out — the prep orchestrator's stage-update SQL lacks a current-stage guard, so a finishing Phase B subprocess could silently flip an apply'd row back; a new test pins that exclusion in place.
 - **Tier 1 parser silently disabled mis-score health check on table-formatted `target_companies.md`**: `parse_target_companies_tier1` in `findajob.config_loader` only recognized bullet/numbered list entries, so any `target_companies.md` that used a markdown table for the `## Tier 1` section parsed to an empty list. `load_companies_of_interest()` then returned an empty frozenset and `is_company_of_interest()` always returned False, silently disabling the daily `notify.py health-check` REVIEW line for target-company jobs scored 3–6. The parser now reads both bullets and markdown tables (header row detected by following `|---|` separator; first cell of each body row contributes the company name, with the same trailing-commentary stripping as bullets). Mixed bullet+table sections are supported.
 - **Tier 1 parser silently failed to match `"Google / DeepMind"`-style multi-name entries**: An operator's "either of these" shorthand (`"Google / DeepMind"`, `"Anthropic / Claude"`) parsed to one Tier 1 entry whose substring never matched any real-world input — `"google / deepmind" in "google cloud"` is False, so the mis-score check missed every Google-titled job. The parser now splits cell contents on ` / ` (with surrounding whitespace) into multiple entries, emitting both `"Google"` and `"DeepMind"`. Slashes without surrounding whitespace (`"S&P/TSX"`, `"Boeing/Northrop"`) and `&`-joined names (`"Procter & Gamble"`, `"Johnson & Johnson"`) pass through untouched — the former are intentional single names; the latter are too common in real company names to risk splitting.
 
@@ -1421,7 +1424,8 @@ from GHCR and deployed via Docker Compose on a shared Docker host.
 - Documentation cleanup — removing `sigoden/aichat` references in favor of
   `blob42/aichat-ng` — is tracked in #70
 
-[Unreleased]: https://github.com/brockamer/findajob/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/brockamer/findajob/compare/v0.31.1...HEAD
+[0.31.1]: https://github.com/brockamer/findajob/releases/tag/v0.31.1
 [0.31.0]: https://github.com/brockamer/findajob/releases/tag/v0.31.0
 [0.28.0]: https://github.com/brockamer/findajob/releases/tag/v0.28.0
 [0.27.11]: https://github.com/brockamer/findajob/releases/tag/v0.27.11
