@@ -10,6 +10,8 @@ changes may land in minor version bumps; patch releases are bugfix-only.
 
 ## [Unreleased]
 
+## [0.31.2] — 2026-05-30
+
 ### Added
 
 - **Recruiter-critique aggregator** (#265): New `scripts/critique_review.py` scans every `* Critique - *.md` artifact across the company folders and surfaces the weaknesses that recur across *different* applications — the ones that live at the source (`master_resume.md`, `profile.md`, role prompts) rather than in any one prep. Each flagged line is fuzzy-anchored back to the exact source line it came from (via `rapidfuzz`, so the critic's paraphrases still cluster instead of scattering into noise), then grouped by source line and ranked by **distinct-company count**. The dated markdown report (written to gitignored `candidate_context/critique_aggregate/<date>.md`, since it quotes real resume lines) has three parts: *Source-level fixes* (a line flagged by ≥3 companies, with `file:line`, the recruiter's verbatim words, and a count), *Recurring themes* (career-neutral term frequency across critiques — points at prompt/profile fixes with no single source line), and a collapsed *One-offs* count. No LLM runs in the aggregator — the recruiter's own Opus-authored voice carries through by quotation; the tool only supplies the index. Flags: `--since`, `--min-companies`, `--print`. Run manually after ~10+ preps accumulate.
