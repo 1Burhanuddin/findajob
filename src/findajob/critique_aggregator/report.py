@@ -28,7 +28,7 @@ def _dominant_section(cluster: Cluster) -> str:
     counts: dict[str, int] = {}
     for it in cluster.items:
         counts[it.section] = counts.get(it.section, 0) + 1
-    return max(counts, key=counts.get)
+    return max(counts, key=lambda section: counts[section])
 
 
 def _render_cluster(cluster: Cluster) -> str:
