@@ -253,8 +253,8 @@ existing same-(company, title) row has a coarse location (empty, country-only, o
 while keeping genuinely distinct-city reqs (site managers in different cities) as separate
 rows. All location comparisons route through `normalize_location()`, which strips
 `(On-site)`/`(Remote)`/`(Hybrid)` suffixes and trailing country codes. Both `scripts/triage.py`
-and `scripts/ingest_form.py` use the centralized helpers from `findajob.cleaning` — do not
-reintroduce drifted local `_normalize`/`fingerprint` copies.
+and `src/findajob/ingest.py` (the `/ingest/` web form) use the centralized helpers from
+`findajob.cleaning` — do not reintroduce drifted local `_normalize`/`fingerprint` copies.
 
 ### LinkedIn JD Fetch
 Direct curl to LinkedIn always returns auth wall. Always use RapidAPI `/v2/linkedin/get?id=`.

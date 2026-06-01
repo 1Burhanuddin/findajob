@@ -2,10 +2,7 @@
 url, jd, ...) tuple from an operator into a row in ``jobs``.
 
 Used by ``src/findajob/web/routes/ingest.py`` — the `/ingest/manual` web
-form (#62). The legacy ``scripts/ingest_form.py`` Google-Form polling
-loop still carries its own inline ingest logic; its timer was disabled
-in #62 and the script is kept around only as a frozen manual-run fallback
-until the Google Form is fully retired.
+form (#62), which fully replaced the legacy Google-Form ingestion.
 
 Behavior:
 
