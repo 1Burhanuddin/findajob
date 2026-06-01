@@ -46,7 +46,7 @@ Drift is the main failure mode. Every fact has exactly one home. On conflict, th
 | Deployment / architecture facts | [`architecture.md`](architecture.md) | canonical doc |
 | Release process | [`release-process.md`](maintainers/release-process.md) | canonical doc |
 
-Issue bodies may *reference* the roadmap ("see Phase 4 in roadmap.md") but should not restate phase ordering or decisions. That's how drift starts. The jared sweep includes a drift-scan check for this (see `jared/references/board-sweep.md`).
+Issue bodies may *reference* the roadmap ("see the relevant milestone or Decision in roadmap.md") but should not restate milestone ordering or decisions. That's how drift starts. The jared sweep includes a drift-scan check for this (see `jared/references/board-sweep.md`).
 
 ## Columns (Status field)
 

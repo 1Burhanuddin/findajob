@@ -94,7 +94,7 @@ Common causes: Anthropic API rate limit, Perplexity rate limit, pandoc conversio
 
 ### "The `/ingest/` web form isn't saving jobs"
 
-Web form at `http://<your-host>:${FINDAJOB_MATERIALS_PORT}/ingest/` is the primary manual-ingest path (replaced the Google Form in #62).
+Web form at `http://<your-host>:${FINDAJOB_MATERIALS_PORT}/ingest/` is the primary manual-ingest path.
 
 ```bash
 jq -c 'select(.event | test("ingest"))' state/logs/pipeline.jsonl | tail -5

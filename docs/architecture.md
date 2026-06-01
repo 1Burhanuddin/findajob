@@ -335,7 +335,7 @@ created_at TEXT DEFAULT (datetime('now'))
 | Direct profile injection (not RAG) | RAG chunking drops contact info, employer names, and dates. Profile is short enough to inject raw. |
 | Two-stage prefilter before LLM | Hard rejects (wrong domain, title-deterministic) don't need LLM calls. Saves ~$0.10/day and speeds triage. |
 | JSON output validation | `jsonschema` validates every LLM scoring response. Malformed output → manual_review, not a crash. |
-| Web materials viewer (not Drive) | Prep folders are served locally via uvicorn/FastAPI — no cloud sync dependency. Markdown rendered inline; `.docx` offered as download. Eliminates rclone auth complexity and Drive quota issues. |
+| Web materials viewer (not Drive) | Prep folders are served locally via uvicorn/FastAPI — no cloud sync dependency. Markdown rendered inline; `.docx` offered as download. |
 | Web POST handlers are the sole write surface | Every handler in `findajob.web.routes.board_actions` calls straight into `findajob.actions` and responds in the same request — no poll cycle, no mirror table, single source of truth in SQLite. |
 | `abbrev_title()` in folder names | Same-day preps for the same company would overwrite each other without title disambiguation. HHMMSS suffix prevents same-title same-day overwrites. |
 

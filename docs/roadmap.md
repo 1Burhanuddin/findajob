@@ -74,7 +74,6 @@ Append-only. Numbers are stable references. Amend an entry in place only for fac
 ## Scope out (explicit)
 
 - Per-user identity / RBAC inside findajob — Decision 16 added shared-secret auth, not identity.
-- Separate rclone-replacement project.
 - Manual RAG source document editing.
 - Alternative LLM provider exploration.
 

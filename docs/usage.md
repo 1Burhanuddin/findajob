@@ -354,7 +354,7 @@ Three ways to get here:
 - Click a materials-folder name directly in the URL bar.
 - `/materials/` root → index of every folder ever created.
 
-Each folder renders its Markdown files inline and offers `.docx` downloads. The JD is linked back to the original posting URL. All served locally — no Drive sync, no rclone.
+Each folder renders its Markdown files inline and offers `.docx` downloads. The JD is linked back to the original posting URL. All served locally.
 
 **Interview prep:** when you mark a job as Interviewing, findajob generates an interview-prep document in the folder — company background, likely question themes, and talking-point prompts tailored to the role. If a recruiter sends updated panel details or you want a fresh pass, click **Re-run interview prep** on the materials page to regenerate it. The button appears whenever the job is at the Interviewing stage.
 
