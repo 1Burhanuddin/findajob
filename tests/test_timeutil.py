@@ -1,0 +1,75 @@
+"""findajob.timeutil — bucket naïve-UTC DB timestamps onto the operator's local days.
+
+The pipeline stores audit_log / feedback_log timestamps as naïve UTC
+("YYYY-MM-DD HH:MM:SS"). The operator's calendar runs in whatever IANA zone the
+deployment sets via TZ, so a late-evening local transition — stored as the *next*
+UTC day — must bucket onto the local day, not the UTC day (#967). These tests pin
+that with explicit tz/now seams (and exercise more than one region), so they
+carry no process-global TZ state and stay deterministic on any host.
+"""
+
+from datetime import UTC, date, datetime
+
+import pytest
+
+from findajob.timeutil import (
+    day_window_start_utc,
+    local_zoneinfo,
+    today_local,
+    utc_str_to_local_date,
+)
+
+# A concrete western-US zone is used only as a test vector; the module itself is
+# region-agnostic (it reads TZ). test_local_zoneinfo_* exercises other regions.
+PT = "America/Los_Angeles"
+
+
+def test_utc_string_buckets_onto_pt_day_not_utc_day() -> None:
+    # 22:00 PDT Jun 1 == 05:00 UTC Jun 2 (PDT = UTC-7). A naïve date() on the
+    # stored string buckets this as Jun 2; PT-correct bucketing is Jun 1.
+    assert utc_str_to_local_date("2026-06-02 05:00:00", PT) == date(2026, 6, 1)
+
+
+def test_utc_string_midday_agrees_with_utc() -> None:
+    # 19:00 UTC Jun 1 == 12:00 PDT Jun 1 — unambiguous, both calendars agree.
+    assert utc_str_to_local_date("2026-06-01 19:00:00", PT) == date(2026, 6, 1)
+
+
+def test_today_local_resolves_in_tz_not_utc() -> None:
+    # now = 05:00 UTC Jun 2 == 22:00 PDT Jun 1 — local "today" is Jun 1.
+    now = datetime(2026, 6, 2, 5, 0, tzinfo=UTC)
+    assert today_local(PT, now=now) == date(2026, 6, 1)
+
+
+def test_day_window_start_is_pt_midnight_expressed_in_utc() -> None:
+    # now = 22:00 PDT Jun 1. A 1-day window starts at PT-midnight Jun 1, which
+    # is 07:00 UTC Jun 1 (PDT = UTC-7).
+    now = datetime(2026, 6, 2, 5, 0, tzinfo=UTC)
+    assert day_window_start_utc(1, PT, now=now) == "2026-06-01 07:00:00"
+
+
+def test_day_window_start_spans_requested_days() -> None:
+    # PT today = Jun 1; a 30-day window starts 29 days earlier = May 3.
+    # PT-midnight May 3 (still PDT) = 07:00 UTC May 3.
+    now = datetime(2026, 6, 2, 5, 0, tzinfo=UTC)
+    assert day_window_start_utc(30, PT, now=now) == "2026-05-03 07:00:00"
+
+
+def test_local_zoneinfo_follows_tz_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The module is region-agnostic: it resolves whatever TZ the deployment sets.
+    monkeypatch.setenv("TZ", "Asia/Tokyo")
+    assert str(local_zoneinfo()) == "Asia/Tokyo"
+    monkeypatch.setenv("TZ", "Europe/Berlin")
+    assert str(local_zoneinfo()) == "Europe/Berlin"
+
+
+def test_local_zoneinfo_defaults_to_utc_when_tz_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TZ", raising=False)
+    assert str(local_zoneinfo()) == "UTC"
+
+
+def test_bucketing_is_region_agnostic_tokyo() -> None:
+    # 09:00 UTC Jun 1 == 18:00 JST Jun 1 (JST = UTC+9). A naïve UTC date() agrees
+    # here, but an early-UTC instant crosses forward: 22:00 UTC Jun 1 == 07:00 JST
+    # Jun 2, so it must bucket onto Jun 2 in Tokyo.
+    assert utc_str_to_local_date("2026-06-01 22:00:00", "Asia/Tokyo") == date(2026, 6, 2)
