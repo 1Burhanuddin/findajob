@@ -25,6 +25,7 @@ from findajob.audit import log_event, write_audit
 from findajob.background_tasks import writeback_subprocess
 from findajob.classification import JD_MAX_CHARS
 from findajob.db import connect
+from findajob.llm.openrouter import LLMSpendCeilingExceeded
 from findajob.llm.role_runner import run_role
 from findajob.notifications.ntfy import send as ntfy_send
 from findajob.paths import BASE, IMAGE_ROOT, PANDOC, load_env
@@ -128,6 +129,51 @@ def _handle_prep_subprocess_failure(
     ntfy_send(
         f"Prep failed: {company} — {title}",
         f"A: subprocess_error\n{cmd} exit {exc.returncode}",
+        kind="prep_failure",
+    )
+
+
+def _handle_prep_runtime_failure(
+    conn: sqlite3.Connection,
+    job_id: str,
+    company: str,
+    title: str,
+    outdir: str,
+    reason: str,
+) -> None:
+    """Roll Phase A back to ``scored`` after a non-subprocess runtime failure.
+
+    Covers the spend-ceiling breach (``LLMSpendCeilingExceeded``) and the
+    fail-closed DB-error path from the ceiling gate (#956) — failure classes
+    the original handler (``CalledProcessError`` only) let fall through
+    uncaught, stranding the job in ``prep_in_progress`` until the 60-min
+    watchdog with no notification.
+
+    The reset is guarded on stage='prep_in_progress' (``reset_prep_to_scored``).
+    If it's a no-op because the job already advanced — e.g. an OperationalError
+    surfacing from a write AFTER stage was committed to ``briefing_ready`` —
+    this is a post-success hiccup, not a prep failure: skip the sentinel/event/
+    ntfy so a succeeded prep isn't mislabeled as failed. If the reset call
+    itself errors (genuinely unavailable DB), still alert — the watchdog
+    remains the backstop.
+    """
+    try:
+        did_reset = reset_prep_to_scored(conn, job_id, reason=reason)
+    except Exception as e:  # noqa: BLE001 — recovery is best-effort; watchdog backstops
+        log_event("prep_reset_failed", job_id=job_id, reason=reason, error=f"{type(e).__name__}: {e}")
+        did_reset = True  # the reset itself errored mid-failure — alert the operator
+    if not did_reset:
+        return  # stage already advanced — a post-success hiccup, not a prep failure
+    sentinel_path = os.path.join(outdir, ".failed_prep")
+    try:
+        with open(sentinel_path, "w") as f:
+            f.write(f"ts: {datetime.now(UTC).isoformat()}\nreason: {reason}\n")
+    except OSError:
+        pass  # outdir may not exist yet; sentinel is best-effort
+    log_event("prep_runtime_failed", company=company, title=title, job_id=job_id, reason=reason)
+    ntfy_send(
+        f"Prep failed: {company} — {title}",
+        f"A: {reason}\nStage reset to scored.",
         kind="prep_failure",
     )
 
@@ -489,6 +535,19 @@ def _run_prep_phase_a(company: str, title: str, url: str, job_id: str) -> None:
         conn.close()
         print(f"PREP_PHASE_A_COMPLETE:{outdir}")
 
+    except LLMSpendCeilingExceeded as exc:
+        # #956: a spend-ceiling breach mid-prep is routine (operator-configured
+        # affordability gate), not exotic. run_role re-raises it (it is
+        # deliberately NOT an OpenRouterError). Reset + notify immediately
+        # instead of stranding the job in prep_in_progress for the watchdog.
+        _handle_prep_runtime_failure(conn, job_id, company, title, outdir, reason="spend_ceiling")
+        raise SystemExit(1) from exc
+    except sqlite3.OperationalError as exc:
+        # #956: the ceiling gate is fail-closed — a missing/half-initialized
+        # pipeline.db propagates a raw OperationalError through complete().
+        # Recover the same way rather than crash uncaught.
+        _handle_prep_runtime_failure(conn, job_id, company, title, outdir, reason="db_error")
+        raise SystemExit(1) from exc
     except subprocess.CalledProcessError as exc:
         _handle_prep_subprocess_failure(conn, job_id, company, title, outdir, exc)
         raise SystemExit(1) from exc
@@ -757,6 +816,16 @@ def _run_prep_phase_b(company: str, title: str, url: str, job_id: str) -> None:
         conn.close()
         print(f"PREP_COMPLETE:{outdir}")
 
+    except LLMSpendCeilingExceeded as exc:
+        # #956: ceiling breach mid-Phase-B — reset to briefing_ready (NOT
+        # scored), preserving the briefing folder so the operator can retry
+        # Phase B without re-paying Phase A. Same recovery as a subprocess crash.
+        _handle_phase_b_failure(conn, job_id, company, title, "spend_ceiling")
+        raise SystemExit(1) from exc
+    except sqlite3.OperationalError as exc:
+        # #956: fail-closed ceiling-gate DB error mid-Phase-B — recover, don't crash.
+        _handle_phase_b_failure(conn, job_id, company, title, "db_error")
+        raise SystemExit(1) from exc
     except subprocess.CalledProcessError as exc:
         # Phase B subprocess failure: reset to briefing_ready (NOT scored).
         # Preserves the briefing folder so operator can retry without re-paying Phase A.
@@ -781,13 +850,26 @@ def _handle_phase_b_failure(
     The ``old_value`` in the audit row is read from the current row
     rather than hard-coded — Phase B can be entered from either
     ``briefing_ready`` (legacy ``--phase=all`` wrapper, Phase A just
-    finished) or ``prep_in_progress`` (the future ``/continue-prep``
-    route, which transitions stage before spawning the subprocess).
+    finished) or ``prep_in_progress`` (the ``/continue-prep`` route,
+    which transitions stage before spawning the subprocess).
+
+    Guards on those two pre-materials stages: if the job already advanced to
+    ``materials_drafted`` — e.g. an OperationalError surfacing from the
+    post-commit ``write_audit`` AFTER the success stage was committed (Phase B
+    commits ``materials_drafted`` before its audit write) — this is a
+    post-success hiccup, not a Phase B failure. Reverting it would clobber a
+    completed application, so skip the reset AND the misleading prep_failure
+    ntfy. (#956)
     """
-    now = datetime.now(UTC).isoformat()
     try:
         existing = conn.execute("SELECT stage FROM jobs WHERE id=?", (job_id,)).fetchone()
         old_stage = existing[0] if existing else "unknown"
+    except Exception:  # noqa: BLE001 — best-effort; can't safely act on an unreadable stage
+        old_stage = "unknown"
+    if old_stage not in ("prep_in_progress", "briefing_ready"):
+        return  # already advanced (or unreadable) — don't revert a completed prep or false-notify
+    now = datetime.now(UTC).isoformat()
+    try:
         conn.execute(
             "UPDATE jobs SET stage='briefing_ready', stage_updated=?, updated_at=? WHERE id=?",
             (now, now, job_id),
@@ -795,7 +877,7 @@ def _handle_phase_b_failure(
         conn.commit()
         write_audit(conn, job_id, "stage", old_stage, "briefing_ready")
     except Exception:
-        pass  # best-effort; the subprocess error is already propagating
+        pass  # best-effort; the original error is already propagating
     log_event("prep_phase_b_failed", company=company, title=title, job_id=job_id, reason=reason)
     ntfy_send(
         f"Prep failed: {company} — {title}",
