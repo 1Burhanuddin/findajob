@@ -166,6 +166,8 @@ def dashboard(
     dismiss_first_triage_banner: int = Query(default=0),
     dismiss_timezone_banner: int = Query(default=0),
     dismiss_update_banner: str = Query(default=""),
+    update_triggered: int = Query(default=0),
+    update_failed: int = Query(default=0),
     triage_launched: int = Query(default=0),
     db: sqlite3.Connection = Depends(get_db),  # noqa: B008
 ) -> HTMLResponse:
@@ -240,10 +242,20 @@ def dashboard(
 
     specs = filter_registry.DASHBOARD_COLUMNS
     parsed = parse_filter_params(specs, request.query_params)
-    view_prefs_redirect = _maybe_redirect_to_persisted(request, "dashboard", parsed, db)
-    if view_prefs_redirect is not None:
-        return view_prefs_redirect  # type: ignore[return-value]
-    _persist_view(db, "dashboard", parsed)
+    # A result-flash param (update_triggered / update_failed, set by the
+    # POST /update/now redirect — #1017) is not filter state, so the view-prefs
+    # cold-load redirect would 303 to the persisted querystring and strip it,
+    # swallowing the flash for users with a saved dashboard view. Skip the
+    # cold-load redirect on a flash render so the banner + flash render
+    # directly; persisted filters re-apply on the next navigation. (_persist_view
+    # stays inside the guard for a single atomic cold-load block, but it's a
+    # no-op here anyway — the bare flash-view has empty filter state and
+    # view_prefs.save() ignores empty querystrings.)
+    if not (update_triggered or update_failed):
+        view_prefs_redirect = _maybe_redirect_to_persisted(request, "dashboard", parsed, db)
+        if view_prefs_redirect is not None:
+            return view_prefs_redirect  # type: ignore[return-value]
+        _persist_view(db, "dashboard", parsed)
     sql, params = _dashboard_query(parsed)
     rows = db.execute(sql, params).fetchall()
     history_by_fp = build_history_by_fp(rows, fetch_company_history(db))
@@ -256,6 +268,7 @@ def dashboard(
     show_first_triage_banner, next_triage_fire = _first_triage_banner_state(request, db)
     timezone_banner = _timezone_banner_state(request)
     update_banner = update_check.update_banner_state(request, background_tasks)
+    update_flash = "triggered" if update_triggered else ("failed" if update_failed else None)
     templates = request.app.state.templates
     return templates.TemplateResponse(
         request=request,
@@ -279,6 +292,7 @@ def dashboard(
             "triage_launched": bool(triage_launched),
             "timezone_banner": timezone_banner,
             "update_banner": update_banner,
+            "update_flash": update_flash,
         },
     )
 
