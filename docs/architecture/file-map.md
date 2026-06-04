@@ -45,6 +45,7 @@ When this map drifts from the actual code (renamed file, new route module, retir
 <repo>/src/findajob/web/backup.py            # Streaming tarball creation with sqlite3 .backup API — produces state/ contract tarball for /settings/backup/ (#841)
 <repo>/src/findajob/web/restore.py           # Tarball validation + atomic extraction with rollback — consumed by /onboarding/restore/ (#841)
 <repo>/src/findajob/web/routes/settings_backup.py # GET /settings/backup/, POST /settings/backup/download — one-click backup tarball download (#841)
+<repo>/src/findajob/web/routes/settings_feed_urls.py # GET /settings/feed-urls/ (lists configured feeds) + POST /settings/feed-urls/verify — "Verify feed URLs" button; probes via findajob.fetchers.feed_probe (#985)
 <repo>/src/findajob/web/routes/notifications.py # GET /notifications/, POST /notifications/{id}/read, POST /notifications/mark-all-read, GET /notifications/badge — in-app notification dashboard (#440)
 <repo>/src/findajob/onboarding/parser.py    # parse interview emission into files to inject
 <repo>/src/findajob/onboarding/injector.py  # atomic write + backup + Tier-1 derivation + sentinel
